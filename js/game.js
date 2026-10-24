@@ -196,7 +196,9 @@ function frame() {
 }
 
 function draw() {
-  if (!root) return;
+  if (root) keepFocus(paint);
+}
+function paint() {
   const game = $('.game', root);
   game.dataset.view = view;
   $('.side', root).dataset.pane = view === 'live' ? pane : view;
@@ -215,6 +217,21 @@ function draw() {
   wake(!S.over && !readOnly);
 }
 const wide = () => matchMedia('(min-width: 700px)').matches;
+
+// Drawing again replaces the buttons, so the one that had the keyboard (or that a sheet just gave it back to, as a
+// sheet does when it closes) gets it again, found by what it is: the same pitch, result, runner, box or link. If it's
+// gone (the runner moved on, the game ended), the first pitch button does, or the first thing to tap. Only a button
+// that already had focus is focused again, so taps look the same.
+const KEYS = ['p', 'r', 'a', 'runner', 'cs', 'cell', 'v'];
+function keepFocus(paint) {
+  const a = document.activeElement, had = !!root && !!a && a !== document.body && root.contains(a);
+  const k = had && KEYS.find(x => a.dataset && a.dataset[x] !== undefined);
+  const sel = k ? `[data-${k}="${a.dataset[k]}"]` : null;
+  paint();
+  if (!had || (a.isConnected && document.activeElement === a)) return;
+  const el = [sel && $(sel, root), $('[data-p]', root), $('.live [data-r]:not(:disabled)', root), $('.final [data-a]', root)].find(x => x && !x.disabled);
+  if (el) el.focus({ preventScroll: true });
+}
 
 // While this device can't save, one line under the bar says so (instead of a message on every tap), with a way to
 // keep the game anyway. It goes as soon as a save works again.
@@ -352,7 +369,7 @@ function onClick(e) {
     if (!wide()) window.scrollTo({ top: 0 });
     return;
   }
-  if (t.dataset.cs) { cardSide = +t.dataset.cs; drawSide(); return; }
+  if (t.dataset.cs) { cardSide = +t.dataset.cs; keepFocus(drawSide); return; }
   if (t.dataset.cell) return cellSheet(S.cells[+t.dataset.cell]);
   if (readOnly) { if (t.dataset.a === 'keep') onSave(); if (t.dataset.a === 'help') helpSheet(); return; }
   if (t.dataset.p) return act({ t: 'p', k: t.dataset.p });
@@ -463,6 +480,9 @@ function runnersSheet(code, f, moves, { st = S, editing = false, done = act } = 
     <p class="tally" aria-live="polite"></p>
     <div class="row"><button type="button" class="btn quiet" data-close>Cancel</button><button type="button" class="btn primary" data-x="save">${editing ? 'Save changes' : 'Save play'}</button></div>`);
   function draw() {
+    // The chip that had the keyboard keeps it.
+    const had = body.querySelector('[data-to]:focus, [data-runs]:focus');
+    const again = had && (had.dataset.runs ? `[data-runs="${had.dataset.runs}"]` : `[data-from="${had.closest('[data-from]').dataset.from}"] [data-to="${had.dataset.to}"]`);
     const rows = m.slice().sort((a, b) => b[0] - a[0]).map(([from, to]) => {
       const opts = [0, ...[1, 2, 3, 4].filter(b => b >= Math.max(from, 1))];
       return `<div class="mv" data-from="${from}">
@@ -486,6 +506,7 @@ function runnersSheet(code, f, moves, { st = S, editing = false, done = act } = 
     }
     body.querySelector('.tally').innerHTML = t;
     body.querySelector('[data-x=save]').disabled = !!err;
+    if (again && body.querySelector(again)) body.querySelector(again).focus({ preventScroll: true });
   }
   draw();
   body.addEventListener('click', e => {

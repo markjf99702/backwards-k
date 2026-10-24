@@ -782,6 +782,43 @@ step('a screen reader hears each play and where things stand, in a region that s
   await p.context().close();
 }
 
+step('the keyboard stays where it was after each tap, and comes back when a sheet closes');
+{
+  const p = await phone();
+  await startGame(p);
+  const on = sel => p.evaluate(sel => document.activeElement.matches(sel), sel);
+  await p.focus('[data-p=b]');
+  await p.keyboard.press('Enter');
+  assert.equal(await on('[data-p=b]'), true, 'still on Ball after a ball');
+  await p.keyboard.press('Space');
+  assert.equal(await p.locator('.count .b.on').count(), 2);
+  await p.keyboard.press('Shift+Tab');
+  await p.keyboard.press('Tab');
+  assert.equal(await on('[data-p=b]'), true, 'Tab order goes on from there');
+  await p.focus('[data-r="1B"]');
+  await p.keyboard.press('Enter');
+  assert.equal(await on('[data-r="1B"]'), true, 'still on 1B after a single');
+  await p.keyboard.press('Enter');
+  await p.waitForSelector('.sheet .moves');
+  await p.focus('.mv[data-from="1"] [data-to="3"]');
+  await p.keyboard.press('Enter');
+  assert.equal(await on('.mv[data-from="1"] [data-to="3"]'), true, 'still on the chip in the runners sheet');
+  assert.equal(await p.getAttribute('.mv[data-from="1"] [data-to="3"]', 'aria-pressed'), 'true');
+  await p.focus('.sheet [data-x=save]');
+  await p.keyboard.press('Enter');
+  assert.equal(await on('[data-r="1B"]'), true, 'back on 1B when the sheet closes');
+  await p.focus('[data-runner="3"]');
+  await p.keyboard.press('Enter');
+  await p.focus('.sheet [data-k=SB]');
+  await p.keyboard.press('Enter');
+  assert.equal(await on('[data-p=b]'), true, 'the runner went home: on to the first pitch button');
+  await p.click('[data-v=card]');
+  await p.focus('[data-cs="1"]');
+  await p.keyboard.press('Enter');
+  assert.equal(await on('[data-cs="1"]'), true, 'still on Whose card');
+  await p.context().close();
+}
+
 step('a game whose last play is one this version doesn’t know still opens');
 {
   const g = sampleUntil(7, S => S.inn === 2);
