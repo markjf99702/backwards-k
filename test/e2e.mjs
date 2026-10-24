@@ -552,6 +552,14 @@ for (const [w, h] of [[820, 1180], [1180, 820]]) {
 }
 await page.setViewportSize({ width: 390, height: 844 });
 
+step('a tablet on its side: every button, down to More, without scrolling');
+for (const [width, height] of [[1024, 768], [1024, 690], [1180, 740]]) {
+  const p = await playing(seventh(), { width, height });
+  const fit = await p.evaluate(() => ({ more: document.querySelector('[data-a=more]').getBoundingClientRect().bottom, live: document.querySelector('.live').getBoundingClientRect().bottom, ih: innerHeight }));
+  assert.ok(fit.more <= fit.live + 0.5 && fit.more <= fit.ih, `${width}x${height}: More ends at ${fit.more}, the column at ${fit.live}, the screen at ${fit.ih}`);
+  await p.context().close();
+}
+
 step('it works offline once opened');
 await page.goto(base);
 await page.waitForFunction(() => navigator.serviceWorker?.controller, null, { timeout: 10000 }).catch(() => {});

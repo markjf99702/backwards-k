@@ -417,8 +417,20 @@ details.lineup summary small { color: var(--muted); font-weight: 400; }
 }
 @media (min-width: 1000px) {
   .game { grid-template-columns: minmax(380px, 440px) minmax(0, 1fr); grid-template-areas: "bar bar" "live tabs" "live side"; align-items: start; column-gap: 22px; row-gap: 10px; }
-  .live { grid-template-columns: 1fr; position: sticky; top: calc(var(--bar-h) + env(safe-area-inset-top) + 10px); max-height: calc(100vh - var(--bar-h) - 20px); overflow: auto; padding-bottom: 4px; }
+  .live {
+    grid-template-columns: 1fr; position: sticky; top: calc(var(--bar-h) + env(safe-area-inset-top) + 10px);
+    max-height: calc(100vh - var(--bar-h) - env(safe-area-inset-top) - 24px); max-height: calc(100dvh - var(--bar-h) - env(safe-area-inset-top) - 24px);
+    overflow: auto; padding-bottom: 4px;
+  }
   .live > .recent { display: block; }
+}
+/* A tablet on its side, or a short window: slightly shorter buttons, and the field takes what height is left, so
+   everything down to More fits without scrolling. (The infield stretches to fit.) */
+@media (min-width: 1000px) and (max-height: 900px) {
+  .field { aspect-ratio: auto; height: clamp(150px, 100vh - 535px, 240px); height: clamp(150px, 100dvh - 535px, 240px); }
+  .pt { min-height: 46px; }
+  .res { min-height: 50px; }
+  .res span { font-size: 12.5px; }
 }
 
 /* ---------- the card, the line score, the box score ---------- */
