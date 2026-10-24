@@ -581,6 +581,8 @@ li.scored { border-left: 4px solid var(--red); }
 .marks dd { margin: 0; }
 .tips { padding-left: 1.1em; margin: 0; display: grid; gap: 8px; font-size: 15.5px; }
 .form { display: grid; gap: 12px; }
+.form label.switch { display: flex; gap: 12px; }
+.form .switch input { width: 24px; height: 24px; min-height: 0; padding: 0; }
 .form .switch span { font-size: 16px; }
 .form label > small { font-weight: 400; color: var(--muted); font-size: 15px; }
 .team-name { display: grid; gap: 4px; margin: 12px 0 8px; font-weight: 700; font-size: 15px; }

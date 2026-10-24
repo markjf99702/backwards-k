@@ -45,6 +45,7 @@ assert.match(await page.textContent('.hero h1'), /Keep score/);
 
 step('starting a game, with a pasted lineup');
 await tap('text=Score a new game');
+await page.waitForSelector('[data-side="0"] [data-name]');
 assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('[data-side="0"] [data-name]')).fontSize), '26px', 'team names in the scoreboard type');
 await page.fill('[data-side="0"] [data-name]', 'Foxes');
 await page.fill('[data-side="1"] [data-name]', 'Comets');
@@ -526,6 +527,16 @@ step('Fix runners only after a play with runners, or the batter safe');
   await p.click('[data-r=E]');
   await p.click('.sheet [data-x=skip]');
   assert.equal(await p.locator('[data-a=fixlast]').count(), 1, 'after the batter reaches');
+
+  step('Game settings: the counting switch is a tick box beside its words, and turns the pitches off');
+  await p.click('[data-a=menu]');
+  await p.click('[data-y=settings]');
+  const tick = await box(p, '.sheet [data-g=pitches]'), words = await box(p, '.sheet .switch > span');
+  assert.equal(tick.right - tick.left, 24, 'a 24px tick box');
+  assert.ok(words.left > tick.right && words.top < tick.bottom, 'with its words beside it');
+  await p.click('.sheet [data-g=pitches]');
+  await p.click('.sheet [data-close]');
+  assert.equal(await p.locator('.pitches').count(), 0, 'no Ball and Strike buttons');
   await p.context().close();
 }
 
