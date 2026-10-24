@@ -242,6 +242,19 @@ step('Fix runners, then leaving the game: the play is still there');
   assert.equal(await plays(p, id), 'pa1B pa2B p pa1B');
   assert.deepEqual((await stored(p, id)).ev.at(-1).m.find(x => x[0] === 2), [2, 4]);
   assert.match(await p.textContent('.ticker p'), /Batter 2 scores/);
+
+  step('Fix runners while another tab scores in the same game: nothing changes, and it says so');
+  await p.click('[data-a=fixlast]');
+  await p.waitForSelector('.sheet .moves');
+  const same = await p.context().newPage();
+  await same.goto(base + '#/g/' + id);
+  await same.waitForSelector('.live .field');
+  await same.click('[data-p=b]');
+  await same.close();
+  await p.waitForTimeout(200);
+  await p.click('.sheet [data-x=save]');
+  assert.match(await shown(p), /The game changed somewhere else while this was open/);
+  assert.equal(await plays(p, id), 'pa1B pa2B p pa1B p');
   await p.context().close();
 }
 
