@@ -246,6 +246,11 @@ function pa(S, e) {
   if (R.err) { S.E[fld]++; S.eInn[side][S.inn - 1]++; }
 
   const moves = (e.m || suggest(S, e.r)).slice().sort((a, b) => b[0] - a[0]);
+  // A 6-4-3 double play: the runner was out 6-4 and the batter 4-3, so the runner's box gets the throws before the
+  // last. (With two runners out, or two fielders, there's no telling: each keeps the whole play.)
+  const split = (e.r === 'DP' || e.r === 'TP') && e.f && e.f.length >= 3 && moves.some(m => !m[0] && !m[1])
+    && moves.filter(m => m[0] && !m[1]).length === 1;
+  const runnerF = dash(split ? e.f.slice(0, -1) : e.f);
   const batter = { cell, side, slot, p, pi };
   const batterName = label(player(g, side, slot, p), slot);
   const bits = [];
@@ -268,7 +273,7 @@ function pa(S, e) {
         if (R.kind !== 'out') { reach(cell, 0, R.go || 1, ''); out(S, r, Math.min((R.go || 1) + 1, 4), ''); }
         else out(S, r, 0, '');
       } else {
-        out(S, r, from + 1, dash(e.f));
+        out(S, r, from + 1, runnerF);
         bits.push(`${who} is out at ${BASE[from + 1]}`);
         r.cell.story.push(`Out at ${BASE[from + 1]} on ${batterName}’s ${R.label.toLowerCase()}.`);
       }

@@ -89,6 +89,21 @@ test('a double play with a runner on first gets two outs and leaves the bases em
   assert.equal(S.cells[0].outAt, 2);
 });
 
+test('on a double play the runner’s box gets the throws that put him out, and the batter’s the whole play', () => {
+  let S = play(game(), '1B', 'DP 6 4 3');
+  assert.deepEqual([S.cells[0].outHow, S.cells[1].mark], ['6-4', '6-4-3 DP']);
+  S = play(game(), '1B', 'DP 3 6 1');
+  assert.equal(S.cells[0].outHow, '3-6');
+  // Two fielders (a line drive and a throw to first to double him off) or a fielder's choice: as they were.
+  S = play(game(), '1B', { t: 'pa', r: 'DP', f: [6, 3], m: [[0, 0], [1, 0]] });
+  assert.equal(S.cells[0].outHow, '6-3');
+  S = play(game(), '1B', 'FC 6 4');
+  assert.equal(S.cells[0].outHow, '6-4');
+  // Two runners out on a triple play: each keeps the whole play.
+  S = play(game(), '1B', '1B', { t: 'pa', r: 'TP', f: [5, 4, 3], m: [[0, 0], [1, 0], [2, 0]] });
+  assert.deepEqual([S.cells[0].outHow, S.cells[1].outHow], ['5-4-3', '5-4-3']);
+});
+
 test('a fielder’s choice puts out the runner from first and leaves the batter on', () => {
   const g = game();
   let S = play(g, '1B');
