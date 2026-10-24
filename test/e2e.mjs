@@ -566,6 +566,20 @@ for (const [width, height] of [[1024, 768], [1024, 690], [1180, 740]]) {
   await p.context().close();
 }
 
+step('on paper, the line score’s R H E are in black');
+{
+  const p = await playing(seventh(), { width: 800, height: 1100 });
+  await p.evaluate(async id => {
+    window.print = () => {};
+    const { printGame } = await import('./js/share.js'), { store } = await import('./js/store.js');
+    printGame(store.get(id));
+  }, 'gsample7cut');
+  await p.emulateMedia({ media: 'print' });
+  const inks = await p.evaluate(() => [...document.querySelectorAll('#print .linescore td.rhe')].map(td => getComputedStyle(td).color));
+  assert.deepEqual([...new Set(inks)], ['rgb(0, 0, 0)']);
+  await p.context().close();
+}
+
 step('it works offline once opened');
 await page.goto(base);
 await page.waitForFunction(() => navigator.serviceWorker?.controller, null, { timeout: 10000 }).catch(() => {});
