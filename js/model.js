@@ -99,6 +99,27 @@ export function cleanDoc(d) {
 // The same thing written the same way every time, to tell whether anything changed.
 export const canon = d => JSON.stringify(d);
 
+// A pasted lineup, one player per line: "Ruiz", "12 Ruiz", "Ruiz #12", or a lineup copied from a game preview,
+// "1. Shohei Ohtani DH" or "1 Mookie Betts (R) SS". When the lines are numbered 1, 2, 3 in order, those numbers are
+// places in the batting order, not jersey numbers, and lines without one (a team name, a heading) are left out.
+const POSITION = /[\s,]+(P|SP|RP|C|1B|2B|3B|SS|LF|CF|RF|DH|EH|UT|IF|OF)$/i;
+export function parseLineup(text) {
+  let lines = String(text).split(/\r?\n/).map(l => l.trim()).filter(l => /\p{L}/u.test(l));
+  const lead = lines.map(l => /^(\d{1,2})(?:\s*[.)]|\s)/.exec(l));
+  const numbered = lead.filter(Boolean).map(m => +m[1]);
+  const ordered = numbered.length >= 2 && numbered.every((n, i) => n === i + 1);
+  if (ordered) lines = lines.filter((_, i) => lead[i]);
+  return lines.slice(0, 30).map(l => {
+    l = l.replace(ordered ? /^\d{1,2}\s*[.)]?\s*/ : /^\d{1,2}\s*[.)]\s*/, '')
+      .replace(/\s*\((?:L|R|S|B)\)/gi, '').replace(POSITION, '').replace(/\s+/g, ' ').trim();
+    let m = /^#?(\d{1,3})\s+(.+)$/.exec(l);
+    if (m) return { num: m[1], name: m[2].trim() };
+    m = /^(.+?)[\s,]+#?(\d{1,3})$/.exec(l);
+    if (m) return { name: m[1].trim(), num: m[2] };
+    return { name: l, num: '' };
+  });
+}
+
 // A team's lineup to start another game with: the players in each slot at the end of this one.
 export function carryLineup(team) {
   return team.lineup.map(slot => [{ ...slot[slot.length - 1] }]);

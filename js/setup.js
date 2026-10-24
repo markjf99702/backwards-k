@@ -1,6 +1,6 @@
 // Starting a game: two team names and you're off. Lineups, innings and the rest are optional, and all of it can
 // be changed once the game is going.
-import { newGame, blank, carryLineup, today } from './model.js';
+import { newGame, blank, carryLineup, today, parseLineup } from './model.js';
 import { store } from './store.js';
 import { $, $$, esc, openSheet, closeSheet, go } from './ui.js';
 import { drive } from './sync.js';
@@ -13,18 +13,6 @@ function pastTeams() {
     if (k && !seen.has(k)) seen.set(k, { name: t.name, lineup: carryLineup(t).map(s => s[0]), pitcher: { ...t.pitchers[0] } });
   }
   return [...seen.values()].slice(0, 8);
-}
-
-// "1. 12 Ruiz SS" or "Ruiz #12" or just "Ruiz": one player per line.
-export function parseLineup(text) {
-  return text.split(/\r?\n/).map(l => l.trim()).filter(Boolean).slice(0, 30).map(l => {
-    l = l.replace(/^\d{1,2}\s*[.)]\s*/, '').replace(/[\s,]+(P|C|1B|2B|3B|SS|LF|CF|RF|DH|EH|UT|IF|OF)$/i, '').trim();
-    let m = /^#?(\d{1,3})\s+(.+)$/.exec(l);
-    if (m) return { num: m[1], name: m[2].trim() };
-    m = /^(.+?)[\s,]+#?(\d{1,3})$/.exec(l);
-    if (m) return { name: m[1].trim(), num: m[2] };
-    return { name: l, num: '' };
-  });
 }
 
 export function showSetup(el) {
@@ -129,7 +117,7 @@ export function showSetup(el) {
 
   function pasteSheet(side) {
     const body = openSheet(`<h2 id="sheetTitle">Paste a lineup</h2>
-      <p class="hint">One player per line, in batting order. Numbers are picked up too: “12 Ruiz” or “Ruiz #12”.</p>
+      <p class="hint">One player per line, in batting order. Jersey numbers are picked up too: “12 Ruiz” or “Ruiz #12”. A lineup copied from a game preview works as it is: the 1 to 9 down the side, positions and (L) or (R) are left out.</p>
       <textarea rows="10" data-focus placeholder="Ruiz #2&#10;Okafor #11&#10;Brennan #24"></textarea>
       <div class="row"><button type="button" class="btn quiet" data-close>Cancel</button><button type="button" class="btn primary" data-x="use">Use these</button></div>`);
     body.addEventListener('click', ev => {

@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { replay, suggest, check, runsCount, mark, now, columns, halfLabel, RESULTS } from '../js/engine.js';
-import { newGame, cleanGame, cleanDoc } from '../js/model.js';
+import { newGame, cleanGame, cleanDoc, parseLineup } from '../js/model.js';
 import { sampleGame } from '../js/sample.js';
 
 const game = (opts = {}) => newGame({ away: 'Foxes', home: 'Comets', ...opts });
@@ -280,4 +280,19 @@ test('every suggested set of runner moves passes check()', () => {
       part.ev.push(e);
     }
   }
+});
+
+test('pasting a lineup: jersey numbers, or a batting order copied from a game preview', () => {
+  const names = list => list.map(p => p.num ? `${p.name} #${p.num}` : p.name);
+  assert.deepEqual(names(parseLineup('12 Ruiz\nOkafor #11\nCastillo, 7\nBrennan')), ['Ruiz #12', 'Okafor #11', 'Castillo #7', 'Brennan']);
+  // Numbered 1 to 9 down the side: that's the order, not jersey numbers; positions, handedness and the heading go.
+  const preview = 'Visitors lineup\n1 Shohei Ohtani DH\n2 Mookie Betts (R) SS\n3 Freddie Freeman 1B\n4 Will Smith C\n5 Teoscar Hernández RF\n6 Max Muncy 3B\n7 Tommy Edman CF\n8 Andy Pages LF\n9 Kiké Hernández 2B';
+  const got = parseLineup(preview);
+  assert.equal(got.length, 9);
+  assert.deepEqual(got.slice(0, 3), [{ name: 'Shohei Ohtani', num: '' }, { name: 'Mookie Betts', num: '' }, { name: 'Freddie Freeman', num: '' }]);
+  assert.equal(got[4].name, 'Teoscar Hernández');
+  assert.deepEqual(parseLineup('1. 17 Ohtani DH\n2. 50 Betts SS'), [{ name: 'Ohtani', num: '17' }, { name: 'Betts', num: '50' }]);
+  assert.deepEqual(parseLineup('1) Judge #99 RF\n2) Soto LF'), [{ name: 'Judge', num: '99' }, { name: 'Soto', num: '' }]);
+  // Numbers that aren't 1, 2, 3 in order are jersey numbers.
+  assert.deepEqual(parseLineup('22 Kershaw\n35 Bellinger'), [{ name: 'Kershaw', num: '22' }, { name: 'Bellinger', num: '35' }]);
 });
