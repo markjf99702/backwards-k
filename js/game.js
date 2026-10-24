@@ -1,7 +1,7 @@
 // The game screen: the score, the field with the runners, the buttons for what happened, and beside them (or a tab
 // away on a phone) the scorecard, the box score and the play-by-play.
 import {
-  replay, suggest, check, runsCount, now, RESULTS, BASE, POS, POS_NAME, halfLabel, label, player, teamName,
+  replay, suggest, check, runsCount, scoredAs, now, RESULTS, BASE, POS, POS_NAME, halfLabel, label, player, teamName,
   pitcherLabel, ord, runnersOn, mark, pitchStat, ip,
 } from './engine.js';
 import { store } from './store.js';
@@ -440,9 +440,8 @@ function runnersSheet(code, f, moves, { st = S, editing = false, done = act } = 
     } else if (r) { userSaid = true; counts.v = r.dataset.runs === '1'; draw(); }
     else if (s && !s.disabled) {
       const third = st.outs + m.filter(x => x[1] === 0).length >= 3;
-      // A fly out that brings the runner home from third with fewer than two outs is a sacrifice fly.
-      const sf = code === 'FO' && st.outs < 2 && m.some(x => x[0] === 3 && x[1] === 4) && m.some(x => x[0] === 0 && x[1] === 0);
-      const e2 = withF({ t: 'pa', r: sf ? 'SF' : code, m }, f);
+      // A sacrifice fly or bunt, or not, from where everyone ended up.
+      const e2 = withF({ t: 'pa', r: scoredAs(st, code, f, m), m }, f);
       if (third && !counts.v) e2.x = 1;
       closeSheet();
       done(e2);

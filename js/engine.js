@@ -458,6 +458,18 @@ export function runsCount(S, code, moves) {
   return !['FC', 'DP', 'TP', 'GO'].includes(code);
 }
 
+// What a play really was, from where everyone ended up. A fly ball or line drive caught in the outfield that brings
+// the runner home from third with fewer than two out is a sacrifice fly, and a sacrifice fly the runner didn't score
+// on is a fly out (OBR 9.08(d)). A bunt that puts out a runner but not the batter is a fielder's choice (9.08(c)).
+export function scoredAs(S, code, f, moves) {
+  const batterOut = moves.some(m => m[0] === 0 && m[1] === 0), home = moves.some(m => m[0] === 3 && m[1] === 4);
+  const deep = !f || !f.length || f[0] >= 7;
+  if (code === 'SF' && !home) return 'FO';
+  if ((code === 'FO' || ((code === 'LO' || code === 'PU') && deep)) && S.outs < 2 && home && batterOut) return 'SF';
+  if (code === 'SAC' && !batterOut && moves.some(m => m[0] > 0 && m[1] === 0)) return 'FC';
+  return code;
+}
+
 // ---------- reading the state ----------
 export function now(S) {
   const g = S.g, side = S.half, slot = S.up[side], fld = 1 - side;

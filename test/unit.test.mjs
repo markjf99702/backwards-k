@@ -1,7 +1,7 @@
 // The rules of scoring, without a browser:  node --test test/unit.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { replay, suggest, check, runsCount, mark, now, columns, halfLabel, RESULTS } from '../js/engine.js';
+import { replay, suggest, check, runsCount, scoredAs, mark, now, columns, halfLabel, RESULTS } from '../js/engine.js';
 import { newGame, cleanGame, cleanDoc, parseLineup } from '../js/model.js';
 import { sampleGame } from '../js/sample.js';
 
@@ -294,6 +294,27 @@ test('a play that makes the third out leaves the other runners where they were',
   assert.equal(S.lob[0][0], 2);
   assert.equal(marks(S), '23|3|', 'the runners on second and third didn’t move up');
   assert.deepEqual(proof(S, 0, 1), [5, 5]);
+});
+
+test('sacrifices are scored from where everyone ended up (OBR 9.08)', () => {
+  const g = game();
+  let S = play(g, '3B');
+  // A fly ball or line drive to the outfield that brings the run in with fewer than two out: a sacrifice fly.
+  assert.equal(scoredAs(S, 'FO', [8], [[0, 0], [3, 4]]), 'SF');
+  assert.equal(scoredAs(S, 'LO', [9], [[0, 0], [3, 4]]), 'SF');
+  assert.equal(scoredAs(S, 'PU', null, [[0, 0], [3, 4]]), 'SF', 'no fielders: it may have gone to the outfield');
+  assert.equal(scoredAs(S, 'LO', [6], [[0, 0], [3, 4]]), 'LO', 'a line drive caught by the shortstop');
+  assert.equal(scoredAs(S, 'PU', [5], [[0, 0], [3, 4]]), 'PU');
+  // A sacrifice fly where the runner held is a fly out.
+  assert.equal(scoredAs(S, 'SF', [8], [[0, 0], [3, 3]]), 'FO');
+  assert.equal(scoredAs(S, 'SF', [8], [[0, 0], [3, 4]]), 'SF');
+  S = play(g, 'K', 'K');
+  assert.equal(scoredAs(S, 'LO', [9], [[0, 0], [3, 4]]), 'LO', 'two out');
+  // A bunt that gets the lead runner but not the batter is a fielder’s choice, not a sacrifice.
+  S = play(game(), '1B');
+  assert.equal(scoredAs(S, 'SAC', [1, 6], [[0, 1], [1, 0]]), 'FC');
+  assert.equal(scoredAs(S, 'SAC', [1, 3], [[0, 0], [1, 2]]), 'SAC');
+  assert.equal(scoredAs(S, 'SAC', [1], [[0, 1], [1, 2]]), 'SAC', 'everyone safe on a throw to second is still a sacrifice');
 });
 
 test('a pitching change starts a new pitch count; runs go to the pitcher who let the runner on', () => {
