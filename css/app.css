@@ -25,7 +25,7 @@
   --card: #fffdf8;
   --ink: #1b2436;
   --ink-2: #3a4558;
-  --muted: #646d7f;
+  --muted: #5d6678;
   --line: #ddd5c3;
   --line-2: #c3b9a2;
   --soft: #ebe5d6;
@@ -198,7 +198,10 @@ p { margin: 0 0 .6em; }
 .chips button:disabled { opacity: .4; }
 .seg { display: inline-flex; gap: 4px; padding: 3px; border-radius: 999px; background: var(--soft); max-width: 100%; }
 .seg button { border-color: transparent; background: transparent; min-height: 36px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.seg .batting { font-style: normal; color: var(--lamp-o); font-size: 11px; vertical-align: 2px; }
+.seg .batting { font-style: normal; color: var(--red); font-size: 11px; vertical-align: 2px; }
+/* The batting dot stays at 3:1 or better on the pressed button and the unpressed one, in both looks. */
+.seg [aria-pressed="true"] .batting { color: var(--lamp-o); }
+@media (prefers-color-scheme: dark) { .seg .batting { color: var(--lamp-o); } .seg [aria-pressed="true"] .batting { color: #a12e22; } }
 .card-box { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 16px; box-shadow: var(--shadow); }
 
 /* ---------- home ---------- */
@@ -344,7 +347,11 @@ details.lineup summary small { color: var(--muted); font-weight: 400; }
 .count i + span { margin-left: 6px; }
 .count i.b.on { background: var(--lamp-b); box-shadow: 0 0 6px var(--lamp-b); }
 .count i.s.on { background: var(--lamp-s); box-shadow: 0 0 6px var(--lamp-s); }
-.deck { position: absolute; left: 10px; bottom: 6px; margin: 0; max-width: 30%; font-size: 13px; font-weight: 650; color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, .6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.deck {
+  position: absolute; left: 8px; bottom: 8px; margin: 0; max-width: 30%; padding: 3px 8px; border-radius: 8px;
+  background: var(--board-2); color: var(--board-ink); box-shadow: 0 2px 0 rgba(0, 0, 0, .25);
+  font-size: 13px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .deck span { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; opacity: .85; }
 /* The last play: always two lines high, with Fix runners and Redo in a column kept for them, so nothing moves. */
 .ticker { display: flex; align-items: center; gap: 10px; height: 52px; padding: 4px 12px; border-radius: 10px; background: var(--card); border: 1px solid var(--line); }
