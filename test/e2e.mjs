@@ -458,6 +458,33 @@ step('a phone in the 7th: the Card tab opens on the batter’s box');
   await p.click('[data-v=card]');
   await p.waitForTimeout(100);
   assert.ok(inside(await box(p, '.pane[data-p=card] td.next'), wrap), 'still on screen after a pitch');
+
+  step('the buttons stay put as the line under the field changes');
+  await p.click('[data-v=live]');
+  const ball = async () => (await box(p, '[data-p=b]')).top;
+  const at = await ball();
+  await p.click('[data-r="1B"]');
+  await p.click('.sheet [data-x=save]');
+  assert.equal(await p.locator('[data-a=fixlast]').count(), 1);
+  assert.equal(await ball(), at, 'after a single with a runner on, and Fix runners');
+  await p.click('.bar .undo');
+  assert.equal(await p.locator('[data-a=redo]').count(), 1);
+  assert.equal(await ball(), at, 'after Undo, and Redo');
+  await p.context().close();
+}
+
+step('Fix runners only after a play with runners, or the batter safe');
+{
+  const p = await phone();
+  await startGame(p);
+  await p.click('[data-r=K]');
+  assert.equal(await p.locator('[data-a=fixlast]').count(), 0, 'not after a strikeout with nobody on');
+  await p.click('[data-r=GO]');
+  await p.click('.sheet [data-x=skip]');
+  assert.equal(await p.locator('[data-a=fixlast]').count(), 0, 'not after a ground out with nobody on');
+  await p.click('[data-r=E]');
+  await p.click('.sheet [data-x=skip]');
+  assert.equal(await p.locator('[data-a=fixlast]').count(), 1, 'after the batter reaches');
   await p.context().close();
 }
 
