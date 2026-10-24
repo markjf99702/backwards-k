@@ -81,14 +81,14 @@ if (document.readyState === 'loading') document.addEventListener('DOMContentLoad
 export const whyNot = p => (p === 'full' ? 'this device is out of room' : 'this browser isn’t letting Backwards K save (private browsing, or site data is turned off)');
 
 // ---------- the toast ----------
+// It stays on the page, empty between messages (and so out of sight), so a screen reader hears each one.
 let toastT = null;
 export function toast(msg, { action, run, ms = 3200 } = {}) {
   const t = document.getElementById('toast');
   clearTimeout(toastT);
   t.innerHTML = `<span>${esc(msg)}</span>${action ? `<button type="button">${esc(action)}</button>` : ''}`;
-  t.hidden = false;
-  if (action) t.querySelector('button').addEventListener('click', () => { t.hidden = true; run(); });
-  toastT = setTimeout(() => { t.hidden = true; }, action ? Math.max(ms, 6000) : ms);
+  if (action) t.querySelector('button').addEventListener('click', () => { t.textContent = ''; run(); });
+  toastT = setTimeout(() => { t.textContent = ''; }, action ? Math.max(ms, 6000) : ms);
 }
 
 // ---------- files ----------

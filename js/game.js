@@ -84,6 +84,7 @@ function act(e) {
   G.ev.push(e);
   redo = [];
   save();
+  say();
 }
 // (If this device can't save, the line under the bar says so: see trouble().)
 function save() {
@@ -111,6 +112,7 @@ function flush() {
   if (g === G) trouble();
 }
 function undo() {
+  const was = S.text[G.ev.length - 1];
   const e = G.ev.pop();
   if (!e) return;
   const r = { e };
@@ -120,6 +122,7 @@ function undo() {
   if (e.t === 'pch') { const ps = G.teams[e.s].pitchers; if (ps.length - 1 === e.i && !G.ev.some(x => x.t === 'pch' && x.s === e.s && x.i === e.i)) r.player = ps.pop(); }
   redo.push(r);
   save();
+  say(`Took back: ${tidy(was)}`);
 }
 function redoIt() {
   const r = redo.pop();
@@ -129,6 +132,38 @@ function redoIt() {
   if (r.player && r.e.t === 'pch') G.teams[r.e.s].pitchers.push(r.player);
   G.ev.push(r.e);
   save();
+  say();
+}
+
+// ---------- what a screen reader hears ----------
+// After each tap, Undo, Redo and Fix runners, one region that stays on the page says the play and where things
+// stand: "Brennan singles. Pruitt scores. Foxes 2, Comets 3. Runner on first, 1 out." After a pitch, the count. It's
+// emptied and filled a moment later, so the same words twice are said twice.
+let sayT = null;
+const few = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+const countWords = () => `${few(S.b, 'ball')}, ${few(S.s, 'strike')}`;
+const tidy = t => String(t || '').replace(/ \(\d-\d\)$/, '.'); // "Ball (1-0)" is "Ball." once the count is said in words
+function say(lead) {
+  const el = root && $('#said', root);
+  if (!el) return;
+  const i = G.ev.length - 1, e = G.ev[i], box = S.cells[S.cells.length - 1];
+  const play = S.plays.find(x => x.i === i && x.kind !== 'end');
+  let t;
+  if (!lead && e && e.t === 'p' && !(box && box.ev === i)) t = `${tidy(S.text[i])} ${countWords()}.`;
+  else t = [lead || tidy(S.text[i]), !lead && play && play.runs && !S.over ? score() : '', situation()].filter(Boolean).join(' ');
+  clearTimeout(sayT);
+  el.textContent = '';
+  sayT = setTimeout(() => { el.textContent = t; }, 100);
+}
+const score = () => `${teamName(G, 0)} ${S.R[0]}, ${teamName(G, 1)} ${S.R[1]}.`;
+// Where things stand, in words: who's on, the outs and the count; or the end of the half-inning, or of the game.
+function situation() {
+  if (S.over) return (S.ended ? '' : 'Final. ') + score();
+  const end = S.plays[S.plays.length - 1];
+  if (end && end.kind === 'end' && end.i === G.ev.length - 1) return end.text;
+  const on = [1, 2, 3].filter(b => S.bases[b]).map(b => BASE[b]);
+  const bases = !on.length ? 'Nobody on' : on.length === 3 ? 'Bases loaded' : `Runner${on.length > 1 ? 's' : ''} on ${on.join(' and ')}`;
+  return `${bases}, ${S.outs ? few(S.outs, 'out') : 'nobody out'}${G.pitches && (S.b || S.s) ? `, ${countWords()}` : ''}.`;
 }
 
 // ---------- drawing ----------
@@ -143,7 +178,7 @@ function frame() {
       </div>
     </header>
     <div class="game">
-      ${readOnly ? '' : '<div class="trouble" role="alert" hidden><p></p><button type="button" class="btn sm"></button></div>'}
+      ${readOnly ? '' : '<p class="sr" role="status" id="said"></p><div class="trouble" role="alert" hidden><p></p><button type="button" class="btn sm"></button></div>'}
       ${readOnly ? `<div class="shared-bar"><p>${esc(note)}</p>${onSave ? '<button type="button" class="btn primary sm" data-a="keep">Save to my games</button>' : ''}</div>` : ''}
       <nav class="vtabs" aria-label="Views">
         <button type="button" data-v="live">${readOnly ? 'Score' : 'Score'}</button>
@@ -245,11 +280,11 @@ function liveHtml() {
   const dots = (on, of, cls) => Array.from({ length: of }, (_, i) => `<i class="${cls}${i < on ? ' on' : ''}"></i>`).join('');
   const bug = `<div class="bug">
       <div class="bug-teams">
-        ${[0, 1].map(s => `<div class="bt${!S.over && S.half === s ? ' bat' : ''}"><span class="nm">${esc(teamName(g, s))}</span><span class="r">${S.R[s]}</span></div>`).join('')}
+        ${[0, 1].map(s => `<div class="bt${!S.over && S.half === s ? ' bat' : ''}"><span class="nm">${esc(teamName(g, s))}</span><span class="r">${S.R[s]}</span>${!S.over && S.half === s ? '<span class="sr">, batting</span>' : ''}</div>`).join('')}
       </div>
       <div class="bug-state">
-        <div class="inn">${S.over ? `<b>${S.ended ? 'Called' : 'Final'}</b>` : `<span class="arrow">${S.half ? '▼' : '▲'}</span><b>${ord(S.inn)}</b>`}</div>
-        ${S.over ? '' : `<div class="outs" aria-label="${S.outs} out${S.outs === 1 ? '' : 's'}">${dots(S.outs, 3, 'o')}<span>Out${S.outs === 1 ? '' : 's'}</span></div>`}
+        <div class="inn">${S.over ? `<b>${S.ended ? 'Called' : 'Final'}</b>` : `<span class="arrow" aria-hidden="true">${S.half ? '▼' : '▲'}</span><span class="sr">${S.half ? 'Bottom' : 'Top'} of the </span><b>${ord(S.inn)}</b>`}</div>
+        ${S.over ? '' : `<div class="outs">${dots(S.outs, 3, 'o')}<span class="sr">${few(S.outs, 'out')}</span></div>`}
       </div>
     </div>`;
   if (readOnly) {
@@ -262,14 +297,14 @@ function liveHtml() {
       ${[3, 2, 1].map(runner).join('')}
       ${S.over ? '' : `<button type="button" class="batter" data-a="batter" style="left:${BASE_AT[0][0]}%;top:${BASE_AT[0][1]}%" aria-label="At bat: ${esc(n.name)}. Tap to name or pinch-hit."><small>${n.slot + 1}</small><span>${esc(n.name)}</span></button>`}
       ${S.over ? '' : `<p class="deck"><span>On deck</span> ${esc(n.deckName)}</p>`}
-      ${g.pitches && !S.over ? `<div class="count" aria-label="Count ${S.b} and ${S.s}"><span>B</span>${dots(S.b, 3, 'b')}<span>S</span>${dots(S.s, 2, 's')}</div>` : ''}
+      ${g.pitches && !S.over ? `<div class="count"><span class="sr">${countWords()}</span><span aria-hidden="true">B</span>${dots(S.b, 3, 'b')}<span aria-hidden="true">S</span>${dots(S.s, 2, 's')}</div>` : ''}
       ${S.over ? '' : `<button type="button" class="pitcher" data-a="pitcher" aria-label="Pitching: ${esc(n.pitcherName)}${g.pitches ? ', ' + n.pitches + ' pitches' : ''}. Tap to change pitchers."><span>${esc(n.pitcherName)}</span>${g.pitches ? `<b>${n.pitches}</b><small>pitch${n.pitches === 1 ? '' : 'es'}</small>` : ''}</button>`}
     </div>`;
   const last = G.ev.length ? S.text[G.ev.length - 1] : '';
   // The links have a column of their own, and the line a fixed height, so the buttons below never move.
   const k = fixable(), fix = k < 0 ? '' : `Fix runners: ${S.text[k]}`;
   const ticker = `<div class="ticker">
-      <p aria-live="polite">${last ? esc(last) : 'Tap what happens. Every tap can be undone.'}</p>
+      <p>${last ? esc(last) : 'Tap what happens. Every tap can be undone.'}</p>
       <div class="acts">${fix ? `<button type="button" class="link-btn" data-a="fixlast" title="${esc(fix)}" aria-label="${esc(fix)}">Fix runners</button>` : ''}${redo.length ? '<button type="button" class="link-btn" data-a="redo">Redo</button>' : ''}</div>
     </div>`;
   if (S.over) {
@@ -507,6 +542,7 @@ function fixLast() {
       G.ev[k] = e2;
       redo = [];
       save();
+      say(`Fixed: ${S.text[k]}`);
     },
   });
 }

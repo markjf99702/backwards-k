@@ -242,7 +242,7 @@ async function startGame(p, away = 'Owls') {
 }
 const stored = (p, id) => p.evaluate(id => JSON.parse(localStorage.getItem('backwards-k.v1')).games[id], id);
 const plays = async (p, id) => (await stored(p, id)).ev.map(e => e.t + (e.r || '')).join(' ');
-const shown = p => p.evaluate(() => { const t = document.getElementById('toast'); return t.hidden ? '' : t.textContent; });
+const shown = p => p.evaluate(() => document.getElementById('toast').textContent);
 
 step('Fix runners, then leaving the game: the play is still there');
 {
@@ -421,7 +421,7 @@ step('a file that isn’t a game says so');
   await p.goto(base);
   const [chooser] = await Promise.all([p.waitForEvent('filechooser'), p.click('[data-a=import]')]);
   await chooser.setFiles({ name: 'notes.json', mimeType: 'application/json', buffer: Buffer.from('{"hello":"world"}') });
-  await p.waitForFunction(() => !document.getElementById('toast').hidden);
+  await p.waitForFunction(() => document.getElementById('toast').textContent);
   assert.equal(await shown(p), 'That file isn’t a Backwards K backup or game.');
   await p.context().close();
 }
@@ -750,6 +750,35 @@ step('a wild pitch that moves two runners is one play, and one wild pitch');
   assert.equal(await shown(p), 'A runner can’t pass the runner ahead of them.');
   await p.keyboard.press('Escape');
   assert.equal(await plays(p, id), 'pa1B paBB r r pa1B pa1B', 'and nothing was saved');
+  await p.context().close();
+}
+
+step('a screen reader hears each play and where things stand, in a region that stays put');
+{
+  const p = await phone();
+  await startGame(p);
+  const said = async () => { await p.waitForFunction(() => document.getElementById('said').textContent); return p.textContent('#said'); };
+  const region = await p.$('#said');
+  await p.click('[data-p=b]');
+  assert.equal(await said(), 'Ball. 1 ball, 0 strikes.');
+  assert.equal(await p.getAttribute('.ticker p', 'aria-live'), null, 'the ticker isn’t a live region of its own');
+  await p.click('[data-r="1B"]');
+  assert.equal(await said(), 'Batter 1 singles. Runner on first, nobody out.');
+  await p.click('[data-r="2B"]');
+  await p.click('.sheet [data-x=save]');
+  assert.equal(await said(), 'Batter 2 doubles. Batter 1 to third. Runners on second and third, nobody out.');
+  await p.click('[data-p=s]');
+  await p.click('[data-r=HR]');
+  await p.click('.sheet [data-x=save]');
+  assert.equal(await said(), 'Batter 3 hits a home run. Batter 1 scores. Batter 2 scores. Owls 3, Home 0. Nobody on, nobody out.');
+  await p.click('.bar .undo');
+  assert.equal(await said(), 'Took back: Batter 3 hits a home run. Batter 1 scores. Batter 2 scores. Runners on second and third, nobody out, 0 balls, 1 strike.');
+  assert.equal(await region.evaluate(el => el.isConnected), true, 'the same region all along');
+  const board = await p.textContent('.bug');
+  assert.match(board, /Owls\s*0, batting/);
+  assert.match(board, /Top of the 1st/);
+  assert.match(board, /0 outs/);
+  assert.equal(await p.textContent('.count .sr'), '0 balls, 1 strike');
   await p.context().close();
 }
 
