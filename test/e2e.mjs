@@ -90,7 +90,10 @@ await tap('[data-r="GO"]');
 await tap('[data-pos="6"]');
 await tap('[data-pos="3"]');
 await tap('[data-x=done]');
-await tap('[data-x=save]');
+// The batter made the third out, so nobody could move up or score: there's nothing to ask.
+assert.equal(await page.locator('.sheet .moves').count(), 0);
+assert.equal(await ticker(), 'Lindqvist grounds out, short to first (6-3).');
+assert.equal(await page.locator('[data-a=fixlast]').count(), 1);
 assert.match(await page.textContent('.bar .title'), /Bottom 1st/);
 assert.equal(await bases(), '');
 

@@ -404,6 +404,8 @@ export function suggest(S, code) {
   // Never more than three outs: keep the lead runners safe first.
   let extra = S.outs + m.filter(x => x[1] === 0).length - 3;
   for (const x of [...m].sort((a, b) => a[0] - b[0])) if (extra > 0 && x[1] === 0 && x[0] !== 0) { x[1] = x[0]; extra--; }
+  // The third out ends it: the other runners stay where they were, and nobody scores (OBR 5.08(a)).
+  if (S.outs + m.filter(x => x[1] === 0).length >= 3) for (const x of m) if (x[0] && x[1]) x[1] = x[0];
   return m;
 }
 

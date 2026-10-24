@@ -333,9 +333,10 @@ function choose(code, f) {
   const R = RESULTS[code];
   if (R.f && f === undefined) return pickFielders(code, null, got => choose(code, got));
   const m = suggest(S, code);
-  // Nobody on, or a play where runners only move when they're forced: nothing to ask.
-  // (For the odd one that went differently, Fix runners is right under the field.)
-  if (!runnersOn(S).length || QUIET.has(code)) {
+  // Nobody on, a play where runners only move when they're forced, or the batter making the third out (nobody can
+  // move up or score on that): nothing to ask. (For the odd one that went differently, Fix runners is right under
+  // the field.)
+  if (!runnersOn(S).length || QUIET.has(code) || (S.outs === 2 && R.kind === 'out')) {
     closeSheet();
     return act(withF({ t: 'pa', r: code, m }, f));
   }

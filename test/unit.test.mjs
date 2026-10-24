@@ -186,6 +186,41 @@ test('runs on a play that makes the third out on a force don’t count', () => {
   assert.equal(S.half, 1);
 });
 
+// Every trip to the plate in a half-inning ends as a run, a runner left on base or an out (OBR 9.03(c)).
+function proof(S, side, inn) {
+  const cells = S.cells.filter(c => c.side === side && c.inn === inn);
+  return [cells.length, (S.line[side][inn - 1] || 0) + (S.lob[side][inn - 1] || 0) + cells.filter(c => c.outN).length];
+}
+
+test('a play that makes the third out leaves the other runners where they were', () => {
+  const marks = S => S.cells.slice(0, 3).map(c => c.notes.join('')).join('|');
+  // Bases loaded, two out, a ground out: nobody moves up and nobody scores.
+  let g = game();
+  let S = play(g, 'BB', 'BB', 'BB', 'K', 'K');
+  const before = marks(S);
+  assert.deepEqual(suggest(S, 'GO'), [[0, 0], [3, 3], [2, 2], [1, 1]]);
+  S = play(g, 'GO 6 3');
+  assert.equal(S.R[0], 0);
+  assert.equal(S.lob[0][0], 3);
+  assert.equal(marks(S), before, 'no notes on the runners’ boxes for the ground out');
+  assert.doesNotMatch(S.text[g.ev.length - 1], /crosses the plate|scores|to (second|third)/);
+  assert.deepEqual(proof(S, 0, 1), [6, 6]);
+  // A fielder's choice for the third out: the batter is on first, the others stay put.
+  g = game();
+  S = play(g, 'BB', 'BB', 'BB', 'K', 'K', 'FC 6 4');
+  assert.equal(S.R[0], 0);
+  assert.equal(S.lob[0][0], 3);
+  assert.equal(marks(S), before, 'the runners on second and third didn’t move up');
+  assert.deepEqual(proof(S, 0, 1), [6, 6]);
+  // A double play with one out and the bases loaded: no run, two left on.
+  g = game();
+  S = play(g, 'BB', 'BB', 'BB', 'K', 'DP 6 4 3');
+  assert.equal(S.R[0], 0);
+  assert.equal(S.lob[0][0], 2);
+  assert.equal(marks(S), '23|3|', 'the runners on second and third didn’t move up');
+  assert.deepEqual(proof(S, 0, 1), [5, 5]);
+});
+
 test('a pitching change starts a new pitch count; runs go to the pitcher who let the runner on', () => {
   const g = game();
   g.teams[1].pitchers.push({ name: 'Bishop', num: '37' });
