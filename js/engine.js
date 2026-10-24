@@ -15,7 +15,8 @@ export const BASE = ['home', 'first', 'second', 'third', 'home'];
 
 // kind: hit, on (safe without a hit) or out. go: the base the batter reaches. ab: counts as an at-bat.
 // pitch: what the last pitch was when this is tapped without counting it first (x in play, b ball, s strike).
-// f: fielders to ask for (0 none, 1 one, 2 a sequence such as 6-4-3). rbi: 0 when runs on it earn no RBI.
+// f: fielders to ask for (0 none, 1 one, 2 a sequence such as 6-4-3). rbi: 0 when runs on it earn no RBI. err: the
+// fielding team is charged with an error.
 export const RESULTS = {
   '1B': { label: 'Single', kind: 'hit', go: 1, ab: 1, pitch: 'x', f: 0, say: 'singles' },
   '2B': { label: 'Double', kind: 'hit', go: 2, ab: 1, pitch: 'x', f: 0, say: 'doubles' },
@@ -27,7 +28,7 @@ export const RESULTS = {
   E: { label: 'Error', kind: 'on', go: 1, ab: 1, pitch: 'x', f: 1, say: 'reaches on an error', rbi: 0, err: 1 },
   FC: { label: 'Fielder’s choice', kind: 'on', go: 1, ab: 1, pitch: 'x', f: 2, say: 'reaches on a fielder’s choice' },
   KD: { label: 'Dropped third strike', kind: 'on', go: 1, ab: 1, pitch: 's', f: 0, say: 'strikes out but reaches on a dropped third strike', k: 1, rbi: 0 },
-  CI: { label: 'Catcher’s interference', kind: 'on', go: 1, ab: 0, pitch: 'x', f: 0, say: 'reaches on catcher’s interference' },
+  CI: { label: 'Catcher’s interference', kind: 'on', go: 1, ab: 0, pitch: 'x', f: 0, say: 'reaches on catcher’s interference', err: 1 },
   K: { label: 'Strikeout swinging', kind: 'out', go: 0, ab: 1, pitch: 's', f: 0, say: 'strikes out swinging', k: 1 },
   KL: { label: 'Strikeout looking', kind: 'out', go: 0, ab: 1, pitch: 's', f: 0, say: 'strikes out looking', k: 1 },
   GO: { label: 'Ground out', kind: 'out', go: 0, ab: 1, pitch: 'x', f: 2, say: 'grounds out' },
@@ -321,7 +322,7 @@ function runners(S, e) {
   const g = S.g, side = S.half, fld = 1 - side;
   const moves = e.m.slice().sort((a, b) => b[0] - a[0]);
   const bits = [];
-  let runs = 0;
+  let runs = 0, err = false;
   const balk = moves.length && moves.every(m => m[2] === 'BK');
   for (const [from, to, how, f] of moves) {
     const r = S.bases[from];
@@ -330,7 +331,7 @@ function runners(S, e) {
     if (to >= 1 && to <= 3 && to !== from && S.bases[to]) continue;
     S.bases[from] = null;
     const who = label(player(g, side, r.slot, r.p), r.slot), m = runMark(how, f);
-    if (how === 'E') { S.E[fld]++; S.eInn[side][S.inn - 1]++; }
+    if (how === 'E') err = true;
     if (how === 'SB') bstat(S, side, r.slot, r.p).sb++;
     if (how === 'CS') bstat(S, side, r.slot, r.p).cs++;
     if (to === 0) {
@@ -348,6 +349,8 @@ function runners(S, e) {
       if (to === 4) { score(S, r); runs++; } else S.bases[to] = r;
     }
   }
+  // One wild throw is one error, and one wild pitch is one, however many runners move up on it (OBR 9.12).
+  if (err) { S.E[fld]++; S.eInn[side][S.inn - 1]++; }
   if (moves.some(m => m[2] === 'WP')) pstat(S).wp++;
   if (balk) pstat(S).bk++;
   const text = (balk ? 'Balk. ' : '') + (bits.length ? bits.join('. ') + '.' : '');

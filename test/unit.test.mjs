@@ -134,11 +134,27 @@ test('a runner can’t be moved onto a base someone is still on', () => {
   const S = play(g, { t: 'r', m: [[2, 3, 'E', [6]]] });
   assert.equal(S.bases[2].cell.n, 1, 'the batter who doubled is still on second');
   assert.equal(S.bases[3].cell.n, 0, 'the runner on third is still there');
-  assert.equal(S.E[1], 0);
+  assert.equal(S.E[1], 1, 'the catcher’s interference, and no error for the move that couldn’t happen');
   // Two runners moving up together is fine: the one ahead goes first.
   const S2 = play(g, { t: 'r', m: [[3, 4, 'WP'], [2, 3, 'WP']] });
   assert.equal(S2.R[0], 1);
   assert.equal(S2.bases[3].cell.n, 1);
+});
+
+test('one error is one error however many runners move up on it, and catcher’s interference is one (OBR 9.12)', () => {
+  const g = game();
+  let S = play(g, '1B', 'BB', { t: 'r', m: [[2, 3, 'E', [1]], [1, 2, 'E', [1]]] });
+  assert.deepEqual(S.E, [0, 1], 'a wild pickoff throw that moves two runners is one error');
+  assert.deepEqual(S.eInn, [[1], []]);
+  S = play(g, { t: 'r', m: [[3, 4, 'WP'], [2, 3, 'WP']] });
+  assert.equal(S.pitching[1][0].wp, 1, 'and a wild pitch that moves two is one wild pitch');
+  // With the bases loaded, catcher's interference is an error on the catcher (9.12(c)), and the run forced in is
+  // batted in (9.04(a)(2)).
+  S = play(g, 'BB', 'BB', 'CI');
+  assert.deepEqual(S.E, [0, 2]);
+  assert.equal(S.R[0], 2);
+  assert.equal(S.cells.at(-1).rbi, 1);
+  assert.equal(S.bat['0.4.0'].ab, 0, 'no at-bat');
 });
 
 test('the home team wins as soon as it goes ahead in the last inning', () => {
