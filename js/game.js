@@ -230,11 +230,13 @@ function drawSide() {
 
 function liveHtml() {
   const n = now(S), g = G;
+  // After the final, whoever was left on base is still drawn there, but there's nothing more to tap.
   const runner = b => {
     const r = S.bases[b];
     if (!r) return '';
-    const [x, y] = BASE_AT[b];
-    return `<button type="button" class="runner" data-runner="${b}" style="left:${x}%;top:${y}%" aria-label="Runner on ${BASE[b]}: ${esc(label(player(g, r.side, r.slot, r.p), r.slot))}. Tap for steals and other moves."><span>${esc(label(player(g, r.side, r.slot, r.p), r.slot))}</span></button>`;
+    const [x, y] = BASE_AT[b], name = esc(label(player(g, r.side, r.slot, r.p), r.slot));
+    if (S.over) return `<span class="runner left" style="left:${x}%;top:${y}%"><span class="sr">Left on ${BASE[b]}: </span><span>${name}</span></span>`;
+    return `<button type="button" class="runner" data-runner="${b}" style="left:${x}%;top:${y}%" aria-label="Runner on ${BASE[b]}: ${name}. Tap for steals and other moves."><span>${name}</span></button>`;
   };
   const dots = (on, of, cls) => Array.from({ length: of }, (_, i) => `<i class="${cls}${i < on ? ' on' : ''}"></i>`).join('');
   const bug = `<div class="bug">
@@ -496,7 +498,7 @@ function moreSheet() {
 // ---------- a runner: steals, wild pitches, pickoffs ----------
 function runnerSheet(b) {
   const r = S.bases[b];
-  if (!r) return;
+  if (!r || S.over) return;
   const name = label(player(G, r.side, r.slot, r.p), r.slot), next = b + 1;
   let to = next;
   const body = openSheet(`<h2 id="sheetTitle">${esc(name)} <small>on ${BASE[b]}</small></h2>

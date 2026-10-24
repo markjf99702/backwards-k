@@ -325,6 +325,7 @@ details.lineup summary small { color: var(--muted); font-weight: 400; }
 }
 .runner span, .batter span, .pitcher span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .runner::after { content: ''; flex: none; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 6px solid var(--muted); margin-left: 2px; }
+.runner.left::after { content: none; }
 .batter { box-shadow: 0 2px 0 rgba(0, 0, 0, .25), 0 0 0 2px var(--navy); max-width: 40%; }
 @media (prefers-color-scheme: dark) { .batter { box-shadow: 0 2px 0 rgba(0, 0, 0, .25), 0 0 0 2px var(--on-navy); } }
 .batter small { flex: none; font: 800 15px/1 var(--board-font); color: var(--muted); }

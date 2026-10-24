@@ -327,6 +327,24 @@ step('undoing a pitcher brought back keeps both pitchers and every change');
   await p.context().close();
 }
 
+step('after a walk-off, the runner left on is still drawn, and can’t be moved');
+{
+  const p = await phone();
+  await startGame(p);
+  await p.click('[data-a=menu]');
+  await p.click('[data-y=settings]');
+  await p.selectOption('.sheet [data-g=innings]', '3');
+  await p.click('.sheet [data-close]');
+  for (let i = 0; i < 15; i++) await p.click('[data-r=K]');
+  await p.click('[data-r=BB]');
+  await p.click('[data-r="3B"]');
+  await p.click('.sheet [data-x=save]');
+  assert.match(await p.textContent('.final h2'), /Home win, 1–0/);
+  assert.equal(await p.locator('.live [data-runner]').count(), 0);
+  assert.equal(await p.textContent('.live .runner'), 'Left on third: Batter 8');
+  await p.context().close();
+}
+
 step('a device that’s out of room: one line says so, and nothing claims it was saved');
 {
   const p = await phone(() => {
