@@ -269,8 +269,10 @@ function liveHtml() {
   const last = G.ev.length ? S.text[G.ev.length - 1] : '';
   const lastE = G.ev[G.ev.length - 1];
   // Fix runners when there were runners, or the batter got on: after an out with the bases empty there's nobody to
-  // move. The links have a column of their own, and the line a fixed height, so the buttons below never move.
-  const fix = lastE && lastE.t === 'pa' && lastE.m && (lastE.m.length > 1 || RESULTS[lastE.r].kind !== 'out');
+  // move. The links have a column of their own, and the line a fixed height, so the buttons below never move. (A play
+  // this version doesn't know, from a damaged file or a newer copy of the app, has nothing to fix here.)
+  const lastR = lastE && RESULTS[lastE.r];
+  const fix = lastR && lastE.t === 'pa' && lastE.m && (lastE.m.length > 1 || lastR.kind !== 'out');
   const ticker = `<div class="ticker">
       <p aria-live="polite">${last ? esc(last) : 'Tap what happens. Every tap can be undone.'}</p>
       <div class="acts">${fix ? '<button type="button" class="link-btn" data-a="fixlast">Fix runners</button>' : ''}${redo.length ? '<button type="button" class="link-btn" data-a="redo">Redo</button>' : ''}</div>

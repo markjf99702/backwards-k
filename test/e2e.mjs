@@ -549,6 +549,17 @@ step('Fix runners only after a play with runners, or the batter safe');
   await p.context().close();
 }
 
+step('a game whose last play is one this version doesn’t know still opens');
+{
+  const g = sampleUntil(7, S => S.inn === 2);
+  g.id = 'gunknownlast';
+  g.ev.push({ t: 'pa', r: 'ZZ', m: [[0, 1]] }); // from a damaged file, or a newer copy of the app
+  const p = await playing(g);
+  assert.equal(await p.locator('[data-a=fixlast]').count(), 0, 'nothing to fix');
+  assert.equal(await p.locator('[data-r="1B"]').isVisible(), true, 'and scoring goes on');
+  await p.context().close();
+}
+
 step('tablet sizes: side by side, nothing sideways');
 for (const [w, h] of [[820, 1180], [1180, 820]]) {
   await page.setViewportSize({ width: w, height: h });
