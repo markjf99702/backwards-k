@@ -637,6 +637,7 @@ li.scored { border-left: 4px solid var(--red); }
 @media (prefers-color-scheme: dark) { .toast:not(:empty) { background: var(--navy-2); box-shadow: 0 0 0 1px var(--line-2), 0 10px 30px rgba(0, 0, 0, .5); } }
 @media (prefers-reduced-motion: no-preference) { .toast:not(:empty) { animation: up .16s ease-out; } }
 .toast button { border: 0; background: none; color: var(--lamp-s); font-weight: 800; padding: 4px; }
+.toast :focus-visible { outline-color: #fff; }
 
 /* ---------- the footer ---------- */
 .jd-foot { padding: 10px 16px calc(22px + env(safe-area-inset-bottom)); text-align: center; font-size: 14px; color: var(--muted); }

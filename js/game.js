@@ -820,7 +820,7 @@ function menuSheet() {
           closeSheet();
           store.remove(g.id); drive.changed();
           go('#/');
-          toast('Game deleted.', { action: 'Undo', run: () => { store.save(g); drive.changed(); go('#/g/' + g.id); } });
+          toast('Game deleted.', { action: 'Undo', focus: true, run: () => { store.save(g); drive.changed(); go('#/g/' + g.id); } });
         } else { y.dataset.armed = '1'; y.querySelector('b').textContent = 'Tap again to delete it'; }
       }
     }

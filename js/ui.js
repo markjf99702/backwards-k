@@ -81,15 +81,44 @@ if (document.readyState === 'loading') document.addEventListener('DOMContentLoad
 export const whyNot = p => (p === 'full' ? 'this device is out of room' : 'this browser isn’t letting Backwards K save (private browsing, or site data is turned off)');
 
 // ---------- the toast ----------
-// It stays on the page, empty between messages (and so out of sight), so a screen reader hears each one.
-let toastT = null;
-export function toast(msg, { action, run, ms = 3200 } = {}) {
-  const t = document.getElementById('toast');
+// It stays on the page, empty between messages (and so out of sight), so a screen reader hears each one. focus:
+// give its button the keyboard (the only way back from deleting a game); when it goes, the keyboard goes back.
+let toastT = null, toastHide = null;
+const toastEl = () => document.getElementById('toast');
+export function toast(msg, { action, run, ms = 3200, focus = false } = {}) {
+  const t = toastEl();
   clearTimeout(toastT);
   t.innerHTML = `<span>${esc(msg)}</span>${action ? `<button type="button">${esc(action)}</button>` : ''}`;
-  if (action) t.querySelector('button').addEventListener('click', () => { t.textContent = ''; run(); });
-  toastT = setTimeout(() => { t.textContent = ''; }, action ? Math.max(ms, 6000) : ms);
+  let back = null;
+  toastHide = () => {
+    clearTimeout(toastT);
+    toastHide = null;
+    const had = t.contains(document.activeElement);
+    t.textContent = '';
+    const to = had && (back && back.isConnected ? back : document.querySelector('#app h1'));
+    if (to) { if (to.tagName === 'H1') to.tabIndex = -1; to.focus({ preventScroll: true }); }
+  };
+  hideIn(action ? Math.max(ms, 6000) : ms);
+  if (action) {
+    const b = t.querySelector('button');
+    b.addEventListener('click', () => { toastHide(); run(); });
+    if (focus) { back = document.activeElement; b.focus({ preventScroll: true }); }
+  }
 }
+const hideIn = ms => { clearTimeout(toastT); toastT = setTimeout(() => toastHide && toastHide(), ms); };
+// While the toast has the keyboard or the pointer it stays, and it goes 4 seconds after both have left. Escape
+// closes it.
+function wireToast() {
+  const t = document.getElementById('toast');
+  if (!t) return;
+  const stay = () => clearTimeout(toastT);
+  t.addEventListener('focusin', stay);
+  t.addEventListener('mouseenter', stay);
+  t.addEventListener('focusout', e => { if (toastHide && !t.contains(e.relatedTarget) && !t.matches(':hover')) hideIn(4000); });
+  t.addEventListener('mouseleave', () => { if (toastHide && !t.contains(document.activeElement)) hideIn(4000); });
+  t.addEventListener('keydown', e => { if (e.key === 'Escape' && toastHide) { e.preventDefault(); toastHide(); } });
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wireToast); else wireToast();
 
 // ---------- files ----------
 export function download(name, text, type = 'application/json') {

@@ -859,6 +859,30 @@ step('each screen says what it is, and the keyboard lands on its heading');
   await p.context().close();
 }
 
+step('after deleting a game, Undo has the keyboard and waits for it; Escape lets it go');
+{
+  const p = await phone(), id = await startGame(p);
+  const del = async () => { await p.click('[data-a=menu]'); await p.click('.sheet [data-y=delete]'); await p.click('.sheet [data-y=delete]'); await p.waitForSelector('.hero'); };
+  await del();
+  assert.equal(await p.evaluate(() => document.activeElement === document.querySelector('#toast button')), true, 'Undo has the keyboard');
+  await p.waitForTimeout(6500);
+  assert.equal(await shown(p), 'Game deleted.Undo', 'still there while it has the keyboard');
+  await p.keyboard.press('Enter');
+  await p.waitForSelector('.live .field');
+  assert.ok(await stored(p, id), 'the game is back');
+  await del();
+  await p.keyboard.press('Escape');
+  assert.equal(await shown(p), '');
+  assert.equal(await p.evaluate(() => document.activeElement.matches('.hero h1')), true, 'the keyboard goes to the page');
+  assert.equal(await stored(p, id), undefined);
+  // The pointer over it keeps it too.
+  await p.evaluate(async () => (await import('./js/ui.js')).toast('Hello.', { ms: 300 }));
+  await p.hover('#toast');
+  await p.waitForTimeout(600);
+  assert.equal(await shown(p), 'Hello.');
+  await p.context().close();
+}
+
 step('a game whose last play is one this version doesn’t know still opens');
 {
   const g = sampleUntil(7, S => S.inn === 2);
