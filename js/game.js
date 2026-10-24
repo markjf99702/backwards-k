@@ -266,15 +266,11 @@ function liveHtml() {
       ${S.over ? '' : `<button type="button" class="pitcher" data-a="pitcher" aria-label="Pitching: ${esc(n.pitcherName)}${g.pitches ? ', ' + n.pitches + ' pitches' : ''}. Tap to change pitchers."><span>${esc(n.pitcherName)}</span>${g.pitches ? `<b>${n.pitches}</b><small>pitch${n.pitches === 1 ? '' : 'es'}</small>` : ''}</button>`}
     </div>`;
   const last = G.ev.length ? S.text[G.ev.length - 1] : '';
-  const lastE = G.ev[G.ev.length - 1];
-  // Fix runners when there were runners, or the batter got on: after an out with the bases empty there's nobody to
-  // move. The links have a column of their own, and the line a fixed height, so the buttons below never move. (A play
-  // this version doesn't know, from a damaged file or a newer copy of the app, has nothing to fix here.)
-  const lastR = lastE && RESULTS[lastE.r];
-  const fix = lastR && lastE.t === 'pa' && lastE.m && (lastE.m.length > 1 || lastR.kind !== 'out');
+  // The links have a column of their own, and the line a fixed height, so the buttons below never move.
+  const k = fixable(), fix = k < 0 ? '' : `Fix runners: ${S.text[k]}`;
   const ticker = `<div class="ticker">
       <p aria-live="polite">${last ? esc(last) : 'Tap what happens. Every tap can be undone.'}</p>
-      <div class="acts">${fix ? '<button type="button" class="link-btn" data-a="fixlast">Fix runners</button>' : ''}${redo.length ? '<button type="button" class="link-btn" data-a="redo">Redo</button>' : ''}</div>
+      <div class="acts">${fix ? `<button type="button" class="link-btn" data-a="fixlast" title="${esc(fix)}" aria-label="${esc(fix)}">Fix runners</button>` : ''}${redo.length ? '<button type="button" class="link-btn" data-a="redo">Redo</button>' : ''}</div>
     </div>`;
   if (S.over) {
     const w = S.R[0] === S.R[1] ? null : S.R[1] > S.R[0] ? 1 : 0;
@@ -475,19 +471,40 @@ function runnersSheet(code, f, moves, { st = S, editing = false, done = act } = 
   });
 }
 
-// The last play's runners, again: ask where everyone went, from how things stood before it. The game itself is
-// left alone until Save changes, so leaving the screen or cancelling loses nothing.
+// The play Fix runners changes, by its place in the game, or -1. It's the latest plate appearance, when there were
+// runners or the batter got on (after an out with the bases empty there's nobody to move), and while nothing but
+// pitches to the next batter has come after it: his at-bat is still going, in the same half-inning. (A play this
+// version doesn't know, from a damaged file or a newer copy of the app, has nothing to fix here.)
+function fixable() {
+  let k = G.ev.length - 1;
+  while (k >= 0 && G.ev[k].t === 'p') k--;
+  const e = G.ev[k], R = e && RESULTS[e.r];
+  if (!R || e.t !== 'pa' || !e.m || (e.m.length < 2 && R.kind === 'out')) return -1;
+  const box = S.cells[S.cells.length - 1];
+  if (k < G.ev.length - 1 && (S.over || !box || box.ev !== k || box.side !== S.half || box.inn !== S.inn)) return -1;
+  return k;
+}
+
+// That play's runners, again: ask where everyone went, from how things stood before it. The game itself is left
+// alone until Save changes, so leaving the screen or cancelling loses nothing. Pitches since then stay: they don't
+// depend on where the runners are. But a fix that changes the outs or the half-inning would leave them thrown in
+// the wrong place, so with pitches since, that's a job for Undo.
 function fixLast() {
-  const e = G.ev[G.ev.length - 1];
-  if (!e || e.t !== 'pa') return;
-  const id = G.id, was = plays(G.ev);
+  const k = fixable();
+  if (k < 0) return;
+  const e = G.ev[k], id = G.id, was = plays(G.ev);
   runnersSheet(e.r, e.f || null, e.m, {
-    st: replay({ ...G, ev: G.ev.slice(0, -1) }),
+    st: replay({ ...G, ev: G.ev.slice(0, k) }),
     editing: true,
     done: e2 => {
       // Another tab or Google Drive changed the plays while the sheet was open: the fix may not fit any more.
       if (!G || G.id !== id || plays(G.ev) !== was) return toast('The game changed somewhere else while this was open, so the fix wasn’t saved.');
-      G.ev[G.ev.length - 1] = e2;
+      if (k < G.ev.length - 1) {
+        const S2 = replay({ ...G, ev: G.ev.map((x, i) => (i === k ? e2 : x)) });
+        if (S2.over && !S.over) return toast('That ends the game. Undo back to that play instead.');
+        if (S2.half !== S.half || S2.inn !== S.inn || S2.outs !== S.outs) return toast('That changes the outs. Undo back to that play instead.');
+      }
+      G.ev[k] = e2;
       redo = [];
       save();
     },
@@ -757,7 +774,7 @@ function cellSheet(c) {
       ${seq ? `<p class="quiet">Pitches: ${esc(seq)}.</p>` : ''}</div></div>
     ${group ? `<h3>Change what it was</h3><div class="chips wide" role="group" aria-label="What it was">${group.map(k => `<button type="button" data-sw="${k}" aria-pressed="${k === c.r}">${k === 'KL' ? KL + ' looking' : esc(RESULTS[k].label)}</button>`).join('')}</div>` : ''}
     ${group && e.t === 'pa' && (R.f || c.f) ? `<div class="row"><button type="button" class="btn quiet" data-y="f">Change the fielders${c.f ? ` (${esc(c.f.join('-'))})` : ''}</button></div>` : ''}
-    ${!readOnly && e && !group ? '<p class="hint">This one can’t be changed here. Undo takes plays back, latest first, and right after a play, Fix runners changes where everyone ended up.</p>' : ''}
+    ${!readOnly && e && !group ? '<p class="hint">This one can’t be changed here. Undo takes plays back, latest first, and until the next batter’s turn is over, Fix runners changes where everyone ended up on the play before.</p>' : ''}
     <div class="row"><button type="button" class="btn primary" data-close>Done</button></div>`);
   body.addEventListener('click', ev => {
     const sw = ev.target.closest('[data-sw]'), y = ev.target.closest('[data-y]');

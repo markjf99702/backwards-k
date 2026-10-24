@@ -27,7 +27,7 @@ written out in plain words.
 - **The scorecard fills itself in.** Each box has the path around the bases, the out number, the count and the RBIs,
   and a strikeout looking gets its backwards K. Tap any box to read what happened. A box can also be switched to
   another kind of out or another way of reaching base, and have its fielders changed; anything else is a job for
-  Undo, or for Fix runners right after the play.
+  Undo, or for Fix runners, which stays until the next batter's turn is over.
 - **Undo anything.** A game is a list of what happened, so Undo takes the last thing back, as many times as you like.
 - **It knows when the game is over.** Final comes when the last inning is decided, or the moment the home team goes
   ahead in it. **Keep playing** after a Final finishes that half-inning; a game you ended early (rain, a mercy rule)

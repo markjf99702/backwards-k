@@ -34,7 +34,7 @@ page.on('request', r => { if (!r.url().startsWith(base) && !r.url().startsWith('
 
 const tap = sel => page.locator(sel).first().click();
 const ticker = () => page.locator('.ticker p').textContent();
-const bases = () => page.evaluate(() => [...document.querySelectorAll('.runner')].map(r => r.dataset.runner + ':' + r.textContent.trim()).join(' '));
+const bases = (p = page) => p.evaluate(() => [...document.querySelectorAll('.runner')].map(r => r.dataset.runner + ':' + r.textContent.trim()).join(' '));
 const fitsPhone = async what => assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `${what} scrolls sideways`);
 const step = name => console.log('·', name);
 // Where an element is, and whether it's wholly inside another one.
@@ -625,6 +625,46 @@ step('fewer taps: a double play with one runner on, and a triple play with two, 
   await p.click('.sheet [data-x=save]');
   assert.match(await p.textContent('.bug'), /Owls\s*1/i);
   assert.equal(await plays(p, id), 'pa1B paDP paK pa1B pa1B paTP paK pa2B paK pa1B');
+  await p.context().close();
+}
+
+step('Fix runners after the next pitch: the fix goes in, and the pitch stays');
+{
+  const p = await phone(), id = await startGame(p);
+  await p.click('[data-r="2B"]');
+  await p.click('[data-r="1B"]');
+  await p.click('.sheet [data-x=save]'); // the runner from second stops at third
+  await p.click('[data-p=b]');
+  assert.equal(await p.locator('[data-a=fixlast]').count(), 1, 'still there after a ball');
+  assert.equal(await p.getAttribute('[data-a=fixlast]', 'aria-label'), 'Fix runners: Batter 2 singles. Batter 1 to third.');
+  await p.click('[data-a=fixlast]');
+  await p.waitForSelector('.sheet .moves');
+  assert.match(await p.textContent('.sheet h2'), /Single/);
+  assert.equal(await p.locator('.mv[data-from="2"] [aria-pressed=true]').textContent(), '3rd');
+  await p.click('.mv[data-from="2"] [data-to="4"]');
+  await p.click('.sheet [data-x=save]');
+  assert.equal(await plays(p, id), 'pa2B pa1B p');
+  assert.deepEqual((await stored(p, id)).ev[1].m.find(x => x[0] === 2), [2, 4]);
+  assert.match(await p.textContent('.bug'), /Owls\s*1/i);
+  assert.equal(await p.textContent('.ticker p'), 'Ball (1-0)');
+  assert.equal(await p.locator('.count .b.on').count(), 1, 'the ball is still there');
+  assert.equal(await bases(p), '1:Batter 2');
+
+  step('a fix after a pitch that would add an out is refused, and nothing changes');
+  const was = JSON.stringify((await stored(p, id)).ev);
+  await p.click('[data-a=fixlast]');
+  await p.waitForSelector('.sheet .moves');
+  await p.click('.mv[data-from="0"] [data-to="0"]');
+  await p.click('.sheet [data-x=save]');
+  assert.equal(await shown(p), 'That changes the outs. Undo back to that play instead.');
+  assert.equal(JSON.stringify((await stored(p, id)).ev), was);
+  assert.equal(await p.locator('.outs .o.on').count(), 0);
+  assert.equal(await bases(p), '1:Batter 2');
+
+  step('and once that at-bat is over, Fix runners goes');
+  for (let i = 0; i < 3; i++) await p.click('[data-p=b]');
+  assert.match(await p.textContent('.ticker p'), /walks/);
+  assert.equal(await p.locator('[data-a=fixlast]').count(), 0);
   await p.context().close();
 }
 
