@@ -346,11 +346,13 @@ function onClick(e) {
 function choose(code, f) {
   const R = RESULTS[code];
   if (R.f && f === undefined) return pickFielders(code, null, got => choose(code, got));
-  const m = suggest(S, code);
-  // Nobody on, a play where runners only move when they're forced, or the batter making the third out (nobody can
-  // move up or score on that): nothing to ask. (For the odd one that went differently, Fix runners is right under
-  // the field.)
-  if (!runnersOn(S).length || QUIET.has(code) || (S.outs === 2 && R.kind === 'out')) {
+  const m = suggest(S, code), on = runnersOn(S).length;
+  // With two out, a runner on second is off with the pitch and usually scores on a single: Home is picked for him.
+  if (code === '1B' && S.outs === 2 && S.bases[2]) m.find(x => x[0] === 2)[1] = 4;
+  // Nobody on, a play where runners only move when they're forced, the batter making the third out (nobody can move
+  // up or score on that), or a double play with one runner on or a triple play with two (everyone is out): nothing
+  // to ask. (For the odd one that went differently, Fix runners is right under the field.)
+  if (!on || QUIET.has(code) || (S.outs === 2 && R.kind === 'out') || (code === 'DP' && on === 1) || (code === 'TP' && on === 2)) {
     closeSheet();
     return act(withF({ t: 'pa', r: code, m }, f));
   }

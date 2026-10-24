@@ -592,6 +592,42 @@ step('a ground out 6-3 from a keyboard alone: Enter and Space pick the fielders'
   await p.context().close();
 }
 
+step('fewer taps: a double play with one runner on, and a triple play with two, save with no runners sheet');
+{
+  const p = await phone(), id = await startGame(p);
+  await p.click('[data-r="1B"]');
+  await p.click('[data-r=DP]');
+  for (const n of [6, 4, 3]) await p.click(`.sheet [data-pos="${n}"]`);
+  await p.click('.sheet [data-x=done]');
+  assert.equal(await p.locator('.sheet .moves').count(), 0, 'nothing to ask: both are out');
+  assert.equal(await p.textContent('.ticker p'), 'Batter 2 grounds into a double play (6-4-3). Batter 1 is out at second.');
+  assert.equal(await p.locator('.outs .o.on').count(), 2);
+  assert.equal(await p.locator('[data-a=fixlast]').count(), 1, 'and Fix runners is there for an odd one');
+  await p.click('[data-r=K]');
+  await p.click('[data-r="1B"]');
+  await p.click('[data-r="1B"]');
+  await p.click('.sheet [data-x=save]');
+  await p.click('[data-a=more]');
+  await p.click('.sheet [data-r2=TP]');
+  await p.click('.sheet [data-x=skip]');
+  assert.equal(await p.locator('.sheet .moves').count(), 0, 'nothing to ask: all three are out');
+  assert.match(await p.textContent('.bar .title'), /Top 2nd/);
+
+  step('fewer taps: on a single with two out, the runner on second is sent home');
+  await p.click('[data-r=K]');
+  await p.click('[data-r="2B"]');
+  await p.click('[data-r="1B"]');
+  assert.equal(await p.locator('.mv[data-from="2"] [aria-pressed=true]').textContent(), '3rd', 'with one out he stops at third');
+  await p.click('.sheet [data-close]');
+  await p.click('[data-r=K]');
+  await p.click('[data-r="1B"]');
+  assert.equal(await p.locator('.mv[data-from="2"] [aria-pressed=true]').textContent(), 'Home', 'with two out he’s running');
+  await p.click('.sheet [data-x=save]');
+  assert.match(await p.textContent('.bug'), /Owls\s*1/i);
+  assert.equal(await plays(p, id), 'pa1B paDP paK pa1B pa1B paTP paK pa2B paK pa1B');
+  await p.context().close();
+}
+
 step('a game whose last play is one this version doesn’t know still opens');
 {
   const g = sampleUntil(7, S => S.inn === 2);
