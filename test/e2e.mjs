@@ -6,6 +6,8 @@ import { readFile } from 'node:fs/promises';
 import { join, dirname, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import assert from 'node:assert/strict';
+import { sampleGame } from '../js/sample.js';
+import { replay } from '../js/engine.js';
 
 const require = createRequire(import.meta.url);
 let pw;
@@ -410,6 +412,52 @@ step('a file that isn’t a game says so');
   await chooser.setFiles({ name: 'notes.json', mimeType: 'application/json', buffer: Buffer.from('{"hello":"world"}') });
   await p.waitForFunction(() => !document.getElementById('toast').hidden);
   assert.equal(await shown(p), 'That file isn’t a Backwards K backup or game.');
+  await p.context().close();
+}
+
+// The sample game stopped in the top of the 7th with a runner on second, on a device of its own.
+function seventh(names) {
+  const g = sampleGame(7), all = g.ev;
+  g.id = 'gseventh';
+  for (let n = 1; n < all.length; n++) {
+    const S = replay({ ...g, ev: all.slice(0, n) });
+    if (S.inn === 7 && S.half === 0 && S.bases[2]) { g.ev = all.slice(0, n); break; }
+  }
+  if (names) names.forEach((name, s) => { g.teams[s].name = name; });
+  return g;
+}
+async function playing(g, viewport = { width: 390, height: 844 }) {
+  const c = await browser.newContext({ viewport, deviceScaleFactor: 2, isMobile: true, hasTouch: true, serviceWorkers: 'block' });
+  await c.addInitScript(doc => {
+    if (!sessionStorage.getItem('seeded')) { localStorage.setItem('backwards-k.v1', doc); sessionStorage.setItem('seeded', '1'); }
+  }, JSON.stringify({ app: 'backwards-k', v: 1, games: { [g.id]: g }, gone: {} }));
+  const p = await c.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  p.on('console', m => { if (m.type() === 'error') problems.push(m.text()); });
+  await p.goto(base + '#/g/' + g.id);
+  await p.waitForSelector('.live .field');
+  await p.evaluate(() => document.fonts.ready);
+  return p;
+}
+// Where an element is, and whether it's wholly inside another one.
+const box = (p, sel) => p.evaluate(sel => { const r = document.querySelector(sel).getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom }; }, sel);
+const inside = (a, b) => a.left >= b.left - 0.5 && a.right <= b.right + 0.5 && a.top >= b.top - 0.5 && a.bottom <= b.bottom + 0.5;
+
+step('a phone in the 7th: the Card tab opens on the batter’s box');
+{
+  const p = await playing(seventh());
+  await p.click('[data-v=card]');
+  await p.waitForTimeout(100);
+  const next = await box(p, '.pane[data-p=card] td.next'), wrap = await box(p, '.pane[data-p=card] .card-wrap');
+  const names = await box(p, '.pane[data-p=card] tbody th.who');
+  assert.ok(inside(next, wrap), `the batter’s box is on screen (${next.left}-${next.right} in ${wrap.left}-${wrap.right})`);
+  assert.ok(next.left >= names.right - 0.5, 'and not under the names');
+  // Away and back again: still there.
+  await p.click('[data-v=live]');
+  await p.click('[data-p=b]');
+  await p.click('[data-v=card]');
+  await p.waitForTimeout(100);
+  assert.ok(inside(await box(p, '.pane[data-p=card] td.next'), wrap), 'still on screen after a pitch');
   await p.context().close();
 }
 

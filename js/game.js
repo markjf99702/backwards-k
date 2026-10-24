@@ -212,16 +212,19 @@ function drawSide() {
     <div class="card-wrap">${cardHtml(S, side, { live: !readOnly })}</div>`;
   const w = card.querySelector('.card-wrap');
   w.scrollLeft = keepX;
-  // Keep the inning being played in view as the game moves along.
+  // Keep the inning being played in view as the game moves along. (On a phone the card is a tab away and has no
+  // size while hidden, so this waits until it's shown.)
   const key = `${side}:${S.inn}:${S.half}`;
-  if (key !== lastInn) {
+  if (key !== lastInn && card.offsetParent) {
     lastInn = key;
     requestAnimationFrame(() => {
       const cur = w.querySelector('td.next') || w.querySelector('th.cur');
       if (!cur) return;
       const first = w.querySelector('tbody th.who'), left = first ? first.offsetWidth : 0;
-      const x = cur.offsetLeft - left - 8;
-      if (x < w.scrollLeft || cur.offsetLeft + cur.offsetWidth > w.scrollLeft + w.clientWidth) w.scrollLeft = Math.max(0, x - cur.offsetWidth);
+      if (cur.offsetLeft - left >= w.scrollLeft && cur.offsetLeft + cur.offsetWidth <= w.scrollLeft + w.clientWidth) return;
+      // The box before it shows too, starting right where the names end.
+      const prev = cur.previousElementSibling;
+      w.scrollLeft = prev && !prev.classList.contains('who') ? prev.offsetLeft - left : 0;
     });
   }
   $('.pane[data-p=box]', root).innerHTML = `<div class="line-wrap">${lineHtml(S)}</div>${boxHtml(S)}`;
@@ -308,7 +311,14 @@ function onKey(e) {
 function onClick(e) {
   const t = e.target.closest('[data-a],[data-r],[data-p],[data-runner],[data-cell],[data-v],[data-cs]');
   if (!t || t.disabled) return;
-  if (t.dataset.v) { view = t.dataset.v; if (view !== 'live') pane = view; draw(); if (!wide()) window.scrollTo({ top: 0 }); return; }
+  if (t.dataset.v) {
+    view = t.dataset.v;
+    if (view !== 'live') pane = view;
+    if (view === 'card') lastInn = ''; // the card opens on the inning being played
+    draw();
+    if (!wide()) window.scrollTo({ top: 0 });
+    return;
+  }
   if (t.dataset.cs) { cardSide = +t.dataset.cs; drawSide(); return; }
   if (t.dataset.cell) return cellSheet(S.cells[+t.dataset.cell]);
   if (readOnly) { if (t.dataset.a === 'keep') onSave(); if (t.dataset.a === 'help') helpSheet(); return; }
