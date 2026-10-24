@@ -99,7 +99,24 @@ await syncNow(b);
 await syncNow(a);
 assert.match(await a.textContent('.ticker p'), /strikes out swinging/);
 
+step('no connection: the cloud goes quiet, and what was scored goes up when it’s back');
+const noSignal = r => r.abort('internetdisconnected');
+await b.context().route('https://www.googleapis.com/**', noSignal);
+await b.click('[data-r="BB"]');
+await b.click('.cloud');
+await b.waitForFunction(() => document.querySelector('.cloud')?.dataset.s === 'offline', null, { timeout: 8000 });
+assert.match(await b.getAttribute('.cloud', 'title'), /^No connection\. Your games are saved on this device/);
+await b.context().unroute('https://www.googleapis.com/**', noSignal);
+await b.evaluate(() => window.dispatchEvent(new Event('online')));
+await settle(b);
+const foxes = () => JSON.parse(gameFiles().find(f => JSON.parse(f.body).game.teams[0].name === 'Foxes').body).game;
+assert.equal(foxes().ev.at(-1).r, 'BB');
+
 step('deleting on one device deletes on the other, and bins the file');
+await a.goto(base);
+await settle(a);
+await a.click('.gi >> text=Owls'); // the other device has that game open
+await a.waitForSelector('.live .field');
 await b.goto(base);
 await b.click('.gi >> text=Owls');
 await b.click('[data-a=menu]');
@@ -110,8 +127,9 @@ await syncNow(b);
 const owls = gameFiles().find(f => JSON.parse(f.body).game.teams[0].name === 'Owls');
 assert.equal(owls.trashed, true);
 assert.ok(+owls.appProperties.gone > 0);
-await a.goto(base);
 await syncNow(a);
+assert.match(await a.textContent('#toast'), /This game was deleted on another device/);
+await a.goto(base);
 assert.deepEqual(await games(a), ['Foxes 1 Comets 0']);
 
 step('a sign-in that ran out: the cloud asks for a tap, and one tap fixes it');
@@ -133,8 +151,8 @@ await newGame(a, 'Larks', 'Wrens');
 await a.waitForTimeout(3000);
 assert.equal(google.calls.length, n, 'no Drive calls after stopping: ' + google.calls.slice(n).join(', '));
 
-// The expired sign-in's 401 is logged by the browser itself; that one is expected.
-assert.deepEqual(problems.filter(p => !/status of 401/.test(p)), [], 'problems while syncing');
+// The expired sign-in's 401 and the dropped connection are logged by the browser itself; those are expected.
+assert.deepEqual(problems.filter(p => !/status of 401|net::ERR_INTERNET_DISCONNECTED/.test(p)), [], 'problems while syncing');
 await browser.close();
 server.close();
 console.log('all good');

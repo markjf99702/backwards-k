@@ -44,7 +44,8 @@ async function api(method, path, body, type, t = tok) {
   if (!t) throw { auth: true };
   const headers = { Authorization: 'Bearer ' + t.token };
   if (type) headers['Content-Type'] = type;
-  const r = await fetch(API + path, { method, headers, body });
+  let r;
+  try { r = await fetch(API + path, { method, headers, body }); } catch { throw { net: true }; } // no connection
   if (r.status === 401) { if (get(KT)?.token === t.token) put(KT, null); if (tok?.token === t.token) tok = null; throw { auth: true }; }
   if (!r.ok) throw { http: r.status };
   return r.status === 204 ? null : r.json();
@@ -181,6 +182,8 @@ function sync() {
     if (g !== gen) return false;
     if (e?.auth) setStatus('tap');
     else if (e?.unreadable) setStatus('error', 'A file in your Backwards K folder isn’t readable, so it was left alone.');
+    // No signal (a ballpark, a tunnel): nothing's wrong, the games wait here until it's back.
+    else if (e?.net || !navigator.onLine) setStatus('offline');
     else { if (e && !e.http) console.error(e); folderId = ''; setStatus('error', 'Couldn’t reach Google Drive. Check the connection and try again.'); }
     return false;
   }).then(changed => {
@@ -263,15 +266,18 @@ function ago(t) {
   if (s < 86400) return Math.round(s / 3600) + ' h ago';
   return new Date(t).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
+const OFFLINE = 'No connection. Your games are saved on this device and go to Google Drive when you’re back online.';
 function title() {
   return status === 'busy' ? 'Saving to Google Drive'
     : status === 'tap' ? 'Tap to sign in to Google again and save'
       : status === 'error' ? note + ' Tap to try again.'
-        : 'Saved to Google Drive' + (st.last ? ' ' + ago(st.last) : '') + '. Tap to sync now.';
+        : status === 'offline' ? OFFLINE
+          : 'Saved to Google Drive' + (st.last ? ' ' + ago(st.last) : '') + '. Tap to sync now.';
 }
 const CLOUD = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 18.5h10.5a4 4 0 0 0 .7-7.94A6 6 0 0 0 6.7 9.1 4.7 4.7 0 0 0 7 18.5z"/></svg>';
 
-// The header button: a cloud with a dot, green when saved, amber while saving, red when it needs a tap.
+// The header button: a cloud with a dot, green when saved, amber while saving, red when it needs a tap, grey when
+// there's no connection.
 function chip(btn) {
   if (!btn) return;
   if (!CLIENT_ID) { btn.hidden = true; return; }
@@ -296,7 +302,8 @@ function card(host) {
   const line = () => status === 'busy' ? 'Saving now.'
     : status === 'tap' ? 'Google signs you out after an hour. Tap <b>Sync now</b> to sign back in; your games are safe here meanwhile.'
       : status === 'error' ? esc(note)
-        : st.last ? `Last saved ${ago(st.last)}.` : '';
+        : status === 'offline' ? OFFLINE
+          : st.last ? `Last saved ${ago(st.last)}.` : '';
   function draw() {
     if (!host.isConnected) return false;
     host.innerHTML = st.on
@@ -345,6 +352,8 @@ if (CLIENT_ID) {
     else if (st.on && live() && Date.now() - st.last > 30000) sync();
   });
   setInterval(() => { if (!document.hidden && st.on) { if (live()) sync(); else setStatus('tap'); } }, 5 * 60000);
+  // The signal came back: send what was saved here meanwhile.
+  window.addEventListener('online', () => { if (st.on) { if (live()) sync(); else setStatus('tap'); } });
   window.addEventListener('storage', e => {
     if (e.key === KS || e.key === KT) {
       st = { ...fresh(), ...(get(KS) || {}) };

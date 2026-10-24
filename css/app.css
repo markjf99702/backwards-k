@@ -165,6 +165,7 @@ p { margin: 0 0 .6em; }
 .cloud .dot { position: absolute; right: 9px; bottom: 10px; width: 9px; height: 9px; border-radius: 50%; background: #3fbf6a; box-shadow: 0 0 0 2px var(--navy); }
 .cloud[data-s="busy"] .dot { background: #f5bd3a; }
 .cloud[data-s="tap"] .dot, .cloud[data-s="error"] .dot { background: #ff6450; }
+.cloud[data-s="offline"] .dot { background: var(--on-navy-2); }
 
 /* ---------- buttons, chips ---------- */
 .btn {

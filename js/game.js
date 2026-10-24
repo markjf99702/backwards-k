@@ -40,6 +40,7 @@ export function leaveGame() {
   G = S = root = null;
 }
 // Another tab, or Google Drive, changed what's stored (why is 'reload'), or this page saved something.
+let told = '';
 store.onChange(why => {
   if (!G || readOnly) return;
   const fresh = store.get(G.id);
@@ -49,7 +50,12 @@ store.onChange(why => {
     clearTimeout(soon.t);
     soon = null;
   }
-  if (fresh && fresh !== G) { G = fresh; S = replay(G); draw(); }
+  if (!fresh) {
+    if (why === 'reload' && told !== G.id) { told = G.id; toast('This game was deleted on another device. Keep scoring to bring it back.', { ms: 6000 }); }
+    return;
+  }
+  told = '';
+  if (fresh !== G) { G = fresh; S = replay(G); draw(); }
 });
 
 // ---------- keep the screen on during a game ----------
