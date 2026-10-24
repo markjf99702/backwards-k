@@ -473,6 +473,19 @@ step('a phone in the 7th: the Card tab opens on the batter’s box');
   await p.context().close();
 }
 
+step('everyday team names fit the bar on one line');
+for (const width of [360, 390]) {
+  const p = await playing(seventh(['Westside Thunder', 'Eastlake Lightning']), { width, height: 800 });
+  const fit = await p.evaluate(() => {
+    const t = document.querySelector('.bar .title'), names = [...t.querySelectorAll('b')].map(b => b.getBoundingClientRect().top);
+    return { title: t.scrollHeight, bar: document.querySelector('.bar-in').clientHeight, rows: new Set(names.map(Math.round)).size };
+  });
+  assert.ok(fit.title <= fit.bar, `${width}: the title is ${fit.title}px in a ${fit.bar}px bar`);
+  assert.equal(fit.rows, 1, `${width}: both names on one line`);
+  assert.match(await p.textContent('.bar .title'), /Westside Thunder\s*1\s*–\s*3\s*Eastlake Lightning/);
+  await p.context().close();
+}
+
 step('Fix runners only after a play with runners, or the batter safe');
 {
   const p = await phone();

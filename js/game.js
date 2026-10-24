@@ -167,7 +167,7 @@ function draw() {
   game.dataset.view = view;
   $('.side', root).dataset.pane = view === 'live' ? pane : view;
   $$('.vtabs button', root).forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === view || (view === 'live' && b.dataset.v === pane && wide()))));
-  $('.bar .title', root).innerHTML = `<b>${esc(teamName(G, 0))}</b> <span>${S.R[0]}</span><i>–</i><span>${S.R[1]}</span> <b>${esc(teamName(G, 1))}</b><small>${esc(halfLabel(S))}${G.date ? ' · ' + esc(fmtDate(G.date)) : ''}</small>`;
+  $('.bar .title', root).innerHTML = `<span class="score-line"><b>${esc(teamName(G, 0))}</b> <span class="r">${S.R[0]}</span><i>–</i><span class="r">${S.R[1]}</span> <b>${esc(teamName(G, 1))}</b></span><small>${esc(halfLabel(S))}${G.date ? ' · ' + esc(fmtDate(G.date)) : ''}</small>`;
   $('.live', root).innerHTML = liveHtml();
   const u = $('.bar .undo', root);
   if (u) {

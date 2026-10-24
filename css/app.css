@@ -146,11 +146,14 @@ p { margin: 0 0 .6em; }
 .brand svg { flex: none; }
 .back { flex: none; width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; text-decoration: none; }
 .back:hover { background: rgba(255, 255, 255, .08); }
-.title { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 6px; line-height: 1.1; }
-.title b { font: 800 20px/1.1 var(--board-font); letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40%; }
-.title span { font: 800 20px/1.1 var(--board-font); font-variant-numeric: tabular-nums; }
-.title i { font-style: normal; color: var(--on-navy-2); }
-.title small { flex-basis: 100%; font-size: 13px; color: var(--on-navy-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.title { flex: 1; min-width: 0; display: grid; align-content: center; line-height: 1.1; }
+.title b { min-width: 0; font: 800 20px/1.1 var(--board-font); letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The score on one line that never wraps: long team names give way, with an ellipsis. */
+.score-line { display: flex; align-items: baseline; column-gap: 6px; min-width: 0; }
+.score-line b { flex: 0 1 auto; }
+.title .r { flex: none; font: 800 20px/1.1 var(--board-font); font-variant-numeric: tabular-nums; }
+.title i { flex: none; font-style: normal; color: var(--on-navy-2); }
+.title small { font-size: 13px; color: var(--on-navy-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bar-btn {
   flex: none; display: inline-flex; align-items: center; gap: 6px; height: 44px; min-width: 44px; padding: 0 10px;
   border: 0; border-radius: 22px; background: transparent; color: var(--on-navy); font-weight: 650; font-size: 15px;
