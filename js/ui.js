@@ -8,6 +8,15 @@ export const isSingle = () => 'single' in document.documentElement.dataset;
 export const inFrame = () => { try { return window.top !== window.self; } catch { return true; } };
 export const SITE = 'https://backwards-k.junkdrawer.works/';
 
+// Moving between screens changes the part of the address after the #. Where the page is shown inside another page,
+// that change might not be announced, so if it isn't, the screen is switched directly.
+let router = null, shown = null;
+export const routes = { use(fn) { router = fn; }, shown(h) { shown = h; } };
+export function go(h, { replace = false } = {}) {
+  try { if (replace) location.replace(h); else location.hash = h; } catch { /* the address can't change here */ }
+  setTimeout(() => { if (router && shown !== h) router(h); }, 60);
+}
+
 // The app icon, drawn in place so the one-file copy needs no other files.
 export const ICON = '<svg viewBox="0 0 64 64" width="34" height="34" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#1c2a44"/><rect x="11" y="11" width="42" height="42" rx="3" fill="#fbf8f0"/><path d="M32 17 L47 32 L32 47 L17 32 Z" fill="none" stroke="#9cb3c9" stroke-width="1.6"/><g fill="none" stroke="#c0392b" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M41 19 V45"/><path d="M40 33 L25 19"/><path d="M34 28 L25 45"/></g></svg>';
 

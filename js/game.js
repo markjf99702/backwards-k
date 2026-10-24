@@ -9,7 +9,7 @@ import { blank } from './model.js';
 import { cardHtml, lineHtml, cellSvg } from './card.js';
 import { boxHtml, playsHtml } from './box.js';
 import { infieldSvg, fieldSvg, BASE_AT } from './field.js';
-import { $, $$, esc, openSheet, closeSheet, toast, KL, markHtml, fmtDate } from './ui.js';
+import { $, $$, esc, openSheet, closeSheet, toast, KL, markHtml, fmtDate, go } from './ui.js';
 import { drive } from './sync.js';
 import { shareSheet } from './share.js';
 import { helpSheet } from './help.js';
@@ -620,8 +620,8 @@ function menuSheet() {
           const g = G;
           closeSheet();
           store.remove(g.id); drive.changed();
-          location.hash = '#/';
-          toast('Game deleted.', { action: 'Undo', run: () => { store.save(g); drive.changed(); location.hash = '#/g/' + g.id; } });
+          go('#/');
+          toast('Game deleted.', { action: 'Undo', run: () => { store.save(g); drive.changed(); go('#/g/' + g.id); } });
         } else { y.dataset.armed = '1'; y.querySelector('b').textContent = 'Tap again to delete it'; }
       }
     }

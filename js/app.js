@@ -11,14 +11,15 @@ import { showGame, leaveGame } from './game.js';
 import { unpack } from './share.js';
 import { sampleGame } from './sample.js';
 import { cleanGame, uid } from './model.js';
-import { closeSheet, toast } from './ui.js';
+import { closeSheet, toast, go, routes } from './ui.js';
 import { drive } from './sync.js';
 
 const app = document.getElementById('app');
 let screen = '';
 
-async function route() {
-  const h = location.hash;
+async function route(to) {
+  const h = typeof to === 'string' ? to : location.hash;
+  routes.shown(h);
   closeSheet();
   if (screen === 'game') leaveGame();
   const fresh = () => { const el = document.createElement('div'); app.replaceChildren(el); return el; };
@@ -28,13 +29,13 @@ async function route() {
   if (h.startsWith('#s=')) {
     let g = null;
     try { g = cleanGame(await unpack(h.slice(3))); } catch { g = null; }
-    if (!g) { toast('That link didn’t come through whole. Ask for it again.'); location.replace('#/'); return; }
+    if (!g) { toast('That link didn’t come through whole. Ask for it again.'); go('#/', { replace: true }); return; }
     return open(fresh(), 'game', g, { shared: true, onSave: () => keep(g) });
   }
   const m = /^#\/g\/([\w-]+)/.exec(h);
   if (m) {
     const g = store.get(m[1]);
-    if (!g) { toast('That game isn’t on this device.'); location.replace('#/'); return; }
+    if (!g) { toast('That game isn’t on this device.'); go('#/', { replace: true }); return; }
     return open(fresh(), 'game', g);
   }
   if (h === '#/sample') {
@@ -55,18 +56,20 @@ function keep(g) {
   const mine = store.get(g.id);
   if (!mine || mine.updated < g.updated) store.add([g]);
   drive.changed();
-  location.hash = '#/g/' + g.id;
+  go('#/g/' + g.id);
   toast('Saved to your games.');
 }
 
-window.addEventListener('hashchange', route);
+window.addEventListener('hashchange', () => route());
+routes.use(route);
 // Links within the app only change the part after the #. Set it directly, so they work wherever the page is shown,
 // including inside another page whose address isn't this one.
 document.addEventListener('click', e => {
   const a = e.target.closest('a[href^="#"]');
   if (!a || e.defaultPrevented || e.metaKey || e.ctrlKey || e.shiftKey) return;
   e.preventDefault();
-  if (location.hash !== a.getAttribute('href')) location.hash = a.getAttribute('href'); else route();
+  const h = a.getAttribute('href');
+  if (location.hash !== h) go(h); else route(h);
 });
 store.onChange(() => { if (screen === 'home') showHome(app.firstElementChild); });
 route();

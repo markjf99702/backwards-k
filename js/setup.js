@@ -2,7 +2,7 @@
 // be changed once the game is going.
 import { newGame, blank, carryLineup, today } from './model.js';
 import { store } from './store.js';
-import { $, $$, esc, openSheet, closeSheet } from './ui.js';
+import { $, $$, esc, openSheet, closeSheet, go } from './ui.js';
 import { drive } from './sync.js';
 
 // Teams from earlier games, newest first, with the order they finished with.
@@ -124,7 +124,7 @@ export function showSetup(el) {
     });
     store.save(g);
     drive.changed();
-    location.hash = '#/g/' + g.id;
+    go('#/g/' + g.id);
   }
 
   function pasteSheet(side) {
