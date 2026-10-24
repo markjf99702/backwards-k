@@ -28,6 +28,7 @@ await mkdir(join(root, 'docs'), { recursive: true });
 
 // The sample game stopped partway: the 6th or later, one out, two on, and a count going.
 const full = sampleGame(7);
+full.date = '2026-06-13'; // a fixed day, or the date in the pictures would change every day
 let cut = full.ev.length;
 for (let i = 1; i < full.ev.length; i++) {
   const S = replay({ ...full, ev: full.ev.slice(0, i) });

@@ -12,7 +12,7 @@ written out in plain words.
   &nbsp;
   <img src="docs/phone-runners.png" alt="After a single with two on: a sheet showing where each runner and the batter ended up, with the usual moves already picked" width="250">
   &nbsp;
-  <img src="docs/phone-card.png" alt="The Comets' scorecard from a finished game: a grid of batters and innings, each box with a small diamond, the path around the bases, and marks like F8, 4-3 and a backwards K" width="250">
+  <img src="docs/phone-card.png" alt="The Comets' scorecard from a finished game, under the line score with R, H and E: a grid of batters and innings, each box with a small diamond, the path around the bases, and marks like F8, 4-3 and K" width="250">
 </p>
 
 ## How it works
