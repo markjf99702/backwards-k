@@ -112,6 +112,8 @@ export function showSetup(el) {
     });
     store.save(g);
     drive.changed();
+    // Ask the browser to keep this site's games when it clears space (it decides; nothing to do with the answer).
+    try { navigator.storage?.persist?.()?.catch(() => {}); } catch { /* not offered here */ }
     go('#/g/' + g.id);
   }
 

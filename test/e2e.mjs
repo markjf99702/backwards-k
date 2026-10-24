@@ -344,6 +344,14 @@ step('a browser that won’t store anything: the line says so from the start');
   await p.context().close();
 }
 
+step('starting a game asks the browser to keep this site’s games');
+{
+  const p = await phone(() => { navigator.storage.persist = () => { window.asked = (window.asked || 0) + 1; return Promise.resolve(false); }; });
+  await startGame(p);
+  assert.equal(await p.evaluate(() => window.asked), 1);
+  await p.context().close();
+}
+
 step('a file that isn’t a game says so');
 {
   const p = await phone();
