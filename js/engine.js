@@ -433,12 +433,13 @@ export function check(S, moves) {
   return '';
 }
 
-// When a play makes the third out, do the runs that crossed on it count? Not if the batter was out or the third
-// out was a force; usually yes otherwise (a runner scores before another is tagged out). The scorer can say.
+// When a play makes the third out, do the runs that crossed on it count? Not if the batter was out before reaching
+// first or the third out was a force; usually yes otherwise (a runner scores before another is tagged out, or
+// before the batter is thrown out stretching a hit: OBR 5.08(a)). The scorer can say.
 export function runsCount(S, code, moves) {
   const outs = S.outs + moves.filter(m => m[1] === 0).length;
   if (outs < 3) return true;
-  if (moves.some(m => m[0] === 0 && m[1] === 0)) return false;
+  if (moves.some(m => m[0] === 0 && m[1] === 0)) return RESULTS[code].kind !== 'out';
   return !['FC', 'DP', 'TP', 'GO'].includes(code);
 }
 

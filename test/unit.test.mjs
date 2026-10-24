@@ -177,13 +177,21 @@ test('runs on a play that makes the third out on a force don’t count', () => {
   let S = play(g, 'K', 'K', '1B', '1B', '1B');
   const m = [[0, 1], [1, 2], [2, 3], [3, 4]];
   assert.equal(runsCount(S, 'FC', [[0, 1], [1, 0], [2, 3], [3, 4]]), false);
-  assert.equal(runsCount(S, '1B', [[0, 0], [1, 2], [2, 3], [3, 4]]), false, 'batter out');
+  assert.equal(runsCount(S, 'GO', [[0, 0], [1, 2], [2, 3], [3, 4]]), false, 'batter out before reaching first');
   assert.equal(runsCount(S, '1B', [[0, 1], [1, 2], [2, 0], [3, 4]]), true, 'a runner thrown out after the run scored');
   assert.equal(runsCount(S, '1B', m), true);
   g.ev.push({ t: 'pa', r: 'FC', m: [[0, 1], [1, 0], [2, 3], [3, 4]], x: 1 });
   S = replay(g);
   assert.equal(S.R[0], 0);
   assert.equal(S.half, 1);
+});
+
+test('a batter thrown out stretching a hit for the third out: a run that crossed first counts (a time play)', () => {
+  const g = game();
+  const S = play(g, '2B', 'K', 'K');
+  assert.equal(runsCount(S, '1B', [[0, 0], [2, 4]]), true);
+  assert.equal(runsCount(S, 'E', [[0, 0], [2, 4]]), true);
+  assert.equal(runsCount(S, 'GO', [[0, 0], [2, 4]]), false, 'out at first: no run can score');
 });
 
 test('a runner who crosses the plate on the third out but doesn’t count is left on base', () => {
