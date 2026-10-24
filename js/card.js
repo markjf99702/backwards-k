@@ -107,7 +107,7 @@ export function cardHtml(S, side, { live = true } = {}) {
   const rows = [['R', S.line[side]], ['H', S.hInn[side]], ['E', S.eInn[side]], ['LOB', S.lob[side]]];
   const tot = { R: S.R[side], H: S.H[side], E: S.eInn[side].reduce((a, b) => a + (b || 0), 0), LOB: S.lob[side].reduce((a, b) => a + (b || 0), 0) };
   for (const [name, arr] of rows) {
-    h += `<tr><th class="who" scope="row">${name}</th>`;
+    h += `<tr><th class="who" scope="row"${name === 'E' ? ' title="Errors by the other team while these batters were up"' : ''}>${name}</th>`;
     for (const [inn, n] of Object.entries(span)) {
       const v = arr[inn - 1];
       h += `<td colspan="${n}">${v == null || (name === 'LOB' && S.line[side][inn - 1] == null) ? '' : v}</td>`;

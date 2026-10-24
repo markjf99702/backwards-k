@@ -6,7 +6,7 @@ import { newGame, cleanGame, cleanDoc, parseLineup } from '../js/model.js';
 import { sampleGame } from '../js/sample.js';
 // The card is drawn with ui.js, which looks for the page's sheet as it loads: here there's no page, so no sheet.
 globalThis.document ??= { readyState: 'complete', getElementById: () => null };
-const { lineHtml, cellSvg } = await import('../js/card.js');
+const { lineHtml, cellSvg, cardHtml } = await import('../js/card.js');
 
 const game = (opts = {}) => newGame({ away: 'Foxes', home: 'Comets', ...opts });
 // Plays one event after another, filling in the suggested runner moves the way the app does.
@@ -673,6 +673,8 @@ test('a game scored by hand: every batting and pitching line', () => {
   ]);
   assert.deepEqual([scorersProof(S, 0), scorersProof(S, 1)], [[14, 14], [12, 12]]);
   assert.equal(S.cells.find(c => c.side === 1 && c.slot === 2 && c.inn === 1).outHow, '6-4');
+  // The E under each card is the other team's errors, which the line score lists against them.
+  assert.match(cardHtml(S, 1), /title="Errors by the other team while these batters were up">E<\/th><td colspan="1">2<\/td><td colspan="1">0<\/td>/);
 });
 
 // Each event replayed from scratch gives what replaying it all at once gives (so undo is safe).

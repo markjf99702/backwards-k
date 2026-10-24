@@ -589,7 +589,7 @@ li.scored { border-left: 4px solid var(--red); }
 @media (min-width: 560px) { .examples { grid-template-columns: 1fr 1fr; } }
 .ex { display: grid; grid-template-columns: 76px 1fr; gap: 10px; align-items: center; }
 .ex p { margin: 0; font-size: 15px; }
-.marks { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; margin: 0; font-size: 15px; }
+.marks { display: grid; grid-template-columns: fit-content(42%) 1fr; gap: 6px 14px; margin: 0; font-size: 15px; }
 .marks dt { font-family: var(--hand); color: var(--red); font-size: 16px; }
 .marks dd { margin: 0; }
 .tips { padding-left: 1.1em; margin: 0; display: grid; gap: 8px; font-size: 15.5px; }

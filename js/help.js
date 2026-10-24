@@ -30,15 +30,22 @@ export function helpSheet() {
       <dt>BB</dt><dd>Walk (base on balls). IBB is intentional</dd>
       <dt>HBP</dt><dd>Hit by pitch</dd>
       <dt>K, ${KL}</dt><dd>Strikeout swinging, and looking</dd>
+      <dt>K and a line to first</dt><dd>Struck out, but reached first on a dropped third strike</dd>
       <dt>FC</dt><dd>Fielder’s choice: safe because they got another runner out</dd>
       <dt>E6</dt><dd>Error, by the fielder with that number</dd>
+      <dt>CI</dt><dd>Catcher’s interference: the batter goes to first, and the catcher is charged with an error</dd>
       <dt>SF, SAC</dt><dd>Sacrifice fly, sacrifice bunt</dd>
       <dt>DP, TP</dt><dd>Double play, triple play</dd>
+      <dt>3U</dt><dd>Unassisted: the first baseman made the out alone</dd>
       <dt>SB, CS, PO</dt><dd>Stolen base, caught stealing, picked off</dd>
+      <dt>A line with a bar</dt><dd>Put out trying for that base</dd>
       <dt>WP, PB, BK</dt><dd>Wild pitch, passed ball, balk</dd>
       <dt>A small number</dt><dd>Moved up on that batter’s play (by their place in the order)</dd>
       <dt>2-1</dt><dd>The count when the at-bat ended (balls, then strikes)</dd>
       <dt>Red line</dt><dd>Under the last batter of an inning</dd>
+      <dt>PH, PR, in</dt><dd>Pinch hitter, pinch runner, a substitute in the field. A crossed-out name has left the game</dd>
+      <dt>R H E LOB</dt><dd>Under the card, inning by inning: runs, hits, the other team’s errors, and runners left on base</dd>
+      <dt>X</dt><dd>On the line score: the home team didn’t need to bat</dd>
     </dl>
     <h3>Keeping score here</h3>
     <ul class="tips">
