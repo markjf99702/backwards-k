@@ -159,6 +159,36 @@ test('the bottom of the last inning isn’t played when the home team is already
   assert.equal(S.inn, 2);
 });
 
+test('Keep playing after the final finishes that half-inning, and then the game is over', () => {
+  // The home team leads after the top of the 2nd: Final, with an X. Keep playing, and the bottom half is played.
+  const g = game({ innings: 2 });
+  let S = play(g, ...threeK, 'HR', ...threeK, ...threeK, { t: 'on' }, '1B', 'HR');
+  assert.equal(S.over, false, 'no walk-off while finishing the half');
+  assert.equal(S.R[1], 3);
+  S = play(g, ...threeK);
+  assert.equal(S.over, true);
+  assert.equal(halfLabel(S), 'Final');
+  assert.deepEqual(S.line, [[0, 0], [1, 2]]);
+  // A walk-off, then Keep playing: the rest of the half, then it's over.
+  const w = game({ innings: 1 });
+  S = play(w, ...threeK, '1B', 'HR', { t: 'on' }, 'HR', 'K', 'K');
+  assert.equal(S.over, false);
+  S = play(w, 'K');
+  assert.equal(S.over, true);
+  assert.equal(S.inn, 1);
+  assert.equal(S.R[1], 3);
+});
+
+test('a called game that picks up again ends the usual way', () => {
+  const g = game({ innings: 1 });
+  let S = play(g, ...threeK, { t: 'end' });
+  assert.equal(halfLabel(S), 'Called');
+  S = play(g, { t: 'on' }, 'K', 'HR');
+  assert.equal(S.over, true, 'a walk-off home run');
+  assert.equal(halfLabel(S), 'Final');
+  assert.equal(S.R[1], 1);
+});
+
 test('plays saved after what is now the final (fewer innings set since) stay with the team that was batting', () => {
   const g = game();
   play(g, 'HR', ...threeK, ...threeK, ...threeK, ...threeK, '1B', ...threeK, '1B', ...threeK);

@@ -162,9 +162,11 @@ function step(S, e) {
   }
 }
 
-// Keep playing, after the game was over or called.
+// Keep playing, after the game was over or called. After a final, the half-inning is played out (the home team
+// going ahead doesn't end it again) and the game ends when it's over; a called game goes on as usual.
 function resume(S) {
-  S.over = false; S.ended = false; S.hold = true;
+  S.hold = S.over && !S.ended;
+  S.over = false; S.ended = false;
   if (S.between) nextHalf(S);
 }
 
@@ -363,7 +365,7 @@ function endHalf(S, called) {
   if (S.last) S.last.end = true;
   const text = `End of the ${side ? 'bottom' : 'top'} of the ${ord(S.inn)}${called ? ' (called)' : ''}: ${teamName(S.g, 0)} ${S.R[0]}, ${teamName(S.g, 1)} ${S.R[1]}.`;
   S.plays.push({ i: S.i, inn: S.inn, half: side, text, kind: 'end', runs: 0 });
-  if (!S.hold && S.inn >= S.g.innings) {
+  if (S.inn >= S.g.innings) {
     if (side === 0 && S.R[1] > S.R[0]) S.over = true;
     if (side === 1 && S.R[0] !== S.R[1]) S.over = true;
   }

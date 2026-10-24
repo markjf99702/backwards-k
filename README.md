@@ -27,6 +27,9 @@ written out in plain words.
 - **The scorecard fills itself in.** Each box has the path around the bases, the out number, the count and the RBIs,
   and a strikeout looking gets its backwards K. Tap any box to read what happened, or to fix it.
 - **Undo anything.** A game is a list of what happened, so Undo takes the last thing back, as many times as you like.
+- **It knows when the game is over.** Final comes when the last inning is decided, or the moment the home team goes
+  ahead in it. **Keep playing** after a Final finishes that half-inning; a game you ended early (rain, a mercy rule)
+  picks up where it stopped and ends the usual way.
 - **Phone or tablet.** On a phone the buttons, the card, the box score and the play-by-play are tabs. On a tablet the
   buttons and the card sit side by side, and the card fills in while you watch.
 - **Lineups when you want them.** Start with two team names, and name batters as they come up, paste a lineup, or
