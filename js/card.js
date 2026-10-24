@@ -5,8 +5,11 @@ import { esc } from './ui.js';
 
 // The diamond in a 60 x 60 box: home, first, second, third.
 const PT = [[30, 51], [49, 32], [30, 13], [11, 32], [30, 51]];
-// Where the note for reaching each base goes: beside the base path that ends there, outside the diamond.
-const NOTE = [null, [46, 50, 'start'], [58, 17, 'end'], [2, 17, 'start'], [2, 50, 'start']];
+// Where the note for reaching each base goes: beside the base path that ends there, outside the diamond (at third,
+// below the circled out number).
+const NOTE = [null, [46, 50, 'start'], [58, 17, 'end'], [2, 22, 'start'], [2, 50, 'start']];
+// Picked off a base: inside the diamond by that base, so it's clear of the note for how they got there.
+const INSIDE = [null, [41, 34, 'end'], [30, 26, 'middle'], [19, 34, 'start']];
 const pts = n => PT.slice(0, n + 1).map(p => p.join(',')).join(' ');
 const mid = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
 
@@ -23,7 +26,7 @@ export function cellSvg(c, { count = true } = {}) {
     const dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy), nx = -dy / l * 4, ny = dx / l * 4;
     s += `<line class="path" x1="${a[0]}" y1="${a[1]}" x2="${m[0]}" y2="${m[1]}"/><line class="path" x1="${m[0] - nx}" y1="${m[1] - ny}" x2="${m[0] + nx}" y2="${m[1] + ny}"/>`;
     if (c.outHow) s += note(Math.min(c.outAt, 4), c.outHow);
-  } else if (c.outN && c.outAt && c.outAt <= c.reach && c.outHow) s += note(c.outAt, c.outHow); // picked off
+  } else if (c.outN && c.outAt && c.outAt <= c.reach && c.outHow) s += note(c.outAt, c.outHow, INSIDE); // picked off
   for (let b = 1; b <= 4; b++) if (c.notes[b]) s += note(b, c.notes[b]);
 
   const m = c.mark || '';
@@ -38,16 +41,16 @@ export function cellSvg(c, { count = true } = {}) {
       if (b) s += `<text class="sub" x="30" y="44">${esc(b)}</text>`;
     }
   } else if (m) {
-    s += `<text class="mk" x="58" y="58">${esc(m)}</text>`;
+    s += `<text class="mk${m.length > 4 ? ' sm' : ''}" x="58" y="58">${esc(m)}</text>`;
   }
   if (c.outN) s += `<circle class="on" cx="7.5" cy="7.5" r="5.6"/><text class="onn" x="7.5" y="10.3">${c.outN}</text>`;
   if (count && c.seq) s += `<text class="ct" x="58" y="8">${c.count[0]}-${c.count[1]}</text>`;
-  for (let i = 0; i < Math.min(c.rbi, 4); i++) s += `<circle class="rbi" cx="${4 + i * 4.6}" cy="56" r="1.7"/>`;
+  for (let i = 0; i < Math.min(c.rbi, 4); i++) s += `<circle class="rbi" cx="${4 + i * 4.6}" cy="53.5" r="1.7"/>`;
   return s + '</svg>';
 }
 // Just the first word fits in the box ("CS", not "CS 2-6"); tapping the box tells the rest.
-function note(b, t) {
-  const [x, y, anchor] = NOTE[b];
+function note(b, t, at = NOTE) {
+  const [x, y, anchor] = at[b];
   t = String(t).split(' ')[0];
   return `<text class="nt" x="${x}" y="${y}" text-anchor="${anchor}">${esc(t)}</text>`;
 }

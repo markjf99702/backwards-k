@@ -122,7 +122,11 @@ export function replay(g) {
   };
   g.ev.forEach((e, i) => { S.i = i; step(S, e); });
   S.i = g.ev.length;
-  if (S.over && !S.between) S.lob[S.half][S.inn - 1] = [1, 2, 3].filter(b => S.bases[b]).length + S.waved;
+  // Over in the middle of a half-inning (a walk-off, or called): it ends here, with the runners still on.
+  if (S.over && !S.between) {
+    S.lob[S.half][S.inn - 1] = [1, 2, 3].filter(b => S.bases[b]).length + S.waved;
+    if (S.last) S.last.end = true;
+  }
   return S;
 }
 

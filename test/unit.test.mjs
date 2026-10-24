@@ -182,6 +182,35 @@ test('the home team wins as soon as it goes ahead in the last inning', () => {
   assert.equal(S.R[1], 2);
 });
 
+test('a walk-off’s last box gets the red line under it, like the end of any inning', () => {
+  const S = play(game({ innings: 1 }), ...threeK, '1B', 'HR');
+  assert.equal(S.over, true);
+  assert.equal(S.cells.at(-1).end, true);
+  assert.equal(S.cells.at(-2).end, false);
+});
+
+test('the marks in a box don’t print over each other', () => {
+  const at = (svg, word) => [...svg.matchAll(/<text class="(\w+)" x="([\d.]+)" y="([\d.]+)"[^>]*>([^<]*)</g)].filter(m => m[4] === word).map(m => m[2] + ',' + m[3]);
+  // Stole second and was picked off there: the PO goes inside the diamond, not on the SB.
+  let S = play(game(), '1B', { t: 'r', m: [[1, 2, 'SB']] }, { t: 'r', m: [[2, 0, 'PO', [2, 6]]] });
+  let svg = cellSvg(S.cells[0]);
+  assert.equal(at(svg, 'SB').length, 1);
+  assert.equal(at(svg, 'PO').length, 1);
+  assert.notDeepEqual(at(svg, 'PO'), at(svg, 'SB'));
+  // Walked and picked off first: the PO is clear of the BB in the corner.
+  S = play(game(), 'BB', { t: 'r', m: [[1, 0, 'PO', [1, 3]]] });
+  svg = cellSvg(S.cells[0]);
+  assert.notDeepEqual(at(svg, 'PO'), at(svg, 'BB'));
+  // A note at third sits below the circled out number, not under it.
+  S = play(game(), '2B', { t: 'r', m: [[2, 3, 'SB']] }, 'K', 'K', 'K');
+  const y = +at(cellSvg(S.cells[0]), 'SB')[0].split(',')[1];
+  assert.ok(y - 7 > 7.5 + 5.6, 'the SB at third (capitals about 7 high) clears the circle in the corner');
+  // A long mark in the corner is drawn smaller, clear of home plate.
+  S = play(game(), '1B', 'FC 6 4');
+  assert.match(cellSvg(S.cells[1]), /class="mk sm"[^>]*>FC 6-4</);
+  assert.match(cellSvg(S.cells[0]), /class="mk"[^>]*>1B</);
+});
+
 test('the bottom of the last inning isn’t played when the home team is already ahead', () => {
   const g = game({ innings: 2 });
   let S = play(g, ...threeK, 'HR', ...threeK, ...threeK);
