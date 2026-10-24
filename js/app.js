@@ -54,8 +54,8 @@ function open(el, name, g, opts) {
 // Someone else's game (or the sample) goes into this device's games.
 function keep(g) {
   const mine = store.get(g.id);
-  let ok = true;
-  if (!mine || mine.updated < g.updated) ({ ok } = store.add([g]));
+  if (mine && mine.updated >= g.updated) { go('#/g/' + g.id); toast('You already have this game.'); return; }
+  const { ok } = store.add([g]);
   drive.changed();
   go('#/g/' + g.id);
   if (ok) toast('Saved to your games.'); else toast(`Couldn’t save it: ${whyNot(store.problem())}.`, { ms: 6000 });

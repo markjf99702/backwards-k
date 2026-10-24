@@ -167,6 +167,11 @@ await fp.click('[data-a=keep]');
 await fp.waitForSelector('.live .field');
 await fp.goto(base);
 assert.equal(await fp.locator('.gi').count(), 1);
+// The same link again: there's nothing new in it.
+await fp.goto(base + link.slice(link.indexOf('#')));
+await fp.click('[data-a=keep]');
+await fp.waitForSelector('.live .field');
+assert.equal(await fp.textContent('#toast'), 'You already have this game.');
 await friend.close();
 
 step('the sample game');
@@ -336,6 +341,17 @@ step('a browser that won’t store anything: the line says so from the start');
   assert.match(await p.textContent('.trouble'), /This browser isn’t letting Backwards K save/);
   await p.click('[data-p=b]');
   assert.equal(await shown(p), '');
+  await p.context().close();
+}
+
+step('a file that isn’t a game says so');
+{
+  const p = await phone();
+  await p.goto(base);
+  const [chooser] = await Promise.all([p.waitForEvent('filechooser'), p.click('[data-a=import]')]);
+  await chooser.setFiles({ name: 'notes.json', mimeType: 'application/json', buffer: Buffer.from('{"hello":"world"}') });
+  await p.waitForFunction(() => !document.getElementById('toast').hidden);
+  assert.equal(await shown(p), 'That file isn’t a Backwards K backup or game.');
   await p.context().close();
 }
 

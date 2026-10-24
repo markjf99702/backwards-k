@@ -2,7 +2,7 @@
 import { replay, teamName, halfLabel } from './engine.js';
 import { store } from './store.js';
 import { $, esc, fmtDate, toast, download, pickFile, inFrame, ICON, whyNot } from './ui.js';
-import { today } from './model.js';
+import { today, cleanGame } from './model.js';
 import { drive } from './sync.js';
 import { helpSheet } from './help.js';
 
@@ -62,6 +62,7 @@ export function showHome(el) {
       let data;
       try { data = JSON.parse(await f.text()); } catch { return toast('That file isn’t a Backwards K backup or game.'); }
       const list = data && data.games ? Object.values(data.games) : data && data.game ? [data.game] : [data];
+      if (!list.some(g => cleanGame(g))) return toast('That file isn’t a Backwards K backup or game.');
       const { n, ok } = store.add(list);
       drive.changed();
       if (!ok) toast(`Couldn’t save ${n > 1 ? 'those games' : 'that game'}: ${whyNot(store.problem())}.`, { ms: 6000 });
