@@ -370,6 +370,18 @@ test('a runner who crosses the plate on the third out but doesn’t count is lef
   assert.match(S.text[g.ev.length - 1], /Batter 3 crosses the plate, but the run doesn’t count\./);
 });
 
+const sum = a => a.reduce((x, y) => x + y, 0);
+// The scorer's proof of a team's box score (OBR 9.03(c)): at-bats, walks, hit batters, sacrifices and catcher's
+// interference on one side; runs, runners left on base and the other team's putouts on the other.
+function scorersProof(S, side) {
+  const lines = Object.entries(S.bat).filter(([k]) => k.startsWith(side + '.')).map(([, b]) => b);
+  const cells = S.cells.filter(c => c.side === side), n = r => cells.filter(c => c.r === r).length;
+  return [
+    sum(lines.map(b => b.ab + b.bb + b.hbp)) + n('SAC') + n('SF') + n('CI'),
+    S.R[side] + sum(S.lob[side].map(x => x || 0)) + sum(S.pitching[1 - side].map(p => p ? p.outs : 0)),
+  ];
+}
+
 // Every trip to the plate in a half-inning ends as a run, a runner left on base or an out (OBR 9.03(c)).
 function proof(S, side, inn) {
   const cells = S.cells.filter(c => c.side === side && c.inn === inn);
@@ -563,6 +575,16 @@ test('simulated games add up', () => {
       assert.equal(hits, S.H[side], `seed ${seed}: hits`);
       const scoredCells = S.cells.filter(c => c.side === side && c.scored).length;
       assert.equal(scoredCells, S.R[side], `seed ${seed}: scored boxes`);
+      const [bats, ends] = scorersProof(S, side);
+      assert.equal(bats, ends, `seed ${seed}: AB + BB + HBP + SH + SF + CI = R + LOB + putouts (OBR 9.03(c))`);
+      const pas = S.cells.filter(c => c.side === side).length;
+      assert.equal(sum(Object.entries(S.bat).filter(([k]) => k.startsWith(side + '.')).map(([, b]) => b.pa)), pas, `seed ${seed}: batters’ PA`);
+      assert.equal(sum(S.pitching[1 - side].map(p => p ? p.bf : 0)), pas, `seed ${seed}: batters faced`);
+    }
+    // No run counts on a play whose third out is the batter put out before reaching first (OBR 5.08(a)).
+    for (const p of S.plays) {
+      const c = p.kind === 'pa' && S.cells[p.cell];
+      if (c && c.outN === 3 && !c.reach) assert.equal(p.runs, 0, `seed ${seed}: ${p.text}`);
     }
     // The box-score proof, every half-inning: each trip to the plate ends as a run, a runner left on or an out.
     for (const side of [0, 1]) for (let inn = 1; inn <= S.line[side].length; inn++) {
@@ -577,6 +599,80 @@ test('simulated games add up', () => {
     const ends = S.plays.filter(p => p.kind === 'end').length;
     assert.ok(ends >= (g.innings * 2 - 2), `seed ${seed}: enough innings`);
   }
+});
+
+// A three-inning game scored by hand, with the box score worked out on paper: walks, a sacrifice bunt and fly, a
+// dropped third strike, a pickoff, a pinch runner, catcher's interference, a passed ball and a balk, a double play
+// with a run scoring, a line drive doubled off, caught stealing, a hit batter, an error by the catcher, and the
+// three changes mid-play from OBR 9.15(b), 9.16(g) and 9.16(h).
+test('a game scored by hand: every batting and pitching line', () => {
+  const g = game({ innings: 3 });
+  g.teams[1].lineup[0].push({ name: 'Runner', num: '' });
+  g.teams[1].lineup[2].push({ name: 'Pinch', num: '' });
+  g.teams[0].pitchers.push({ name: 'Relief', num: '' });
+  g.teams[1].pitchers.push({ name: 'Relief', num: '' });
+  const pa = (r, m, f) => ({ t: 'pa', r, m, ...(f ? { f } : {}) });
+  const S = play(g,
+    // Top 1: a new pitcher at 3-0 walks the leadoff man; he scores on the sacrifice fly.
+    P('b'), P('b'), P('b'), { t: 'pch', s: 1, i: 1 }, P('b'),
+    pa('SAC', [[0, 0], [1, 2]], [1, 3]), pa('IBB', [[0, 1], [2, 2]]), { t: 'r', m: [[2, 3, 'WP'], [1, 2, 'WP']] },
+    pa('SF', [[0, 0], [3, 4], [2, 2]], [8]), pa('KD', [[0, 1], [2, 2]]), { t: 'r', m: [[1, 0, 'PO', [1, 3]]] },
+    // Bottom 1: a pinch runner steals and scores on a double play; catcher's interference, and an error brings in a run.
+    pa('1B', [[0, 1]]), { t: 'sub', s: 1, slot: 0, i: 1, ty: 'pr' }, { t: 'r', m: [[1, 2, 'SB']] },
+    pa('CI', [[0, 1], [2, 2]]), { t: 'r', m: [[2, 3, 'PB'], [1, 2, 'PB']] }, pa('BB', [[0, 1], [2, 2], [3, 3]]),
+    pa('DP', [[0, 0], [1, 0], [2, 3], [3, 4]], [6, 4, 3]), pa('E', [[0, 1], [3, 4]], [6]), { t: 'r', m: [[1, 2, 'BK']] },
+    P('s'), P('s'), P('s'),
+    // Top 2: a home run, a line drive doubled off, a triple, a single that drives it in, and caught stealing.
+    pa('HR', [[0, 4]]), pa('1B', [[0, 1]]), pa('LO', [[0, 0], [1, 0]], [4, 3]), pa('3B', [[0, 3]]),
+    pa('1B', [[0, 1], [3, 4]]), { t: 'r', m: [[1, 0, 'CS', [2, 6]]] },
+    // Bottom 2: a hit batter, a new pitcher, a force at second, a double; a pinch hitter at 0-2 strikes out.
+    pa('HBP', [[0, 1]]), { t: 'pch', s: 0, i: 1 }, pa('FC', [[0, 1], [1, 0]], [6, 4]), pa('2B', [[0, 2], [1, 4]]),
+    pa('GO', [[0, 0], [2, 3]], [4, 3]), pa('1B', [[0, 1], [3, 4]]), P('c'), P('s'),
+    { t: 'sub', s: 1, slot: 2, i: 1, ty: 'ph' }, P('s'),
+    // Top 3: a walk, a throwing error by the catcher, and two outs that leave him on third. The Comets win 4-3.
+    pa('K', [[0, 0]]), pa('BB', [[0, 1]]), { t: 'r', m: [[1, 2, 'E', [2]]] }, pa('GO', [[0, 0], [2, 3]], [6, 3]),
+    pa('PU', [[0, 0], [3, 3]], [5]),
+  );
+  assert.equal(halfLabel(S), 'Final');
+  assert.deepEqual([S.line, S.R, S.H, S.E, S.lob], [[[1, 2, 0], [2, 2]], [3, 4], [4, 3], [2, 1], [[1, 0, 1], [1, 1]]]);
+  assert.deepEqual(lineRow(S, 1).slice(0, 3), ['2', '2', 'X']);
+  // PA AB R H RBI BB K HBP SB CS, then doubles, triples and home runs.
+  const bat = k => { const b = S.bat[k]; return b && [b.pa, b.ab, b.r, b.h, b.rbi, b.bb, b.k, b.hbp, b.sb, b.cs, b.d, b.t, b.hr].join(' '); };
+  assert.deepEqual(Object.keys(S.bat).sort().map(k => k + ': ' + bat(k)), [
+    '0.0.0: 2 1 1 1 1 1 0 0 0 1 0 0 0', // BB (the starter's), 1B with an RBI, caught stealing
+    '0.1.0: 2 1 0 0 0 0 1 0 0 0 0 0 0', // SAC, K
+    '0.2.0: 2 0 0 0 0 2 0 0 0 0 0 0 0', // IBB, BB
+    '0.3.0: 2 1 0 0 1 0 0 0 0 0 0 0 0', // SF8, 6-3
+    '0.4.0: 2 2 0 0 0 0 1 0 0 0 0 0 0', // dropped third strike, P5
+    '0.5.0: 1 1 1 1 1 0 0 0 0 0 0 0 1', // HR
+    '0.6.0: 1 1 0 1 0 0 0 0 0 0 0 0 0', // 1B, doubled off
+    '0.7.0: 1 1 0 0 0 0 0 0 0 0 0 0 0', // L4 double play
+    '0.8.0: 1 1 1 1 0 0 0 0 0 0 0 1 0', // 3B
+    '1.0.0: 1 1 0 1 0 0 0 0 0 0 0 0 0', // 1B, then a pinch runner
+    '1.0.1: 1 1 1 0 0 0 0 0 1 0 0 0 0', // the pinch runner: SB, scored, then 4-3
+    '1.1.0: 2 1 1 1 1 0 0 0 0 0 0 0 0', // CI, scored; 1B with an RBI
+    '1.2.0: 2 1 0 0 0 1 1 0 0 0 0 0 0', // BB; the strikeout his pinch hitter finished (9.15(b))
+    '1.3.0: 1 1 0 0 0 0 0 0 0 0 0 0 0', // 6-4-3 DP: a run scores, no RBI (9.04(b)(1))
+    '1.4.0: 1 1 0 0 0 0 0 0 0 0 0 0 0', // E6: a run scores, no RBI
+    '1.5.0: 1 1 0 0 0 0 1 0 0 0 0 0 0', // K
+    '1.6.0: 1 0 0 0 0 0 0 1 0 0 0 0 0', // HBP, forced at second
+    '1.7.0: 1 1 1 0 0 0 0 0 0 0 0 0 0', // FC 6-4, scored
+    '1.8.0: 1 1 1 1 1 0 0 0 0 0 1 0 0', // 2B with an RBI, scored
+  ]);
+  // Outs BF H R BB K HR HBP WP BK, pitches and strikes.
+  const pit = p => [p.outs, p.bf, p.h, p.r, p.bb, p.k, p.hr, p.hbp, p.wp, p.bk, p.np, p.str].join(' ');
+  assert.deepEqual(S.pitching.map(t => t.map(pit)), [
+    [
+      '3 7 1 3 1 1 0 1 0 1 9 7', // the visitors' starter: the runner forced at second was his, so the run is too (9.16(g))
+      '3 5 2 1 0 1 0 0 0 0 7 7',
+    ],
+    [
+      '0 1 0 1 1 0 0 0 0 0 3 0', // the home starter: three balls, and the walk and the run that came of it (9.16(h))
+      '9 13 4 2 2 2 1 0 1 0 13 11',
+    ],
+  ]);
+  assert.deepEqual([scorersProof(S, 0), scorersProof(S, 1)], [[14, 14], [12, 12]]);
+  assert.equal(S.cells.find(c => c.side === 1 && c.slot === 2 && c.inn === 1).outHow, '6-4');
 });
 
 // Each event replayed from scratch gives what replaying it all at once gives (so undo is safe).
