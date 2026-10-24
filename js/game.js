@@ -34,14 +34,21 @@ export function showGame(el, game, opts = {}) {
   wake(true);
 }
 export function leaveGame() {
+  flush();
   if (root) { root.removeEventListener('click', onClick); root.removeEventListener('keydown', onKey); }
   wake(false);
   G = S = root = null;
 }
-// Another tab, or Google Drive, changed this game.
-store.onChange(() => {
+// Another tab, or Google Drive, changed what's stored (why is 'reload'), or this page saved something.
+store.onChange(why => {
   if (!G || readOnly) return;
   const fresh = store.get(G.id);
+  if (why === 'reload' && soon && soon.g === G) {
+    // A name typed a moment ago isn't saved yet: it goes in, unless the game changed somewhere else meanwhile.
+    if (fresh && fresh.updated <= G.updated) return flush();
+    clearTimeout(soon.t);
+    soon = null;
+  }
   if (fresh && fresh !== G) { G = fresh; S = replay(G); draw(); }
 });
 
@@ -59,7 +66,12 @@ async function wake(on) {
     } else if (!on && lock) { const l = lock; lock = null; await l.release(); }
   } catch { lock = null; } finally { asking = false; }
 }
-document.addEventListener('visibilitychange', () => { if (wantLock && document.visibilityState === 'visible') wake(true); });
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') flush();
+  else if (wantLock) wake(true);
+});
+// The page is going away (closed, reloaded, or put away by the phone): a name typed a moment ago is saved first.
+window.addEventListener('pagehide', flush);
 
 // ---------- changing the game ----------
 function act(e) {
@@ -74,12 +86,22 @@ function save() {
   S = replay(G);
   draw();
 }
-// Names and settings changed: save, but nothing about the game itself moved.
-let nameT = null;
+// Names and settings changed: save, but nothing about the game itself moved. The save waits for a pause in the
+// typing, and remembers which game it's for in case the screen changes first.
+let soon = null;
 function saveSoon() {
-  clearTimeout(nameT);
   S = replay(G);
-  nameT = setTimeout(() => { store.save(G); drive.changed(); }, 400);
+  if (soon) clearTimeout(soon.t);
+  soon = { g: G, t: setTimeout(flush, 400) };
+}
+// Saves a name change that's still waiting, straight away.
+function flush() {
+  if (!soon) return;
+  const { g, t } = soon;
+  soon = null;
+  clearTimeout(t);
+  store.save(g);
+  drive.changed();
 }
 function undo() {
   const e = G.ev.pop();

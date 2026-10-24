@@ -255,6 +255,26 @@ step('Fix runners, then Cancel, while a name is being saved: nothing is lost');
   assert.equal(await plays(p, id), 'pa1B');
   assert.equal((await stored(p, id)).teams[0].lineup[1][0].name, 'Okafor');
   assert.match(await p.textContent('.ticker p'), /singles/);
+
+  step('a name still waiting to be saved when another tab saves is kept, and so is the next pitch');
+  await p.click('[data-a=batter]');
+  await p.fill('.sheet [data-f=name]', 'Han');
+  await p.click('.sheet [data-close]');
+  await p.evaluate(async () => (await import('./js/store.js')).store.reload()); // what another tab's save does here
+  await p.click('[data-p=b]');
+  await p.waitForTimeout(500);
+  assert.equal((await stored(p, id)).teams[0].lineup[1][0].name, 'Han');
+  assert.equal(await plays(p, id), 'pa1B p');
+
+  step('a name typed just before leaving the game is saved');
+  await p.click('[data-a=batter]');
+  await p.fill('.sheet [data-f=name]', 'Ruiz Jr');
+  await p.click('.sheet [data-close]');
+  await p.click('.bar .back');
+  await p.waitForSelector('.hero');
+  await p.reload();
+  await p.waitForSelector('.hero');
+  assert.equal((await stored(p, id)).teams[0].lineup[1][0].name, 'Ruiz Jr');
   await p.context().close();
 }
 

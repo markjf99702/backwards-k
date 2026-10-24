@@ -11,7 +11,7 @@ function read() {
 function write() {
   try { localStorage.setItem(KEY, canon(doc)); return true; } catch { return false; }
 }
-const tell = () => listeners.forEach(f => { try { f(); } catch (e) { console.error(e); } });
+const tell = why => listeners.forEach(f => { try { f(why); } catch (e) { console.error(e); } });
 
 export const store = {
   all: () => Object.values(doc.games).sort((a, b) => b.updated - a.updated),
@@ -48,7 +48,8 @@ export const store = {
   },
   doc: () => doc,
   // Drive (or another tab) changed what's stored: read it again.
-  reload() { doc = read(); tell(); },
+  reload() { doc = read(); tell('reload'); },
+  // f(why) runs after every change; why is 'reload' when it came from Drive or another tab.
   onChange(f) { listeners.push(f); },
 };
 
