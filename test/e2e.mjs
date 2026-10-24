@@ -37,6 +37,9 @@ const ticker = () => page.locator('.ticker p').textContent();
 const bases = () => page.evaluate(() => [...document.querySelectorAll('.runner')].map(r => r.dataset.runner + ':' + r.textContent.trim()).join(' '));
 const fitsPhone = async what => assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `${what} scrolls sideways`);
 const step = name => console.log('·', name);
+// Where an element is, and whether it's wholly inside another one.
+const box = (p, sel) => p.evaluate(sel => { const r = document.querySelector(sel).getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom }; }, sel);
+const inside = (a, b) => a.left >= b.left - 0.5 && a.right <= b.right + 0.5 && a.top >= b.top - 0.5 && a.bottom <= b.bottom + 0.5;
 
 await page.goto(base);
 await page.evaluate(() => document.fonts.ready);
@@ -212,6 +215,9 @@ await tap('[data-y=delete]');
 await tap('[data-y=delete]');
 await page.waitForSelector('.hero');
 assert.equal(await page.locator('.gi').count(), 0);
+// The message and its Undo on one line, in the middle of the phone.
+const note = await box(page, '#toast');
+assert.ok(note.bottom - note.top < 60 && Math.abs(note.left - (390 - note.right)) < 1, `the toast is one centred line (${JSON.stringify(note)})`);
 await tap('.toast button');
 await page.waitForSelector('.live .field');
 
@@ -443,9 +449,6 @@ async function playing(g, viewport = { width: 390, height: 844 }) {
   await p.evaluate(() => document.fonts.ready);
   return p;
 }
-// Where an element is, and whether it's wholly inside another one.
-const box = (p, sel) => p.evaluate(sel => { const r = document.querySelector(sel).getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom }; }, sel);
-const inside = (a, b) => a.left >= b.left - 0.5 && a.right <= b.right + 0.5 && a.top >= b.top - 0.5 && a.bottom <= b.bottom + 0.5;
 
 step('a phone in the 7th: the Card tab opens on the batter’s box');
 {
