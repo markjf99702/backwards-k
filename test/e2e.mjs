@@ -128,9 +128,12 @@ await fitsPhone('the card');
 await tap('[data-cell="0"]');
 assert.match(await page.textContent('.sheet'), /Ruiz walks\./);
 assert.match(await page.textContent('.sheet'), /To third on Castillo’s single\./);
+// A walk on four balls can't be switched to anything else here, and the sheet says what to do instead.
+assert.match(await page.textContent('.sheet'), /This one can’t be changed here\. Undo takes plays back/);
 await page.keyboard.press('Escape');
 // Fix a box after the fact: the backwards K was really swinging.
 await tap('[data-cell="1"]');
+assert.doesNotMatch(await page.textContent('.sheet'), /can’t be changed here/);
 await tap('[data-sw="K"]');
 await page.keyboard.press('Escape');
 assert.doesNotMatch(await page.locator('.card').innerHTML(), /scale\(-1 1\)/, 'changed to a K swinging');

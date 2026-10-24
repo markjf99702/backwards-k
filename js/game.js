@@ -746,6 +746,7 @@ function cellSheet(c) {
       ${seq ? `<p class="quiet">Pitches: ${esc(seq)}.</p>` : ''}</div></div>
     ${group ? `<h3>Change what it was</h3><div class="chips wide" role="group" aria-label="What it was">${group.map(k => `<button type="button" data-sw="${k}" aria-pressed="${k === c.r}">${k === 'KL' ? KL + ' looking' : esc(RESULTS[k].label)}</button>`).join('')}</div>` : ''}
     ${group && e.t === 'pa' && (R.f || c.f) ? `<div class="row"><button type="button" class="btn quiet" data-y="f">Change the fielders${c.f ? ` (${esc(c.f.join('-'))})` : ''}</button></div>` : ''}
+    ${!readOnly && e && !group ? '<p class="hint">This one can’t be changed here. Undo takes plays back, latest first, and right after a play, Fix runners changes where everyone ended up.</p>' : ''}
     <div class="row"><button type="button" class="btn primary" data-close>Done</button></div>`);
   body.addEventListener('click', ev => {
     const sw = ev.target.closest('[data-sw]'), y = ev.target.closest('[data-y]');
