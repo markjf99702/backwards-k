@@ -116,6 +116,7 @@ export function replay(g) {
     pit: [0, 0],
     line: [[0], []], hInn: [[0], []], eInn: [[0], []], lob: [[], []],
     R: [0, 0], H: [0, 0], E: [0, 0],
+    errs: [[], []], // each team's errors in order: the fielder's number, 0 when not given, or 'CI'
     cells: [], extra: [[], []], col: { k: 0, used: new Set() }, last: null,
     plays: [], text: [], bat: {}, pitching: [[], []],
     over: false, ended: false, hold: false, between: false, batted: [false, false],
@@ -233,7 +234,7 @@ function pa(S, e) {
   S.col.used.add(slot);
   S.batted[side] = true;
   const cell = {
-    n: S.cells.length, side, slot, p, inn: S.inn, k: S.col.k, r: e.r, f: e.f || null, mark: mark(e.r, e.f),
+    n: S.cells.length, side, slot, p, pi: S.pit[fld], inn: S.inn, k: S.col.k, r: e.r, f: e.f || null, mark: mark(e.r, e.f),
     count: [Math.min(S.b, 3), Math.min(S.s, 2)], seq: S.seq, ev: S.i, reach: 0, notes: ['', '', '', '', ''],
     outN: 0, outAt: 0, outHow: '', scored: false, rbi: 0, end: false, text: '', story: [],
   };
@@ -251,7 +252,7 @@ function pa(S, e) {
     B.h++; P.h++; S.H[side]++; S.hInn[side][S.inn - 1]++;
     if (R.go === 2) B.d++; else if (R.go === 3) B.t++; else if (R.go === 4) { B.hr++; P.hr++; }
   }
-  if (R.err) { S.E[fld]++; S.eInn[side][S.inn - 1]++; }
+  if (R.err) { S.E[fld]++; S.eInn[side][S.inn - 1]++; S.errs[fld].push(e.r === 'CI' ? 'CI' : (e.f && e.f[0]) || 0); }
 
   const moves = (e.m || suggest(S, e.r)).slice().sort((a, b) => b[0] - a[0]);
   // A 6-4-3 double play: the runner was out 6-4 and the batter 4-3, so the runner's box gets the throws before the
@@ -335,7 +336,7 @@ function runners(S, e) {
   const g = S.g, side = S.half, fld = 1 - side;
   const moves = e.m.slice().sort((a, b) => b[0] - a[0]);
   const bits = [];
-  let runs = 0, err = false;
+  let runs = 0, err = null;
   const balk = moves.length && moves.every(m => m[2] === 'BK');
   for (const [from, to, how, f] of moves) {
     const r = S.bases[from];
@@ -344,7 +345,7 @@ function runners(S, e) {
     if (to >= 1 && to <= 3 && to !== from && S.bases[to]) continue;
     S.bases[from] = null;
     const who = label(player(g, side, r.slot, r.p), r.slot), m = runMark(how, f);
-    if (how === 'E') err = true;
+    if (how === 'E' && !err) err = f && f[0] ? f : [0];
     if (how === 'SB') bstat(S, side, r.slot, r.p).sb++;
     if (how === 'CS') bstat(S, side, r.slot, r.p).cs++;
     if (to === 0) {
@@ -363,7 +364,7 @@ function runners(S, e) {
     }
   }
   // One wild throw is one error, and one wild pitch is one, however many runners move up on it (OBR 9.12).
-  if (err) { S.E[fld]++; S.eInn[side][S.inn - 1]++; }
+  if (err) { S.E[fld]++; S.eInn[side][S.inn - 1]++; S.errs[fld].push(err[0]); }
   if (moves.some(m => m[2] === 'WP')) pstat(S).wp++;
   if (balk) pstat(S).bk++;
   const text = (balk ? 'Balk. ' : '') + (bits.length ? bits.join('. ') + '.' : '');

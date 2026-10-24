@@ -1,5 +1,5 @@
 // The box score (batting and pitching lines for both teams) and the play-by-play.
-import { batKey, pitchStat, pitcherLabel, ip, teamName, label, player, ord, pitchWords } from './engine.js';
+import { batKey, pitchStat, pitcherLabel, ip, teamName, label, player, ord, pitchWords, POS } from './engine.js';
 import { esc, KL } from './ui.js';
 
 function batting(S, side) {
@@ -29,23 +29,43 @@ function pitching(S, side) {
   return `<table class="stats"><thead><tr><th scope="col">${esc(teamName(g, side))} pitching</th><th scope="col">IP</th><th scope="col">H</th><th scope="col">R</th><th scope="col">BB</th><th scope="col">K</th>${g.pitches ? '<th scope="col">Pitches</th>' : ''}</tr></thead><tbody>${rows.join('')}</tbody></table>`;
 }
 
-// Doubles, triples, homers and steals, the way a newspaper box score lists them.
-function extras(S) {
-  const g = S.g, lists = { '2B': [], '3B': [], HR: [], SB: [] };
-  for (const [k, b] of Object.entries(S.bat)) {
-    const [side, slot, p] = k.split('.').map(Number), n = label(player(g, side, slot, p), slot);
-    const add = (list, count) => { if (count) lists[list].push(`${esc(n)}${count > 1 ? ' ' + count : ''}`); };
-    add('2B', b.d); add('3B', b.t); add('HR', b.hr); add('SB', b.sb);
-  }
-  const words = { '2B': 'Doubles', '3B': 'Triples', HR: 'Home runs', SB: 'Stolen bases' };
-  return Object.entries(words).filter(([k]) => lists[k].length).map(([k, w]) => `<p><b>${w}:</b> ${lists[k].join(', ')}</p>`).join('');
+// Names in game order, each once, with how many times when it's more than one: "Velez 2, Brennan".
+function names(pairs) {
+  const m = new Map();
+  for (const [n, k] of pairs) m.set(n, (m.get(n) || 0) + k);
+  return [...m].filter(([, k]) => k).map(([n, k]) => n + (k > 1 ? ' ' + k : '')).join(', ');
+}
+
+// The notes under one team's box score, the way a newspaper prints them: its extra-base hits, sacrifices, hit
+// batters, steals, runners left on base and errors, then its pitchers' wild pitches, hit batters, balks and batters
+// faced. Lines with nothing to say are left out.
+function notes(S, side) {
+  const g = S.g, cells = S.cells.filter(c => c.side === side), who = c => label(player(g, side, c.slot, c.p), c.slot);
+  const of = r => names(cells.filter(c => c.r === r).map(c => [who(c), 1]));
+  const bats = Object.entries(S.bat).filter(([k]) => k.startsWith(side + '.')).map(([k, b]) => {
+    const [, slot, p] = k.split('.').map(Number);
+    return [label(player(g, side, slot, p), slot), b];
+  });
+  const arms = [...new Set([0, ...g.ev.filter(e => e.t === 'pch' && e.s === side).map(e => e.i)])].map(i => [pitcherLabel(g, side, i), pitchStat(S, side, i)]);
+  const hit = S.cells.filter(c => c.side !== side && c.r === 'HBP');
+  const errs = names(S.errs[side].map(f => [f === 'CI' ? 'catcher’s interference' : POS[f] || 'fielder not given', 1]));
+  const lines = [
+    ['Doubles', of('2B')], ['Triples', of('3B')], ['Home runs', of('HR')], ['Sacrifice flies', of('SF')], ['Sacrifice bunts', of('SAC')],
+    ['Hit by a pitch', of('HBP')], ['Stolen bases', names(bats.map(([n, b]) => [n, b.sb]))], ['Caught stealing', names(bats.map(([n, b]) => [n, b.cs]))],
+    ['Left on base', String(S.lob[side].reduce((a, b) => a + (b || 0), 0))], ['Errors', errs],
+    ['Wild pitches', names(arms.map(([n, p]) => [n, p.wp]))],
+    ['Hit batters', names(hit.map(c => [`${pitcherLabel(g, side, c.pi)} (${label(player(g, c.side, c.slot, c.p), c.slot)})`, 1]))],
+    ['Balks', names(arms.map(([n, p]) => [n, p.bk]))], ['Batters faced', arms.filter(([, p]) => p.bf).map(([n, p]) => `${n} ${p.bf}`).join(', ')],
+  ];
+  return lines.filter(([, t]) => t).map(([w, t]) => `<p><b>${w}:</b> ${esc(t)}.</p>`).join('');
 }
 
 export function boxHtml(S) {
-  return `<div class="box-grid">
-    <div>${batting(S, 0)}${pitching(S, 0)}</div>
-    <div>${batting(S, 1)}${pitching(S, 1)}</div>
-  </div><div class="extras">${extras(S)}</div>`;
+  return `<div class="box-grid">${[0, 1].map(side => `
+    <div>${batting(S, side)}${pitching(S, side)}
+      <div class="extras">${notes(S, side)}</div>
+    </div>`).join('')}
+  </div>`;
 }
 
 // In half-innings: newest first during a game, so the last few plays are at the top, and from the first pitch on

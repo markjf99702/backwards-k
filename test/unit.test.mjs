@@ -7,7 +7,7 @@ import { sampleGame } from '../js/sample.js';
 // The card is drawn with ui.js, which looks for the page's sheet as it loads: here there's no page, so no sheet.
 globalThis.document ??= { readyState: 'complete', getElementById: () => null };
 const { lineHtml, cellSvg, cardHtml } = await import('../js/card.js');
-const { playsHtml } = await import('../js/box.js');
+const { playsHtml, boxHtml } = await import('../js/box.js');
 
 const game = (opts = {}) => newGame({ away: 'Foxes', home: 'Comets', ...opts });
 // Plays one event after another, filling in the suggested runner moves the way the app does.
@@ -566,6 +566,27 @@ test('the card marks where a new pitcher took over and where a substitute first 
   assert.match(h, /<i>PR 1st<\/i> Speedy/);
   // The home team's card: no change of pitcher for them to face.
   assert.doesNotMatch(cardHtml(S, 1), /class="[^"]*pch/);
+});
+
+test('the notes under each team’s box score', () => {
+  const g = game();
+  g.teams[0].lineup.forEach((s, i) => { s[0].name = ['Ruiz', 'Okafor', 'Brennan', 'Castillo', 'Han', 'Marsh', 'Pruitt', 'Lindqvist', 'Delgado'][i]; });
+  g.teams[0].pitchers[0].name = 'Whitlock';
+  g.teams[1].pitchers[0].name = 'Halvorsen';
+  g.teams[1].pitchers.push({ name: 'Bishop', num: '37' });
+  const S = play(g, '2B', '2B', 'HBP', { t: 'r', m: [[2, 3, 'WP'], [1, 2, 'WP']] }, 'SF 8', { t: 'pch', s: 1, i: 1 }, 'CI',
+    { t: 'r', m: [[2, 3, 'SB']] }, { t: 'r', m: [[1, 0, 'CS', [2, 6]]] }, { t: 'pa', r: 'E', f: [5], m: [[0, 1], [3, 4]] },
+    { t: 'r', m: [[1, 2, 'BK']] }, 'HR', 'K', '3B', 'SAC 1 3', '1B', 'K', 'K');
+  assert.deepEqual(S.R, [5, 1]);
+  const notes = side => boxHtml(S).split('<div class="extras">')[side + 1].split('</div>')[0].replace(/<\/?b>/g, '').split(/<\/p><p>|<\/?p>/).filter(Boolean);
+  assert.deepEqual(notes(0), [
+    'Doubles: Ruiz, Okafor.', 'Home runs: Pruitt.', 'Sacrifice flies: Castillo.', 'Hit by a pitch: Brennan.',
+    'Stolen bases: Brennan.', 'Caught stealing: Han.', 'Left on base: 0.', 'Batters faced: Whitlock 5.',
+  ]);
+  assert.deepEqual(notes(1), [
+    'Triples: Batter 1.', 'Sacrifice bunts: Batter 2.', 'Left on base: 1.', 'Errors: catcher’s interference, 3B.',
+    'Wild pitches: Halvorsen.', 'Hit batters: Halvorsen (Brennan).', 'Balks: Bishop.', 'Batters faced: Halvorsen 4, Bishop 4.',
+  ]);
 });
 
 test('the plays: the count and pitches for each at-bat, a line for each half-inning, and a finished game in order', () => {
