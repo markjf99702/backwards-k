@@ -32,11 +32,12 @@ written out in plain words.
 - **It knows when the game is over.** Final comes when the last inning is decided, or the moment the home team goes
   ahead in it. **Keep playing** after a Final finishes that half-inning; a game you ended early (rain, a mercy rule)
   picks up where it stopped and ends the usual way.
-- **Phone or tablet.** On a phone the buttons, the card, the box score and the play-by-play are tabs. On a tablet the
-  buttons and the card sit side by side, and the card fills in while you watch.
+- **Phone or tablet.** On a phone the buttons, the card, the box score and the play-by-play are tabs. On a tablet
+  held sideways (or any screen 1000 pixels wide or more) the buttons and the card sit side by side, and the card
+  fills in while you watch; on one held upright, the card is under the buttons.
 - **Lineups when you want them.** Start with two team names, and name batters as they come up, paste a lineup, or
-  reuse a team from an earlier game. Pinch hitters, pinch runners and pitching changes are a tap on the batter or the
-  pitcher.
+  reuse a team from an earlier game. Pinch hitters and pitching changes are a tap on the batter or the pitcher, and a
+  pinch runner is a tap on the runner.
 - **Sharing.** Send a link that carries the whole game (nothing is uploaded to share it), copy the score as text for
   a group chat, print both cards, or save the game as a file.
 - **Google Drive, if you like.** Each game is saved as its own file in a "Backwards K" folder in your Drive, and shows
@@ -61,7 +62,7 @@ written out in plain words.
 It's a static site: plain HTML, CSS and JavaScript, with no build step.
 
 ```sh
-npx serve .                   # or any static file server, then open the printed address
+npm start                     # serves it at http://localhost:9600 (any static file server will do)
 npm test                      # the rules, a game played in Chromium, and Drive saving against a pretend Google
 node tools/screenshots.mjs    # redraws docs/*.png and og.png
 node tools/make-icons.mjs     # redraws the PNG icons from icon.svg
@@ -88,4 +89,5 @@ To put it online with GitHub Pages: **Settings → Pages → Build and deploymen
 - `sw.js`: keeps a copy for using offline.
 - `test/unit.test.mjs`: the rules, including 300 simulated games whose totals have to agree. `test/e2e.mjs`: a game
   scored in Chromium. `test/drive.mjs`: two devices sharing one pretend Drive (`test/fake-google.mjs`).
-- `scripts/build.mjs`: the one-file copy.
+- `scripts/build.mjs`: the one-file copy, `dist/backwards-k.html`, and `dist/artifact.html`, the same page without
+  its own `<html>`, `<head>` and `<body>`, for hosts that supply them. `dist/` isn't committed.
