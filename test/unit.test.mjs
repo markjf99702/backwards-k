@@ -377,6 +377,71 @@ test('a pitching change starts a new pitch count; runs go to the pitcher who let
   assert.equal(now(S).pitcherName, 'Bishop');
 });
 
+test('a runner who reaches on a fielder’s choice that retires an inherited runner is the old pitcher’s (OBR 9.16(g))', () => {
+  // A walk and a single off the starter; the reliever's first batter forces the runner from first, and a double
+  // scores the runner from second and the batter who replaced the one forced out: both runs are the starter's.
+  const g = game();
+  g.teams[1].pitchers.push({ name: 'Bishop', num: '37' });
+  let S = play(g, 'BB', '1B', { t: 'pch', s: 1, i: 1 },
+    { t: 'pa', r: 'FC', f: [6, 4], m: [[0, 1], [1, 0], [2, 3]] }, { t: 'pa', r: '2B', m: [[0, 2], [1, 4], [3, 4]] });
+  assert.equal(S.R[0], 2);
+  assert.deepEqual([S.pitching[1][0].r, S.pitching[1][1].r], [2, 0]);
+  // A runner on first, a new pitcher, a force at second and a home run: one run each.
+  const h = game();
+  h.teams[1].pitchers.push({ name: 'Bishop', num: '37' });
+  S = play(h, '1B', { t: 'pch', s: 1, i: 1 }, 'FC 6 4', 'HR');
+  assert.deepEqual([S.pitching[1][0].r, S.pitching[1][1].r], [1, 1]);
+  // A runner put out on a hit doesn't hand anything over: the batter who singled is the new pitcher's.
+  const k = game();
+  k.teams[1].pitchers.push({ name: 'Bishop', num: '37' });
+  S = play(k, '1B', { t: 'pch', s: 1, i: 1 }, { t: 'pa', r: '1B', m: [[0, 1], [1, 0]] }, 'HR');
+  assert.deepEqual([S.pitching[1][0].r, S.pitching[1][1].r], [0, 2]);
+});
+
+test('a walk after a pitching change with the batter ahead in the count is the old pitcher’s (OBR 9.16(h))', () => {
+  const g = game();
+  g.teams[1].pitchers.push({ name: 'Bishop', num: '37' });
+  let S = play(g, P('b'), P('b'), P('b'), { t: 'pch', s: 1, i: 1 }, P('b'));
+  const [a, b] = S.pitching[1];
+  assert.deepEqual([a.bf, a.bb, a.np], [1, 1, 3], 'the starter: the batter, the walk and the three balls he threw');
+  assert.deepEqual([b.bf, b.bb, b.np], [0, 0, 1], 'the reliever threw ball four');
+  S = play(g, 'HR');
+  assert.deepEqual([S.pitching[1][0].r, S.pitching[1][1].r], [1, 1], 'the runner who walked is the starter’s');
+  // 3-2 counts too, and so does an intentional walk.
+  const f = game();
+  f.teams[1].pitchers.push({ name: 'Bishop', num: '37' });
+  S = play(f, P('b'), P('s'), P('b'), P('s'), P('b'), { t: 'pch', s: 1, i: 1 }, 'IBB');
+  assert.deepEqual([S.pitching[1][0].bb, S.pitching[1][1].bb], [1, 0]);
+  // 1-1 isn't ahead: the walk is the reliever's. And a hit after a 3-0 change is the reliever's (9.16(h)(2)).
+  const o = game();
+  o.teams[1].pitchers.push({ name: 'Bishop', num: '37' });
+  S = play(o, P('b'), P('s'), { t: 'pch', s: 1, i: 1 }, P('b'), P('b'), P('b'));
+  assert.deepEqual([S.pitching[1][0].bb, S.pitching[1][1].bb], [0, 1]);
+  const t = game();
+  t.teams[1].pitchers.push({ name: 'Bishop', num: '37' });
+  S = play(t, P('b'), P('b'), P('b'), { t: 'pch', s: 1, i: 1 }, '1B', 'BB');
+  assert.deepEqual([S.pitching[1][0].bf, S.pitching[1][1].bf], [0, 2]);
+  assert.deepEqual([S.pitching[1][0].bb, S.pitching[1][1].bb], [0, 1], 'the next batter’s walk is the reliever’s');
+});
+
+test('a pinch hitter who finishes a strikeout with two strikes already on: the strikeout is the first batter’s (OBR 9.15(b))', () => {
+  const g = game();
+  g.teams[0].lineup[0].push({ name: 'Diaz', num: '' });
+  let S = play(g, P('c'), P('c'), { t: 'sub', s: 0, slot: 0, i: 1, ty: 'ph' }, P('s'));
+  assert.deepEqual([S.bat['0.0.0'].pa, S.bat['0.0.0'].ab, S.bat['0.0.0'].k], [1, 1, 1]);
+  assert.equal(S.bat['0.0.1'], undefined);
+  assert.equal(S.cells[0].p, 1, 'the box on the card is the pinch hitter’s');
+  // With one strike, or with any other ending, the at-bat is the pinch hitter's.
+  const o = game();
+  o.teams[0].lineup[0].push({ name: 'Diaz', num: '' });
+  o.teams[0].lineup[1].push({ name: 'Ruiz', num: '' });
+  S = play(o, P('c'), { t: 'sub', s: 0, slot: 0, i: 1, ty: 'ph' }, P('s'), P('s'), P('s'), P('s'), { t: 'sub', s: 0, slot: 1, i: 1, ty: 'ph' }, P('b'), P('b'), P('b'), P('b'));
+  assert.equal(S.bat['0.0.0'], undefined);
+  assert.deepEqual([S.bat['0.0.1'].ab, S.bat['0.0.1'].k], [1, 1]);
+  assert.equal(S.bat['0.1.0'], undefined);
+  assert.deepEqual([S.bat['0.1.1'].pa, S.bat['0.1.1'].bb], [1, 1]);
+});
+
 test('a pinch runner who scores gets the run', () => {
   const g = game();
   g.teams[0].lineup[0].push({ name: 'Speedy', num: '0' });

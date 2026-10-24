@@ -115,6 +115,8 @@ export function replay(g) {
     plays: [], text: [], bat: {}, pitching: [[], []],
     over: false, ended: false, hold: false, between: false, batted: [false, false],
     fresh: false, // a half-inning has just started and nothing has happened in it yet
+    relief: null, // the pitcher a walk goes to, when a new one came in with the batter ahead in the count
+    ph: null, // the batter who left with two strikes, for a pinch hitter's strikeout
     waved: 0, // runners this half-inning who crossed the plate on the third out but didn't count: left on base
   };
   g.ev.forEach((e, i) => { S.i = i; step(S, e); });
@@ -137,6 +139,8 @@ function step(S, e) {
     case 'r': return runners(S, e);
     case 'sub': {
       const old = S.pl[e.s][e.slot];
+      // A pinch hitter with two strikes already on: if he strikes out, it's the first batter's (OBR 9.15(b)).
+      if (e.ty === 'ph' && e.s === S.half && e.slot === S.up[e.s] && S.s === 2) S.ph ??= old;
       S.pl[e.s][e.slot] = e.i;
       if (e.ty === 'pr') for (const b of [1, 2, 3]) if (S.bases[b] && S.bases[b].side === e.s && S.bases[b].slot === e.slot) S.bases[b].p = e.i;
       const a = label(player(g, e.s, e.slot, e.i), e.slot), was = label(player(g, e.s, e.slot, old), e.slot);
@@ -144,6 +148,9 @@ function step(S, e) {
       return note(S, `${a} ${verb} ${was}.`, 'sub');
     }
     case 'pch':
+      // A new pitcher with the batter ahead, 2-0, 2-1, 3-0, 3-1 or 3-2: if that batter walks, the walk and the batter
+      // are the pitcher's who left (OBR 9.16(h)).
+      if (e.s === 1 - S.half) S.relief = S.b >= 2 && S.b > S.s ? S.relief ?? S.pit[e.s] : null;
       S.pit[e.s] = e.i;
       return note(S, `Pitching change: ${pitcherLabel(g, e.s, e.i)} pitches for ${teamName(g, e.s)}.`, 'sub');
     case 'add':
@@ -223,12 +230,14 @@ function pa(S, e) {
   };
   S.cells.push(cell);
 
-  const B = bstat(S, side, slot, p);
+  // Whose at-bat it was, and which pitcher faced him: usually the ones there now (OBR 9.15(b), 9.16(h)).
+  const B = bstat(S, side, slot, R.k && S.ph != null ? S.ph : p);
+  const pi = R.bb && S.relief != null ? S.relief : S.pit[fld], F = pstat(S, fld, pi);
   B.pa++; B.ab += R.ab;
-  if (R.bb) { B.bb++; P.bb++; }
+  if (R.bb) { B.bb++; F.bb++; }
   if (R.k) { B.k++; P.k++; }
   if (R.hbp) { B.hbp++; P.hbp++; }
-  P.bf++;
+  F.bf++;
   if (R.kind === 'hit') {
     B.h++; P.h++; S.H[side]++; S.hInn[side][S.inn - 1]++;
     if (R.go === 2) B.d++; else if (R.go === 3) B.t++; else if (R.go === 4) { B.hr++; P.hr++; }
@@ -236,14 +245,18 @@ function pa(S, e) {
   if (R.err) { S.E[fld]++; S.eInn[side][S.inn - 1]++; }
 
   const moves = (e.m || suggest(S, e.r)).slice().sort((a, b) => b[0] - a[0]);
-  const batter = { cell, side, slot, p, pi: S.pit[fld] };
+  const batter = { cell, side, slot, p, pi };
   const batterName = label(player(g, side, slot, p), slot);
   const bits = [];
-  let runs = 0, bOut = false, bTo = R.go;
+  let runs = 0, bOut = false, bTo = R.go, handed = null;
   for (const [from, to] of moves) {
     const r = from === 0 ? batter : S.bases[from];
     if (!r) continue;
     if (from) S.bases[from] = null;
+    // A batter who reaches without a hit while a runner another pitcher let on is put out takes that runner's place:
+    // he's that pitcher's (OBR 9.16(g)). The runners go first, so the batter comes last.
+    if (from && to === 0 && handed == null && r.pi !== S.pit[fld]) handed = r.pi;
+    if (!from && to && handed != null && R.kind !== 'hit') r.pi = handed;
     const who = label(player(g, side, r.slot, r.p), r.slot);
     if (from === 0) bTo = to;
     if (to === 0) {
@@ -287,7 +300,7 @@ function pa(S, e) {
   S.text[S.i] = text;
   S.plays.push({ i: S.i, inn: S.inn, half: side, text, kind: 'pa', runs, cell: cell.n, r: e.r });
 
-  S.b = 0; S.s = 0; S.seq = '';
+  S.b = 0; S.s = 0; S.seq = ''; S.relief = null; S.ph = null;
   S.up[side] = (slot + 1) % S.size[side];
   S.last = cell;
   walkoff(S);
@@ -377,7 +390,7 @@ function endHalf(S, called) {
   }
   S.hold = false;
   S.bases = [null, null, null, null];
-  S.outs = 0; S.b = 0; S.s = 0; S.seq = '';
+  S.outs = 0; S.b = 0; S.s = 0; S.seq = ''; S.relief = null; S.ph = null;
   if (S.over) { S.between = true; return; }
   nextHalf(S);
 }
