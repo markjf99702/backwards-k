@@ -316,6 +316,14 @@ test('a pinch runner who scores gets the run', () => {
   assert.match(S.plays.find(p => p.kind === 'sub').text, /Speedy pinch-runs for Batter 1/);
 });
 
+test('a home run with the batter called out says so', () => {
+  const g = game();
+  const S = play(g, 'E', { t: 'pa', r: 'HR', m: [[0, 0], [1, 4]] });
+  assert.equal(S.text[1], 'Batter 2 hits a home run, but is called out on the bases. Batter 1 scores.');
+  assert.equal(S.cells[1].outAt, 4);
+  assert.equal(S.cells[1].outN, 1);
+});
+
 test('shorthand marks', () => {
   assert.equal(mark('GO', [6, 3]), '6-3');
   assert.equal(mark('GO', [3]), '3U');
@@ -365,6 +373,9 @@ test('simulated games add up', () => {
     for (const side of [0, 1]) for (let inn = 1; inn <= S.line[side].length; inn++) {
       const [pa, ends] = proof(S, side, inn);
       assert.equal(pa, ends, `seed ${seed}: ${side ? 'bottom' : 'top'} ${inn}, PA = R + LOB + outs`);
+    }
+    for (const t of [...S.text, ...S.plays.map(p => p.text), ...S.cells.flatMap(c => [c.text, ...c.story])]) {
+      assert.doesNotMatch(t, /undefined|NaN/, `seed ${seed}: words`);
     }
     assert.notEqual(S.R[0], S.R[1], `seed ${seed}: no ties`);
     // Every half-inning but a walk-off's ends with three outs.

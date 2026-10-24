@@ -24,7 +24,7 @@ function pitching(S, side) {
   for (const e of g.ev) if (e.t === 'pch' && e.s === side) used.add(e.i);
   const rows = [...used].map(i => {
     const p = pitchStat(S, side, i);
-    return `<tr><th scope="row">${esc(pitcherLabel(g, side, i))}</th><td>${ip(p.outs)}</td><td>${p.h}</td><td>${p.r}</td><td>${p.bb}</td><td>${p.k}</td>${g.pitches ? `<td>${p.np}${p.np ? ` <small>${p.str} strikes</small>` : ''}</td>` : ''}</tr>`;
+    return `<tr><th scope="row">${esc(pitcherLabel(g, side, i))}</th><td>${ip(p.outs)}</td><td>${p.h}</td><td>${p.r}</td><td>${p.bb}</td><td>${p.k}</td>${g.pitches ? `<td>${p.np}${p.np ? ` <small>${p.str} strike${p.str === 1 ? '' : 's'}</small>` : ''}</td>` : ''}</tr>`;
   });
   return `<table class="stats"><thead><tr><th scope="col">${esc(teamName(g, side))} pitching</th><th scope="col">IP</th><th scope="col">H</th><th scope="col">R</th><th scope="col">BB</th><th scope="col">K</th>${g.pitches ? '<th scope="col">Pitches</th>' : ''}</tr></thead><tbody>${rows.join('')}</tbody></table>`;
 }

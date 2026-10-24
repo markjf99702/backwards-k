@@ -142,6 +142,8 @@ assert.match(await page.textContent('.bug'), /Comets\s*1/i);
 await tap('[data-v=box]');
 assert.match(await page.textContent('.pane[data-p=box]'), /Moreno/);
 assert.match(await page.textContent('.pane[data-p=box]'), /Home runs: Kowalski/);
+assert.match(await page.textContent('.pane[data-p=box]'), /Moreno[^]*\b1 strike\b/, 'Moreno has thrown one pitch');
+assert.doesNotMatch(await page.textContent('.pane[data-p=box]'), /\b1 strikes/);
 await tap('[data-v=plays]');
 assert.match(await page.textContent('.plays'), /Kowalski pinch-hits for Batter 1/);
 await fitsPhone('the plays');

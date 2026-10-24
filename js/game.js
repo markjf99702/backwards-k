@@ -421,7 +421,7 @@ function runnersSheet(code, f, moves, { st = S, editing = false, done = act } = 
     if (err) t = `<span class="err">${esc(err)}</span>`;
     else {
       const bits = [];
-      if (runs) bits.push(`${runs} run${runs > 1 ? 's' : ''} ${third && !counts.v ? 'cross' : 'score'}${runs > 1 ? '' : 's'}`);
+      if (runs) bits.push(`${runs} run${runs > 1 ? 's' : ''} ${third && !counts.v ? (runs > 1 ? 'cross' : 'crosses') : (runs > 1 ? 'score' : 'scores')}`);
       bits.push(`${st.outs + outs} out${st.outs + outs === 1 ? '' : 's'}${st.outs + outs >= 3 ? ', side retired' : ''}`);
       t = bits.join(' · ');
       if (third) t += `<span class="third">That’s the third out. Did the run${runs > 1 ? 's' : ''} cross the plate before it?

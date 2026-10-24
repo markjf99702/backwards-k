@@ -246,7 +246,8 @@ function pa(S, e) {
       if (from === 0) {
         bOut = true;
         // Out on a ball that would have put them on (thrown out stretching a single): the path to first, then out.
-        if (R.kind !== 'out') { reach(cell, 0, R.go || 1, ''); out(S, r, (R.go || 1) + 1, ''); }
+        // On a home run (a missed base, on appeal) the whole way round.
+        if (R.kind !== 'out') { reach(cell, 0, R.go || 1, ''); out(S, r, Math.min((R.go || 1) + 1, 4), ''); }
         else out(S, r, 0, '');
       } else {
         out(S, r, from + 1, dash(e.f));
@@ -273,7 +274,7 @@ function pa(S, e) {
   if (runs && R.rbi !== 0) { cell.rbi = runs; B.rbi += runs; }
 
   let text = `${batterName} ${R.say}${fielderWords(e.r, e.f)}`;
-  if (R.kind !== 'out' && bOut) text += `, but is out trying for ${BASE[(R.go || 1) + 1]}`;
+  if (R.kind !== 'out' && bOut) text += R.go === 4 ? ', but is called out on the bases' : `, but is out trying for ${BASE[(R.go || 1) + 1]}`;
   else if (R.kind !== 'out' && bTo > R.go && bTo < 4) text += ` and takes ${BASE[bTo]}`;
   else if (R.kind !== 'out' && bTo === 4 && R.go < 4) text += ' and comes all the way home';
   else if (R.kind === 'out' && !bOut && bTo > 0) text += ` but reaches ${BASE[bTo]}`;
