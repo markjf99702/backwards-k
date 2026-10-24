@@ -1,5 +1,5 @@
 // The box score (batting and pitching lines for both teams) and the play-by-play.
-import { batKey, pitchStat, pitcherLabel, ip, teamName, label, player, ord } from './engine.js';
+import { batKey, pitchStat, pitcherLabel, ip, teamName, label, player, ord, pitchWords } from './engine.js';
 import { esc, KL } from './ui.js';
 
 function batting(S, side) {
@@ -48,7 +48,9 @@ export function boxHtml(S) {
   </div><div class="extras">${extras(S)}</div>`;
 }
 
-// Newest first, in half-innings, so the last few plays are at the top during a game.
+// In half-innings: newest first during a game, so the last few plays are at the top, and from the first pitch on
+// once it's over. Under each at-bat, the count it ended on and how many pitches (each one in words in its title);
+// under the end of each half-inning, its runs, hits, errors and runners left on.
 export function playsHtml(S, { limit = 0 } = {}) {
   const g = S.g, groups = [];
   for (const p of S.plays) {
@@ -57,15 +59,20 @@ export function playsHtml(S, { limit = 0 } = {}) {
     grp.list.push(p);
   }
   if (!groups.length) return `<p class="quiet">${g.ev.some(e => e.t === 'p') ? 'No plays yet: the first at-bat is still going.' : 'Nothing has happened yet. The first pitch is all yours.'}</p>`;
+  const back = !S.over || limit, order = list => (back ? list.slice().reverse() : list);
   let n = 0, h = '';
-  for (const grp of groups.reverse()) {
+  for (const grp of order(groups)) {
     if (limit && n >= limit) break;
     h += `<section class="half"><h3>${grp.half ? 'Bottom' : 'Top'} of the ${ord(grp.inn)} <span>${esc(teamName(g, grp.half))} batting</span></h3><ol>`;
-    for (const p of grp.list.slice().reverse()) {
+    for (const p of order(grp.list)) {
       if (limit && n++ >= limit) break;
-      h += `<li class="${p.kind}${p.runs ? ' scored' : ''}">${p.r === 'KL' ? `<span class="pk">${KL}</span>` : ''}${esc(p.text)}${p.runs ? ` <b class="runs">+${p.runs}</b>` : ''}</li>`;
+      const c = p.kind === 'pa' && g.pitches && S.cells[p.cell], np = c ? c.seq.length : 0;
+      const more = np ? `<small class="pc" title="${esc(cap(pitchWords(c.seq)))}">${c.count[0]}-${c.count[1]} · ${np} pitch${np === 1 ? '' : 'es'}</small>`
+        : p.sum ? `<small>${esc(p.sum)}</small>` : '';
+      h += `<li class="${p.kind}${p.runs ? ' scored' : ''}">${p.r === 'KL' ? `<span class="pk">${KL}</span>` : ''}${esc(p.text)}${p.runs ? ` <b class="runs">+${p.runs}</b>` : ''}${more}</li>`;
     }
     h += '</ol></section>';
   }
   return h;
 }
+const cap = s => s.charAt(0).toUpperCase() + s.slice(1);

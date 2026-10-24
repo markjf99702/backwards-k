@@ -7,6 +7,7 @@ import { sampleGame } from '../js/sample.js';
 // The card is drawn with ui.js, which looks for the page's sheet as it loads: here there's no page, so no sheet.
 globalThis.document ??= { readyState: 'complete', getElementById: () => null };
 const { lineHtml, cellSvg, cardHtml } = await import('../js/card.js');
+const { playsHtml } = await import('../js/box.js');
 
 const game = (opts = {}) => newGame({ away: 'Foxes', home: 'Comets', ...opts });
 // Plays one event after another, filling in the suggested runner moves the way the app does.
@@ -547,6 +548,29 @@ test('play-by-play reads like a person wrote it', () => {
   const S = play(g, '1B', 'GO 6 3');
   assert.equal(S.plays[0].text, 'Ruiz singles.');
   assert.equal(S.plays[1].text, 'Okafor grounds out, short to first (6-3). Ruiz to second.');
+});
+
+test('the plays: the count and pitches for each at-bat, a line for each half-inning, and a finished game in order', () => {
+  const g = game({ innings: 1 });
+  let S = play(g, P('b'), P('c'), P('f'), P('b'), '1B', 'BB', P('s'), 'K', 'GO 6 3', 'FO 8');
+  const end = S.plays.find(p => p.kind === 'end');
+  assert.equal(end.sum, '0 runs, 1 hit, no errors, 2 left on base.');
+  let h = playsHtml(S);
+  assert.match(h, /Batter 1 singles\.<small class="pc" title="Ball, called strike, foul, ball, in play">2-2 · 5 pitches<\/small>/);
+  assert.match(h, /Batter 2 walks\. Batter 1 to second\.<small class="pc" title="Ball">0-0 · 1 pitch<\/small>/, 'a walk tapped straight away');
+  assert.match(h, /End of the top of the 1st: Foxes 0, Comets 0\.<small>0 runs, 1 hit, no errors, 2 left on base\.<\/small>/);
+  // During the game the latest is on top.
+  assert.ok(h.indexOf('Bottom of the 1st') < 0 && h.indexOf('flies out') < h.indexOf('singles'));
+  S = play(g, { t: 'pa', r: 'E', f: [6], m: [[0, 1]] }, 'HR');
+  assert.equal(S.over, true);
+  // A finished game reads from the first pitch to the last; the latest few on the score screen are still the latest.
+  h = playsHtml(S);
+  assert.ok(h.indexOf('Top of the 1st') < h.indexOf('Bottom of the 1st'));
+  assert.ok(h.indexOf('singles') < h.indexOf('flies out') && h.indexOf('reaches on an error') < h.indexOf('home run'));
+  assert.ok(playsHtml(S, { limit: 2 }).indexOf('home run') < playsHtml(S, { limit: 2 }).indexOf('reaches on an error'));
+  // Not counting pitches: no pitch line.
+  g.pitches = false;
+  assert.doesNotMatch(playsHtml(replay(g)), /class="pc"/);
 });
 
 test('a game survives being tidied (from a file or a link) unchanged', () => {

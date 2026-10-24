@@ -2,7 +2,7 @@
 // away on a phone) the scorecard, the box score and the play-by-play.
 import {
   replay, suggest, check, runsCount, scoredAs, now, RESULTS, BASE, POS, POS_NAME, halfLabel, label, player, teamName,
-  pitcherLabel, ord, runnersOn, mark, pitchStat, ip,
+  pitcherLabel, ord, runnersOn, mark, pitchStat, ip, pitchWords,
 } from './engine.js';
 import { store } from './store.js';
 import { blank } from './model.js';
@@ -737,8 +737,7 @@ function cellSheet(c) {
   if (!c) return;
   const e = G.ev[c.ev], R = RESULTS[c.r];
   const name = label(player(G, c.side, c.slot, c.p), c.slot);
-  const PITCH = { b: 'ball', c: 'called strike', s: 'swinging strike', f: 'foul', x: 'in play' };
-  const seq = c.seq ? c.seq.split('').map(k => PITCH[k]).join(', ') : '';
+  const seq = pitchWords(c.seq);
   // A strikeout that came from counting pitches can still be switched between swinging and looking.
   const fromPitch = e && e.t === 'p' && (c.r === 'K' || c.r === 'KL');
   const group = readOnly || !e ? null : e.t === 'pa' ? SAME.find(gr => gr.includes(c.r)) : fromPitch ? ['K', 'KL'] : null;

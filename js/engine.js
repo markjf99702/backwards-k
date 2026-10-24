@@ -54,6 +54,10 @@ export const RUNS = {
   OB: { label: 'Out on the bases', out: true },
 };
 
+// Each pitch in words, from the letters kept for an at-bat (b ball, c called strike, s swinging, f foul, x in play).
+export const PITCH = { b: 'ball', c: 'called strike', s: 'swinging strike', f: 'foul', x: 'in play' };
+export const pitchWords = seq => [...seq].map(k => PITCH[k]).filter(Boolean).join(', ');
+
 export const ord = n => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th');
 const dash = f => (f && f.length ? f.join('-') : '');
 
@@ -395,7 +399,10 @@ function endHalf(S, called) {
   S.waved = 0;
   if (S.last) S.last.end = true;
   const text = `End of the ${side ? 'bottom' : 'top'} of the ${ord(S.inn)}${called ? ', ended early' : ''}: ${teamName(S.g, 0)} ${S.R[0]}, ${teamName(S.g, 1)} ${S.R[1]}.`;
-  S.plays.push({ i: S.i, inn: S.inn, half: side, text, kind: 'end', runs: 0 });
+  // The half-inning in numbers, as a broadcaster gives it: 0 runs, 2 hits, no errors, 3 left on base.
+  const n = S.inn - 1, few = (k, w) => `${k} ${w}${k === 1 ? '' : 's'}`, err = S.eInn[side][n] || 0;
+  const sum = `${few(S.line[side][n] || 0, 'run')}, ${few(S.hInn[side][n] || 0, 'hit')}, ${err ? few(err, 'error') : 'no errors'}, ${S.lob[side][n]} left on base.`;
+  S.plays.push({ i: S.i, inn: S.inn, half: side, text, kind: 'end', runs: 0, sum });
   if (S.inn >= S.g.innings) {
     if (side === 0 && S.R[1] > S.R[0]) S.over = true;
     if (side === 1 && S.R[0] !== S.R[1]) S.over = true;

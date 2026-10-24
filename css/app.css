@@ -518,6 +518,7 @@ details.lineup summary small { color: var(--muted); font-weight: 400; }
 .recent .half { margin-bottom: 8px; }
 .recent .half h3 { font-size: 14px; color: var(--muted); }
 li.end { background: transparent; border-style: dashed; color: var(--muted); font-size: 14px; }
+.plays li small, .recent li small { display: block; margin-top: 2px; color: var(--muted); font-size: 13px; }
 li.sub { background: transparent; color: var(--ink-2); }
 li.scored { border-left: 4px solid var(--red); }
 .runs { color: var(--red); font-weight: 800; margin-left: 4px; }
