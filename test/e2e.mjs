@@ -63,7 +63,13 @@ assert.match(await ticker(), /Ruiz walks/);
 assert.match(await page.textContent('.pitcher'), /4\s*pitches/);
 
 step('a strikeout looking, then swinging');
-for (const k of ['f', 'f', 'f', 'c']) await tap(`[data-p=${k}]`);
+for (const k of ['f', 'f', 'f']) await tap(`[data-p=${k}]`);
+// Two strikes, but a runner on first and nobody out: a dropped third strike is still an out (OBR 5.09(a)(3)).
+await tap('[data-a=more]');
+assert.equal(await page.locator('.sheet [data-r2=KD]').isDisabled(), true);
+assert.match(await page.textContent('.sheet [data-r2=KD]'), /Not with a runner on first and fewer than two out/);
+await tap('.sheet [data-close]');
+await tap('[data-p=c]');
 assert.match(await ticker(), /Okafor strikes out looking/);
 await tap('[data-r="K"]');
 assert.match(await ticker(), /Brennan strikes out swinging/);

@@ -472,12 +472,14 @@ function fixLast() {
 const plays = ev => JSON.stringify(ev, (k, v) => (v && v.constructor === Object ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => (a < b ? -1 : 1))) : v));
 
 function moreSheet() {
-  const can = { TP: runnersOn(S).length >= 2 && S.outs === 0, KD: S.s >= 2 || !G.pitches };
+  // With first base taken and fewer than two out, a dropped third strike is still an out (OBR 5.09(a)(3)).
+  const firstTaken = !!S.bases[1] && S.outs < 2;
+  const can = { TP: runnersOn(S).length >= 2 && S.outs === 0, KD: (S.s >= 2 || !G.pitches) && !firstTaken };
   const item = (code, text) => `<button type="button" class="res r-${RESULTS[code].kind}" data-r2="${code}"${code in can && !can[code] ? ' disabled' : ''}><b>${esc(mark(code))}</b><span>${esc(text)}</span></button>`;
   const body = openSheet(`<h2 id="sheetTitle">Something else</h2>
     <div class="row2">
       ${item('IBB', 'Intentional walk')}
-      ${item('KD', 'Struck out, but reached on a dropped third strike')}
+      ${item('KD', firstTaken ? 'Not with a runner on first and fewer than two out' : 'Struck out, but reached on a dropped third strike')}
       ${item('CI', 'Reached on catcher’s interference')}
       ${item('TP', 'Triple play')}
     </div>
