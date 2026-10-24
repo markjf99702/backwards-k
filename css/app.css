@@ -195,6 +195,7 @@ p { margin: 0 0 .6em; }
 .chips button[aria-pressed="true"], .seg button[aria-pressed="true"] { background: var(--navy); border-color: var(--navy); color: var(--on-navy); }
 @media (prefers-color-scheme: dark) { .chips button[aria-pressed="true"], .seg button[aria-pressed="true"] { background: var(--on-navy); border-color: var(--on-navy); color: var(--navy); } }
 .chips.wide { display: flex; }
+.chips button:disabled { opacity: .4; }
 .seg { display: inline-flex; gap: 4px; padding: 3px; border-radius: 999px; background: var(--soft); max-width: 100%; }
 .seg button { border-color: transparent; background: transparent; min-height: 36px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .seg .batting { font-style: normal; color: var(--lamp-o); font-size: 11px; vertical-align: 2px; }

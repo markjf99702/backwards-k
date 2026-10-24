@@ -760,6 +760,19 @@ function settingsSheet() {
 
 // ---------- one box on the card ----------
 const SAME = [['K', 'KL', 'GO', 'FO', 'LO', 'PU', 'SF', 'SAC'], ['1B', 'BB', 'IBB', 'HBP', 'E', 'FC', 'KD', 'CI']];
+// What a box's play couldn't have been, from how things stood before it, with why: a fielder's choice or a sacrifice
+// needs a runner on (and a sacrifice, fewer than two out), a sacrifice fly a run in from third with fewer than two
+// out, and a dropped third strike two strikes (when pitches are counted) and first base open or two out (OBR
+// 5.09(a)(3)).
+function cantBe(c, e) {
+  const st = replay({ ...G, ev: G.ev.slice(0, c.ev) }), why = {};
+  const nobody = !runnersOn(st).length, two = st.outs >= 2 && 'There were already two out.';
+  why.FC = nobody && 'Nobody was on base.';
+  why.SAC = (nobody && 'Nobody was on base.') || two;
+  why.SF = (!(e.m || []).some(x => x[0] === 3 && x[1] === 4) && 'Nobody scored from third on it.') || two;
+  why.KD = (G.pitches && st.s !== 2 && 'There weren’t two strikes yet.') || (st.bases[1] && st.outs < 2 && 'First base was taken with fewer than two out.');
+  return why;
+}
 function cellSheet(c) {
   if (!c) return;
   const e = G.ev[c.ev], R = RESULTS[c.r];
@@ -768,20 +781,24 @@ function cellSheet(c) {
   // A strikeout that came from counting pitches can still be switched between swinging and looking.
   const fromPitch = e && e.t === 'p' && (c.r === 'K' || c.r === 'KL');
   const group = readOnly || !e ? null : e.t === 'pa' ? SAME.find(gr => gr.includes(c.r)) : fromPitch ? ['K', 'KL'] : null;
+  const why = group && e.t === 'pa' ? cantBe(c, e) : {};
   const body = openSheet(`<h2 id="sheetTitle">${esc(name)} <small>${c.side ? 'Bottom' : 'Top'} of the ${ord(c.inn)}</small></h2>
     <div class="cell-big"><div class="cell-pic">${cellSvg(c, { count: G.pitches })}</div>
       <div><p><b>${markHtml(c.r, c.mark)}</b> ${esc(R.label)}</p><p>${esc(c.text)}</p>${c.story.length ? `<p>${esc(c.story.join(' '))}</p>` : ''}
       ${seq ? `<p class="quiet">Pitches: ${esc(seq)}.</p>` : ''}</div></div>
-    ${group ? `<h3>Change what it was</h3><div class="chips wide" role="group" aria-label="What it was">${group.map(k => `<button type="button" data-sw="${k}" aria-pressed="${k === c.r}">${k === 'KL' ? KL + ' looking' : esc(RESULTS[k].label)}</button>`).join('')}</div>` : ''}
+    ${group ? `<h3>Change what it was</h3><div class="chips wide" role="group" aria-label="What it was">${group.map(k => `<button type="button" data-sw="${k}" aria-pressed="${k === c.r}"${why[k] && k !== c.r ? ` disabled title="${esc(why[k])}"` : ''}>${k === 'KL' ? KL + ' looking' : esc(RESULTS[k].label)}</button>`).join('')}</div>` : ''}
     ${group && e.t === 'pa' && (R.f || c.f) ? `<div class="row"><button type="button" class="btn quiet" data-y="f">Change the fielders${c.f ? ` (${esc(c.f.join('-'))})` : ''}</button></div>` : ''}
     ${!readOnly && e && !group ? '<p class="hint">This one can’t be changed here. Undo takes plays back, latest first, and until the next batter’s turn is over, Fix runners changes where everyone ended up on the play before.</p>' : ''}
     <div class="row"><button type="button" class="btn primary" data-close>Done</button></div>`);
   body.addEventListener('click', ev => {
     const sw = ev.target.closest('[data-sw]'), y = ev.target.closest('[data-y]');
-    if (sw) {
+    if (sw && !sw.disabled) {
+      const was = e.r;
       if (e.t === 'p') e.k = sw.dataset.sw === 'KL' ? 'c' : 's';
       else { e.r = sw.dataset.sw; if (!RESULTS[e.r].f) delete e.f; }
       save();
+      // Now an error or a ground out, say, with nobody named: who fielded it? (Skip leaves it blank.)
+      if (e.t === 'pa' && e.r !== was && RESULTS[e.r].f && !e.f) return pickFielders(e.r, null, f => { if (f && f.length) { e.f = f; save(); } cellSheet(S.cells[c.n]); });
       cellSheet(S.cells[c.n]);
     }
     if (y) pickFielders(e.r, e.f, f => { if (f && f.length) e.f = f; else delete e.f; save(); cellSheet(S.cells[c.n]); });

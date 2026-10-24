@@ -668,6 +668,38 @@ step('Fix runners after the next pitch: the fix goes in, and the pitch stays');
   await p.context().close();
 }
 
+step('a box’s “Change what it was” offers only what could have happened');
+{
+  const p = await phone(), id = await startGame(p);
+  await p.click('[data-r=K]');
+  await p.click('[data-r="1B"]');
+  await p.click('[data-v=card]');
+  await p.click('[data-cell="0"]');
+  const off = () => p.evaluate(() => [...document.querySelectorAll('.sheet [data-sw]')].filter(b => b.disabled).map(b => b.dataset.sw).join(' '));
+  assert.equal(await off(), 'SF SAC', 'the leadoff strikeout: nobody on to sacrifice, nobody to score');
+  assert.equal(await p.getAttribute('.sheet [data-sw=SAC]', 'title'), 'Nobody was on base.');
+  await p.keyboard.press('Escape');
+  await p.click('[data-cell="1"]');
+  assert.equal(await off(), 'FC KD', 'a single with nobody on and no strikes: no fielder’s choice, no dropped third strike');
+
+  step('switching a single to an error asks who made it');
+  await p.click('.sheet [data-sw=E]');
+  await p.waitForSelector('.sheet .pick');
+  await p.click('.sheet [data-pos="6"]');
+  assert.match(await p.textContent('.sheet .cell-big'), /E6 Error/);
+  assert.equal((await stored(p, id)).ev[1].f.join(), '6');
+  await p.keyboard.press('Escape');
+  assert.match(await p.locator('.card').innerHTML(), />E6</);
+  // Skip leaves the fielders blank.
+  await p.click('[data-cell="0"]');
+  await p.click('.sheet [data-sw=GO]');
+  await p.click('.sheet [data-x=skip]');
+  assert.match(await p.textContent('.sheet .cell-big'), /G Ground out/);
+  assert.equal((await stored(p, id)).ev[0].r, 'GO');
+  assert.equal((await stored(p, id)).ev[0].f, undefined);
+  await p.context().close();
+}
+
 step('a game whose last play is one this version doesn’t know still opens');
 {
   const g = sampleUntil(7, S => S.inn === 2);
