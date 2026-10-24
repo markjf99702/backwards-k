@@ -474,6 +474,14 @@ step('a phone in the 7th: the Card tab opens on the batter’s box');
   await p.waitForTimeout(100);
   assert.ok(inside(await box(p, '.pane[data-p=card] td.next'), wrap), 'still on screen after a pitch');
 
+  step('a box the keyboard reaches isn’t hidden under the names');
+  // Scrolled one inning along: the 1st inning's box is still on screen, but under the sticky names.
+  await p.evaluate(() => { const w = document.querySelector('.pane[data-p=card] .card-wrap'); w.scrollLeft = w.querySelector('tbody tr:first-child td').offsetWidth; });
+  await p.focus('.pane[data-p=card] tbody tr:first-child [data-cell]');
+  await p.waitForTimeout(100);
+  const first = await box(p, '.pane[data-p=card] tbody tr:first-child [data-cell]');
+  assert.ok(first.left >= (await box(p, '.pane[data-p=card] tbody th.who')).right - 0.5, `the 1st inning’s box starts at ${first.left}, beside the names`);
+
   step('nine innings and R H E fit across a phone');
   for (const tab of ['card', 'box']) {
     await p.click(`[data-v=${tab}]`);

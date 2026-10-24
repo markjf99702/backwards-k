@@ -125,6 +125,9 @@ a { color: inherit; }
 h1, h2, h3 { line-height: 1.15; margin: 0; }
 p { margin: 0 0 .6em; }
 :focus-visible { outline: 3px solid var(--hit); outline-offset: 2px; }
+/* On the navy bar and the grass that blue is too faint: a white ring, with navy round it. */
+.bar :focus-visible, .field :focus-visible { outline-color: #fff; box-shadow: 0 0 0 7px var(--navy); }
+.field .runner:focus-visible { box-shadow: 0 0 0 2px var(--red), 0 0 0 7px var(--navy); }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .quiet { color: var(--muted); }
 .hint { color: var(--muted); font-size: 15px; }
@@ -462,7 +465,7 @@ details.lineup summary small { color: var(--muted); font-weight: 400; }
   .linescore tbody th { max-width: 4.2em; padding: 6px 5px 6px 8px; }
 }
 
-.card-wrap { background: var(--paper); border: 1.5px solid var(--grid); box-shadow: var(--shadow); }
+.card-wrap { background: var(--paper); border: 1.5px solid var(--grid); box-shadow: var(--shadow); scroll-padding-left: 140px; } /* a box the keyboard reaches stops clear of the names */
 .card { border-collapse: collapse; font-size: 14px; }
 .card th, .card td { border: 1px solid var(--grid-2); padding: 0; }
 .card thead th { background: var(--soft); font: 800 15px/1 var(--board-font); padding: 6px 4px; color: var(--ink-2); }
