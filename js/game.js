@@ -228,6 +228,8 @@ function drawSide() {
     });
   }
   $('.pane[data-p=box]', root).innerHTML = `<div class="line-wrap">${lineHtml(S)}</div>${boxHtml(S)}`;
+  // A line score wider than the screen (extra innings on a phone) shows its end: the latest innings and R H E.
+  for (const lw of $$('.line-wrap', root)) lw.scrollLeft = lw.scrollWidth;
   $('.pane[data-p=plays]', root).innerHTML = `<div class="plays">${playsHtml(S)}</div>`;
 }
 

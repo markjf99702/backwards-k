@@ -415,14 +415,16 @@ step('a file that isn’t a game says so');
   await p.context().close();
 }
 
-// The sample game stopped in the top of the 7th with a runner on second, on a device of its own.
+// A sample game stopped partway: the first moment that passes the test, on a device of its own.
+function sampleUntil(seed, test) {
+  const g = sampleGame(seed), all = g.ev;
+  g.id = 'gsample' + seed + 'cut';
+  for (let n = 1; n < all.length; n++) if (test(replay({ ...g, ev: all.slice(0, n) }))) { g.ev = all.slice(0, n); break; }
+  return g;
+}
+// The top of the 7th with a runner on second.
 function seventh(names) {
-  const g = sampleGame(7), all = g.ev;
-  g.id = 'gseventh';
-  for (let n = 1; n < all.length; n++) {
-    const S = replay({ ...g, ev: all.slice(0, n) });
-    if (S.inn === 7 && S.half === 0 && S.bases[2]) { g.ev = all.slice(0, n); break; }
-  }
+  const g = sampleUntil(7, S => S.inn === 7 && S.half === 0 && S.bases[2]);
   if (names) names.forEach((name, s) => { g.teams[s].name = name; });
   return g;
 }
@@ -459,6 +461,13 @@ step('a phone in the 7th: the Card tab opens on the batter’s box');
   await p.waitForTimeout(100);
   assert.ok(inside(await box(p, '.pane[data-p=card] td.next'), wrap), 'still on screen after a pitch');
 
+  step('nine innings and R H E fit across a phone');
+  for (const tab of ['card', 'box']) {
+    await p.click(`[data-v=${tab}]`);
+    const lw = `.pane[data-p=${tab}] .line-wrap`;
+    assert.ok(inside(await box(p, `${lw} tbody tr:last-child td.rhe:last-child`), await box(p, lw)), `the line score on the ${tab} tab shows E`);
+  }
+
   step('the buttons stay put as the line under the field changes');
   await p.click('[data-v=live]');
   const ball = async () => (await box(p, '[data-p=b]')).top;
@@ -470,6 +479,19 @@ step('a phone in the 7th: the Card tab opens on the batter’s box');
   await p.click('.bar .undo');
   assert.equal(await p.locator('[data-a=redo]').count(), 1);
   assert.equal(await ball(), at, 'after Undo, and Redo');
+  await p.context().close();
+}
+
+step('extra innings on a small phone: the line score shows the 15th and R H E, and who’s who');
+{
+  const p = await playing(sampleUntil(130, S => S.inn === 15), { width: 360, height: 740 });
+  for (const tab of ['card', 'box']) {
+    await p.click(`[data-v=${tab}]`);
+    const lw = `.pane[data-p=${tab}] .line-wrap`, wrap = await box(p, lw);
+    assert.ok(inside(await box(p, `${lw} thead th.cur`), wrap), `the 15th on the ${tab} tab`);
+    assert.ok(inside(await box(p, `${lw} tbody tr:last-child td.rhe:last-child`), wrap), `E on the ${tab} tab`);
+    assert.ok(inside(await box(p, `${lw} tbody tr:last-child th`), wrap), `the team name on the ${tab} tab`);
+  }
   await p.context().close();
 }
 

@@ -429,9 +429,18 @@ details.lineup summary small { color: var(--muted); font-weight: 400; }
 .linescore thead th { color: var(--board-dim); font-size: 14px; padding: 5px 6px; }
 .linescore thead th.cur { color: var(--lamp-s); }
 .linescore tbody th { text-align: left; text-transform: uppercase; letter-spacing: .04em; max-width: 9em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-left: 10px; }
+/* With extra innings the team names stay put at the left while the innings scroll under them. */
+.linescore tbody th, .linescore thead th:first-child { position: sticky; left: 0; z-index: 1; box-shadow: 2px 0 0 var(--board-2); }
 .linescore td.now { color: var(--lamp-s); }
 .linescore .rhe { background: var(--board-2); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06); font-weight: 800; }
-.linescore tbody .rhe:first-of-type { color: #fff; }
+.linescore tbody td.rhe:nth-last-child(3) { color: #fff; }
+/* On a phone, nine innings and R H E fit across. */
+@media (max-width: 459px) {
+  .linescore { font-size: 16px; }
+  .linescore th, .linescore td, .linescore thead th { min-width: 20px; padding: 6px 3px; }
+  .linescore thead th { font-size: 13px; }
+  .linescore tbody th { max-width: 4.2em; padding: 6px 5px 6px 8px; }
+}
 
 .card-wrap { background: var(--paper); border: 1.5px solid var(--grid); box-shadow: var(--shadow); }
 .card { border-collapse: collapse; font-size: 14px; }
@@ -602,7 +611,7 @@ li.scored { border-left: 4px solid var(--red); }
   #print h1 { font: 800 26px/1 var(--board-font); text-transform: uppercase; }
   #print h2 { font: 800 18px/1 var(--board-font); text-transform: uppercase; margin: 14px 0 6px; }
   #print .linescore { border-spacing: 0; border: 1px solid #000; margin: 8px 0; }
-  #print .linescore th, #print .linescore td { border: 1px solid #999; }
+  #print .linescore th, #print .linescore td { border: 1px solid #999; position: static; box-shadow: none; }
   #print .card { width: 100%; break-inside: avoid; }
   #print .card td { width: auto; min-width: 0; height: 48px; }
   #print .card tbody .who { height: 48px; position: static; }
