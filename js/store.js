@@ -3,20 +3,27 @@ import { cleanDoc, cleanGame, canon } from './model.js';
 
 export const KEY = 'backwards-k.v1';
 const listeners = [];
+// Why this device isn't saving: '' when the last save worked, 'full' when it's out of room, 'blocked' when the
+// browser won't let the page store anything (private browsing, or site data turned off).
+let problem = '';
 let doc = read();
 
 function read() {
-  try { return cleanDoc(JSON.parse(localStorage.getItem(KEY) || 'null')); } catch { return cleanDoc(null); }
+  let raw;
+  try { raw = localStorage.getItem(KEY); } catch { problem = 'blocked'; return cleanDoc(null); }
+  try { return cleanDoc(JSON.parse(raw || 'null')); } catch { return cleanDoc(null); }
 }
 function write() {
-  try { localStorage.setItem(KEY, canon(doc)); return true; } catch { return false; }
+  try { localStorage.setItem(KEY, canon(doc)); problem = ''; } catch (e) { problem = isFull(e) ? 'full' : 'blocked'; }
+  return !problem;
 }
+const isFull = e => !!e && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED' || e.code === 22 || e.code === 1014);
 const tell = why => listeners.forEach(f => { try { f(why); } catch (e) { console.error(e); } });
 
 export const store = {
   all: () => Object.values(doc.games).sort((a, b) => b.updated - a.updated),
   get: id => doc.games[id] || null,
-  // Save a game that changed. Returns false if the phone's storage is full.
+  // Save a game that changed. Returns false if it couldn't be stored (problem() says why); it's kept in memory anyway.
   save(g) {
     g.updated = Math.max(Date.now(), (g.updated || 0) + 1);
     doc.games[g.id] = g;
@@ -25,13 +32,16 @@ export const store = {
     tell();
     return ok;
   },
+  // Returns false if that couldn't be stored.
   remove(id) {
     delete doc.games[id];
     doc.gone[id] = Date.now();
-    write();
+    const ok = write();
     tell();
+    return ok;
   },
   // Games from a backup file or a shared link: a game this device already has is kept unless the other copy is newer.
+  // Returns how many were added, and ok: false if they couldn't be stored.
   add(games) {
     let n = 0;
     for (const raw of games) {
@@ -43,9 +53,11 @@ export const store = {
       delete doc.gone[g.id];
       n++;
     }
-    if (n) { write(); tell(); }
-    return n;
+    let ok = true;
+    if (n) { ok = write(); tell(); }
+    return { n, ok };
   },
+  problem: () => problem,
   doc: () => doc,
   // Drive (or another tab) changed what's stored: read it again.
   reload() { doc = read(); tell('reload'); },

@@ -205,6 +205,7 @@ async function startGame(p, away = 'Owls') {
 }
 const stored = (p, id) => p.evaluate(id => JSON.parse(localStorage.getItem('backwards-k.v1')).games[id], id);
 const plays = async (p, id) => (await stored(p, id)).ev.map(e => e.t + (e.r || '')).join(' ');
+const shown = p => p.evaluate(() => { const t = document.getElementById('toast'); return t.hidden ? '' : t.textContent; });
 
 step('Fix runners, then leaving the game: the play is still there');
 {
@@ -294,6 +295,47 @@ step('undoing a pitcher brought back keeps both pitchers and every change');
   await p.waitForSelector('.live .field');
   const kept = await p.evaluate(async id => (await import('./js/store.js')).store.get(id).ev.filter(e => e.t === 'pch').map(e => e.i), id);
   assert.deepEqual(kept, [1, 0]);
+  await p.context().close();
+}
+
+step('a device that’s out of room: one line says so, and nothing claims it was saved');
+{
+  const p = await phone(() => {
+    const set = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (k, v) {
+      if (k === 'backwards-k.v1' && sessionStorage.getItem('full')) throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
+      return set.call(this, k, v);
+    };
+  });
+  await startGame(p);
+  assert.equal(await p.locator('.trouble').isVisible(), false);
+  await p.evaluate(() => sessionStorage.setItem('full', '1'));
+  await p.click('[data-p=b]');
+  assert.match(await p.textContent('.trouble'), /out of room, so the latest plays aren’t saved yet/);
+  assert.equal(await shown(p), '', 'no toast as well');
+  await p.click('[data-p=b]');
+  assert.equal(await shown(p), '');
+  const [file] = await Promise.all([p.waitForEvent('download'), p.click('.trouble button')]);
+  assert.match(file.suggestedFilename(), /owls-at-home\.backwards-k\.json$/);
+  // A shared game can't be saved either, and the toast says so.
+  await p.goto(base + link.slice(link.indexOf('#')));
+  await p.click('[data-a=keep]');
+  assert.match(await shown(p), /Couldn’t save it: this device is out of room/);
+  // Room again: the next save works and the line goes.
+  await p.evaluate(() => sessionStorage.removeItem('full'));
+  await p.waitForSelector('.live .field');
+  await p.click('[data-p=b]');
+  assert.equal(await p.locator('.trouble').isVisible(), false);
+  await p.context().close();
+}
+
+step('a browser that won’t store anything: the line says so from the start');
+{
+  const p = await phone(() => Object.defineProperty(window, 'localStorage', { get() { throw new DOMException('The operation is insecure.', 'SecurityError'); } }));
+  await startGame(p);
+  assert.match(await p.textContent('.trouble'), /This browser isn’t letting Backwards K save/);
+  await p.click('[data-p=b]');
+  assert.equal(await shown(p), '');
   await p.context().close();
 }
 

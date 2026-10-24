@@ -69,6 +69,9 @@ function wire() {
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wire); else wire();
 
+// Why this device couldn't save something (store.problem() is 'full' or 'blocked'), to finish a sentence.
+export const whyNot = p => (p === 'full' ? 'this device is out of room' : 'this browser isn’t letting Backwards K save (private browsing, or site data is turned off)');
+
 // ---------- the toast ----------
 let toastT = null;
 export function toast(msg, { action, run, ms = 3200 } = {}) {

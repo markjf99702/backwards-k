@@ -41,7 +41,8 @@ written out in plain words.
 
 ### What's saved where
 
-- **On each device:** every game, in the browser's storage.
+- **On each device:** every game, in the browser's storage. If the browser won't save (private browsing, site data
+  turned off, or a device that's out of room), the game screen says so and offers to save the game as a file.
 - **In Google Drive, when it's on:** one JSON file per game in the "Backwards K" folder, with a line or two at the top
   saying who played and the score. Whichever copy of a game changed last wins. A deleted game's file goes to Drive's
   bin, and the game is deleted on your other devices too.

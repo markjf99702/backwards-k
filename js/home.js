@@ -1,7 +1,7 @@
 // The first screen: start a game, pick up one already going, the sample, Google Drive and backups.
 import { replay, teamName, halfLabel } from './engine.js';
 import { store } from './store.js';
-import { $, esc, fmtDate, toast, download, pickFile, inFrame, ICON } from './ui.js';
+import { $, esc, fmtDate, toast, download, pickFile, inFrame, ICON, whyNot } from './ui.js';
 import { today } from './model.js';
 import { drive } from './sync.js';
 import { helpSheet } from './help.js';
@@ -62,9 +62,10 @@ export function showHome(el) {
       let data;
       try { data = JSON.parse(await f.text()); } catch { return toast('That file isn’t a Backwards K backup or game.'); }
       const list = data && data.games ? Object.values(data.games) : data && data.game ? [data.game] : [data];
-      const n = store.add(list);
+      const { n, ok } = store.add(list);
       drive.changed();
-      toast(n ? `${n} game${n > 1 ? 's' : ''} added.` : 'Nothing new in that file: you already have those games.');
+      if (!ok) toast(`Couldn’t save ${n > 1 ? 'those games' : 'that game'}: ${whyNot(store.problem())}.`, { ms: 6000 });
+      else toast(n ? `${n} game${n > 1 ? 's' : ''} added.` : 'Nothing new in that file: you already have those games.');
       showHome(el);
     }
   };

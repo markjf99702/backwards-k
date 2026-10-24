@@ -11,7 +11,7 @@ import { showGame, leaveGame } from './game.js';
 import { unpack } from './share.js';
 import { sampleGame } from './sample.js';
 import { cleanGame, uid } from './model.js';
-import { closeSheet, toast, go, routes } from './ui.js';
+import { closeSheet, toast, go, routes, whyNot } from './ui.js';
 import { drive } from './sync.js';
 
 const app = document.getElementById('app');
@@ -54,10 +54,11 @@ function open(el, name, g, opts) {
 // Someone else's game (or the sample) goes into this device's games.
 function keep(g) {
   const mine = store.get(g.id);
-  if (!mine || mine.updated < g.updated) store.add([g]);
+  let ok = true;
+  if (!mine || mine.updated < g.updated) ({ ok } = store.add([g]));
   drive.changed();
   go('#/g/' + g.id);
-  toast('Saved to your games.');
+  if (ok) toast('Saved to your games.'); else toast(`Couldn’t save it: ${whyNot(store.problem())}.`, { ms: 6000 });
 }
 
 window.addEventListener('hashchange', () => route());

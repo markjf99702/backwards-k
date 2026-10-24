@@ -66,8 +66,13 @@ export function shareSheet(g) {
       if (await copy(text)) toast('Score copied.'); else show(text);
     }
     if (what === 'print') { closeSheet(); printGame(g); }
-    if (what === 'file') download(`${g.date} ${slug(teamName(g, 0))}-at-${slug(teamName(g, 1))}.backwards-k.json`, JSON.stringify({ app: 'backwards-k', v: 1, games: { [g.id]: g } }, null, 1));
+    if (what === 'file') saveFile(g);
   });
+}
+
+// The game as a file, to keep or to open in Backwards K on another device (it reads like a backup with one game).
+export function saveFile(g) {
+  download(`${g.date} ${slug(teamName(g, 0))}-at-${slug(teamName(g, 1))}.backwards-k.json`, JSON.stringify({ app: 'backwards-k', v: 1, games: { [g.id]: g } }, null, 1));
 }
 
 // Fills the print-only part of the page with both cards and the box score, then prints.

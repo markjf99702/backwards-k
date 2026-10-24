@@ -386,12 +386,16 @@ details.lineup summary small { color: var(--muted); font-weight: 400; }
 .shared-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 10px 0 0; padding: 10px 14px; border-radius: 12px; background: var(--card); border: 1px solid var(--line); }
 .shared-bar p { flex: 1 1 14em; margin: 0; font-size: 15px; color: var(--ink-2); }
 @media (min-width: 700px) { .shared-bar { grid-column: 1 / -1; margin: 0; } }
+/* This device can't save: one line under the bar until it can, with a way to keep the game anyway. */
+.trouble { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 10px 0 0; padding: 10px 14px; border-radius: 12px; background: var(--red-soft); border: 1px solid var(--red); }
+.trouble p { flex: 1 1 14em; margin: 0; font-size: 15px; color: var(--ink); }
+@media (min-width: 700px) { .trouble { grid-column: 1 / -1; margin: 0; } }
 .shared-note { padding: 16px; border-radius: 14px; background: var(--card); border: 1px solid var(--line); display: grid; gap: 10px; justify-items: start; }
 
 /* Tablets and bigger: the scoring controls and the card side by side. */
 @media (min-width: 700px) {
   .game { padding: 12px 16px 24px; display: grid; gap: 14px; grid-template-areas: "bar" "live" "tabs" "side"; }
-  .shared-bar { grid-area: bar; }
+  .shared-bar, .trouble { grid-area: bar; }
   .live { grid-area: live; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 14px; }
   .live > .bug, .live > .shared-note, .live > .recent { grid-column: 1 / -1; }
   .live > .recent { display: none; }

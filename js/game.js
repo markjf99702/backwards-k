@@ -9,9 +9,9 @@ import { blank } from './model.js';
 import { cardHtml, lineHtml, cellSvg } from './card.js';
 import { boxHtml, playsHtml } from './box.js';
 import { infieldSvg, fieldSvg, BASE_AT } from './field.js';
-import { $, $$, esc, openSheet, closeSheet, toast, KL, markHtml, fmtDate, go } from './ui.js';
+import { $, $$, esc, openSheet, closeSheet, toast, KL, markHtml, fmtDate, go, inFrame } from './ui.js';
 import { drive } from './sync.js';
-import { shareSheet } from './share.js';
+import { shareSheet, saveFile } from './share.js';
 import { helpSheet } from './help.js';
 
 let G = null, S = null, root = null, redo = [];
@@ -80,8 +80,9 @@ function act(e) {
   redo = [];
   save();
 }
+// (If this device can't save, the line under the bar says so: see trouble().)
 function save() {
-  if (!store.save(G)) toast('This device is out of room, so that wasn’t saved. Save a backup, then delete some old games.');
+  store.save(G);
   drive.changed();
   S = replay(G);
   draw();
@@ -102,6 +103,7 @@ function flush() {
   clearTimeout(t);
   store.save(g);
   drive.changed();
+  if (g === G) trouble();
 }
 function undo() {
   const e = G.ev.pop();
@@ -136,6 +138,7 @@ function frame() {
       </div>
     </header>
     <div class="game">
+      ${readOnly ? '' : '<div class="trouble" role="alert" hidden><p></p><button type="button" class="btn sm"></button></div>'}
       ${readOnly ? `<div class="shared-bar"><p>${esc(note)}</p>${onSave ? '<button type="button" class="btn primary sm" data-a="keep">Save to my games</button>' : ''}</div>` : ''}
       <nav class="vtabs" aria-label="Views">
         <button type="button" data-v="live">${readOnly ? 'Score' : 'Score'}</button>
@@ -168,9 +171,28 @@ function draw() {
     u.setAttribute('aria-label', u.title);
   }
   drawSide();
+  trouble();
   wake(!S.over && !readOnly);
 }
 const wide = () => matchMedia('(min-width: 700px)').matches;
+
+// While this device can't save, one line under the bar says so (instead of a message on every tap), with a way to
+// keep the game anyway. It goes as soon as a save works again.
+function trouble() {
+  const el = root && $('.trouble', root);
+  if (!el) return;
+  const p = store.problem(), file = !inFrame();
+  el.hidden = !p;
+  if (!p) delete el.dataset.p;
+  if (!p || el.dataset.p === p) return;
+  el.dataset.p = p; // (written only when it changes, so a screen reader says it once)
+  $('p', el).textContent = p === 'full'
+    ? `This device is out of room, so the latest plays aren’t saved yet. ${file ? 'Save the game as a file' : 'Share the game'}, then delete some old games.`
+    : `This browser isn’t letting Backwards K save (private browsing, or site data is turned off). ${file ? 'Save the game as a file or share its link' : 'Share the game’s link'} before you close this page.`;
+  const b = $('button', el);
+  b.dataset.a = file ? 'file' : 'share';
+  b.textContent = file ? 'Save as a file' : 'Share this game';
+}
 
 function drawSide() {
   const side = cardSide ?? (S.over ? 0 : S.half);
@@ -295,6 +317,7 @@ function onClick(e) {
     case 'menu': return menuSheet();
     case 'help': return helpSheet();
     case 'share': return shareSheet(G);
+    case 'file': return saveFile(G);
     case 'on': return act({ t: 'on' });
   }
 }
