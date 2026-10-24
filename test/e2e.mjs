@@ -187,6 +187,77 @@ assert.equal(await page.locator('.gi').count(), 0);
 await tap('.toast button');
 await page.waitForSelector('.live .field');
 
+// A phone of its own for each of these, with its own storage (init: a script to run before the page's own).
+async function phone(init) {
+  const c = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, serviceWorkers: 'block' });
+  if (init) await c.addInitScript(init);
+  const p = await c.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  p.on('console', m => { if (m.type() === 'error') problems.push(m.text()); });
+  return p;
+}
+async function startGame(p, away = 'Owls') {
+  await p.goto(base + '#/new');
+  await p.fill('[data-side="0"] [data-name]', away);
+  await p.click('[data-go]');
+  await p.waitForSelector('.live .field');
+  return p.evaluate(() => location.hash.slice(4));
+}
+const stored = (p, id) => p.evaluate(id => JSON.parse(localStorage.getItem('backwards-k.v1')).games[id], id);
+const plays = async (p, id) => (await stored(p, id)).ev.map(e => e.t + (e.r || '')).join(' ');
+
+step('Fix runners, then leaving the game: the play is still there');
+{
+  const p = await phone(), id = await startGame(p);
+  await p.click('[data-r="1B"]');
+  await p.click('[data-r="2B"]');
+  await p.click('[data-x=save]');
+  await p.click('[data-a=fixlast]');
+  await p.waitForSelector('.sheet .moves');
+  await p.goBack();
+  await p.waitForSelector('.setup');
+  await p.goto(base + '#/g/' + id);
+  await p.waitForSelector('.live .field');
+  assert.match(await p.textContent('.ticker p'), /doubles/);
+  await p.click('[data-p=b]');
+  assert.equal(await plays(p, id), 'pa1B pa2B p');
+
+  step('Fix runners while another tab saves: the fix replaces the play, once');
+  await p.click('[data-r="1B"]');
+  await p.click('[data-x=save]');
+  await p.click('[data-a=fixlast]');
+  await p.waitForSelector('.sheet .moves');
+  const other = await p.context().newPage();
+  await startGame(other, 'Larks');
+  await other.close();
+  await p.waitForTimeout(200);
+  await p.click('.mv[data-from="2"] [data-to="4"]');
+  await p.click('.sheet [data-x=save]');
+  assert.equal(await plays(p, id), 'pa1B pa2B p pa1B');
+  assert.deepEqual((await stored(p, id)).ev.at(-1).m.find(x => x[0] === 2), [2, 4]);
+  assert.match(await p.textContent('.ticker p'), /Batter 2 scores/);
+  await p.context().close();
+}
+
+step('Fix runners, then Cancel, while a name is being saved: nothing is lost');
+{
+  const p = await phone(), id = await startGame(p);
+  await p.click('[data-r="1B"]');
+  await p.click('[data-a=batter]');
+  await p.fill('.sheet [data-f=name]', 'Okafor');
+  await p.click('.sheet [data-close]');
+  await p.click('[data-a=fixlast]');
+  await p.waitForSelector('.sheet .moves');
+  await p.waitForTimeout(600); // the name's save goes through while the sheet is open
+  await p.click('.sheet [data-close]');
+  await p.reload();
+  await p.waitForSelector('.live .field');
+  assert.equal(await plays(p, id), 'pa1B');
+  assert.equal((await stored(p, id)).teams[0].lineup[1][0].name, 'Okafor');
+  assert.match(await p.textContent('.ticker p'), /singles/);
+  await p.context().close();
+}
+
 step('tablet sizes: side by side, nothing sideways');
 for (const [w, h] of [[820, 1180], [1180, 820]]) {
   await page.setViewportSize({ width: w, height: h });

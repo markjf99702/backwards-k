@@ -337,18 +337,19 @@ function pickFielders(code, start, done, { title } = {}) {
 }
 
 // Everyone on base, and the batter, with where they most likely ended up already picked.
-function runnersSheet(code, f, moves, { editing = false, cancel = null } = {}) {
-  const R = RESULTS[code], n = now(S);
+// st: how things stood before the play (kept here, since another tab or Drive can change the game meanwhile).
+// done: what to do with the play once it's saved; a new play is added to the game.
+function runnersSheet(code, f, moves, { st = S, editing = false, done = act } = {}) {
+  const R = RESULTS[code], n = now(st);
   const m = moves.map(x => x.slice());
-  const counts = { v: runsCount(S, code, m) };
-  let userSaid = null, saved = false;
-  const who = b => (b === 0 ? n.name : label(player(G, S.bases[b].side, S.bases[b].slot, S.bases[b].p), S.bases[b].slot));
+  const counts = { v: runsCount(st, code, m) };
+  let userSaid = null;
+  const who = b => (b === 0 ? n.name : label(player(G, st.bases[b].side, st.bases[b].slot, st.bases[b].p), st.bases[b].slot));
   const body = openSheet(`<h2 id="sheetTitle">${R.kind === 'out' && code !== 'KL' && code !== 'K' ? esc(R.label) : code === 'KL' ? 'Strikeout looking' : esc(R.label)}${f && f.length ? ` <span class="mk">${esc(mark(code, f))}</span>` : ''}</h2>
     <p class="hint">Here’s where everyone usually ends up. Change anything that went differently.</p>
     <div class="moves"></div>
     <p class="tally" aria-live="polite"></p>
-    <div class="row"><button type="button" class="btn quiet" data-close>Cancel</button><button type="button" class="btn primary" data-x="save">${editing ? 'Save changes' : 'Save play'}</button></div>`,
-  { close: () => { if (!saved && cancel) cancel(); } });
+    <div class="row"><button type="button" class="btn quiet" data-close>Cancel</button><button type="button" class="btn primary" data-x="save">${editing ? 'Save changes' : 'Save play'}</button></div>`);
   function draw() {
     const rows = m.slice().sort((a, b) => b[0] - a[0]).map(([from, to]) => {
       const opts = [0, ...[1, 2, 3, 4].filter(b => b >= Math.max(from, 1))];
@@ -358,15 +359,15 @@ function runnersSheet(code, f, moves, { editing = false, cancel = null } = {}) {
       </div>`;
     });
     body.querySelector('.moves').innerHTML = rows.join('');
-    const err = check(S, m), outs = m.filter(x => x[1] === 0).length, runs = m.filter(x => x[1] === 4).length;
-    const third = S.outs + outs >= 3 && runs > 0;
-    if (userSaid == null) counts.v = runsCount(S, code, m);
+    const err = check(st, m), outs = m.filter(x => x[1] === 0).length, runs = m.filter(x => x[1] === 4).length;
+    const third = st.outs + outs >= 3 && runs > 0;
+    if (userSaid == null) counts.v = runsCount(st, code, m);
     let t = '';
     if (err) t = `<span class="err">${esc(err)}</span>`;
     else {
       const bits = [];
       if (runs) bits.push(`${runs} run${runs > 1 ? 's' : ''} ${third && !counts.v ? 'cross' : 'score'}${runs > 1 ? '' : 's'}`);
-      bits.push(`${S.outs + outs} out${S.outs + outs === 1 ? '' : 's'}${S.outs + outs >= 3 ? ', side retired' : ''}`);
+      bits.push(`${st.outs + outs} out${st.outs + outs === 1 ? '' : 's'}${st.outs + outs >= 3 ? ', side retired' : ''}`);
       t = bits.join(' · ');
       if (third) t += `<span class="third">That’s the third out. Did the run${runs > 1 ? 's' : ''} cross the plate before it?
         <span class="chips"><button type="button" data-runs="1" aria-pressed="${counts.v}">Yes, ${runs > 1 ? 'they count' : 'it counts'}</button><button type="button" data-runs="0" aria-pressed="${!counts.v}">No</button></span></span>`;
@@ -383,27 +384,38 @@ function runnersSheet(code, f, moves, { editing = false, cancel = null } = {}) {
       draw();
     } else if (r) { userSaid = true; counts.v = r.dataset.runs === '1'; draw(); }
     else if (s && !s.disabled) {
-      const third = S.outs + m.filter(x => x[1] === 0).length >= 3;
+      const third = st.outs + m.filter(x => x[1] === 0).length >= 3;
       // A fly out that brings the runner home from third with fewer than two outs is a sacrifice fly.
-      const sf = code === 'FO' && S.outs < 2 && m.some(x => x[0] === 3 && x[1] === 4) && m.some(x => x[0] === 0 && x[1] === 0);
+      const sf = code === 'FO' && st.outs < 2 && m.some(x => x[0] === 3 && x[1] === 4) && m.some(x => x[0] === 0 && x[1] === 0);
       const e2 = withF({ t: 'pa', r: sf ? 'SF' : code, m }, f);
       if (third && !counts.v) e2.x = 1;
-      saved = true;
       closeSheet();
-      act(e2);
+      done(e2);
     }
   });
 }
 
-// The last play's runners, again: undo it, then ask where everyone went.
+// The last play's runners, again: ask where everyone went, from how things stood before it. The game itself is
+// left alone until Save changes, so leaving the screen or cancelling loses nothing.
 function fixLast() {
   const e = G.ev[G.ev.length - 1];
   if (!e || e.t !== 'pa') return;
-  G.ev.pop();
-  S = replay(G);
-  // Cancelled: the play goes back as it was.
-  runnersSheet(e.r, e.f || null, e.m, { editing: true, cancel: () => { if (!G) return; G.ev.push(e); S = replay(G); draw(); } });
+  const id = G.id, was = plays(G.ev);
+  runnersSheet(e.r, e.f || null, e.m, {
+    st: replay({ ...G, ev: G.ev.slice(0, -1) }),
+    editing: true,
+    done: e2 => {
+      // Another tab or Google Drive changed the plays while the sheet was open: the fix may not fit any more.
+      if (!G || G.id !== id || plays(G.ev) !== was) return toast('The game changed somewhere else while this was open, so the fix wasn’t saved.');
+      G.ev[G.ev.length - 1] = e2;
+      redo = [];
+      save();
+    },
+  });
 }
+// The plays written out the same way whatever order their fields were set in (a copy read back from storage has
+// them in another order), to tell whether they changed.
+const plays = ev => JSON.stringify(ev, (k, v) => (v && v.constructor === Object ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => (a < b ? -1 : 1))) : v));
 
 function moreSheet() {
   const can = { TP: runnersOn(S).length >= 2 && S.outs === 0, KD: S.s >= 2 || !G.pitches };
