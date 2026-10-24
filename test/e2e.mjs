@@ -519,6 +519,9 @@ step('Fix runners only after a play with runners, or the batter safe');
 {
   const p = await phone();
   await startGame(p);
+  assert.match(await p.textContent('.recent'), /The first pitch is all yours/);
+  await p.click('[data-p=b]');
+  assert.match(await p.textContent('.recent'), /No plays yet: the first at-bat is still going\./, 'Latest plays once a pitch is in');
   await p.click('[data-r=K]');
   assert.equal(await p.locator('[data-a=fixlast]').count(), 0, 'not after a strikeout with nobody on');
   await p.click('[data-r=GO]');

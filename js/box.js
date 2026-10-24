@@ -56,7 +56,7 @@ export function playsHtml(S, { limit = 0 } = {}) {
     if (!grp || grp.inn !== p.inn || grp.half !== p.half) groups.push(grp = { inn: p.inn, half: p.half, list: [] });
     grp.list.push(p);
   }
-  if (!groups.length) return '<p class="quiet">Nothing has happened yet. The first pitch is all yours.</p>';
+  if (!groups.length) return `<p class="quiet">${g.ev.some(e => e.t === 'p') ? 'No plays yet: the first at-bat is still going.' : 'Nothing has happened yet. The first pitch is all yours.'}</p>`;
   let n = 0, h = '';
   for (const grp of groups.reverse()) {
     if (limit && n >= limit) break;
