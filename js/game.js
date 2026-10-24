@@ -526,7 +526,6 @@ function runnerSheet(b) {
     const how = k.dataset.k;
     if (how === 'PR') return subForm(r.side, r.slot, 'pr');
     if (how === 'BK') { closeSheet(); return act({ t: 'r', m: runnersOn(S).map(x => [x, x + 1, 'BK']) }); }
-    if (how === 'E') return pickFielders('E', null, f => { closeSheet(); act({ t: 'r', m: [f && f.length ? [b, to, 'E', f] : [b, to, 'E']] }); }, { title: 'Error' });
     if (how === 'SB') { if (S.bases[next] && next < 4) return toast(`Someone’s already on ${BASE[next]}. Move them first.`); closeSheet(); return act({ t: 'r', m: [[b, next, 'SB']] }); }
     if (how === 'CS' || how === 'PO' || how === 'OB') {
       closeSheet();
@@ -534,6 +533,7 @@ function runnerSheet(b) {
     }
     // Moved up: the runners ahead have to be out of the way.
     for (let x = b + 1; x <= Math.min(to, 3); x++) if (S.bases[x]) return toast(`Someone’s on ${BASE[x]}. Move the runner ahead first.`);
+    if (how === 'E') return pickFielders('E', null, f => { closeSheet(); act({ t: 'r', m: [f && f.length ? [b, to, 'E', f] : [b, to, 'E']] }); }, { title: 'Error' });
     closeSheet();
     act({ t: 'r', m: [[b, to, how]] });
   });

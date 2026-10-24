@@ -125,6 +125,19 @@ test('stolen bases and wild pitches move runners without a plate appearance', ()
   assert.equal(S.cells.length, 1);
 });
 
+test('a runner can’t be moved onto a base someone is still on', () => {
+  const g = game();
+  play(g, 'CI', '2B');
+  const S = play(g, { t: 'r', m: [[2, 3, 'E', [6]]] });
+  assert.equal(S.bases[2].cell.n, 1, 'the batter who doubled is still on second');
+  assert.equal(S.bases[3].cell.n, 0, 'the runner on third is still there');
+  assert.equal(S.E[1], 0);
+  // Two runners moving up together is fine: the one ahead goes first.
+  const S2 = play(g, { t: 'r', m: [[3, 4, 'WP'], [2, 3, 'WP']] });
+  assert.equal(S2.R[0], 1);
+  assert.equal(S2.bases[3].cell.n, 1);
+});
+
 test('the home team wins as soon as it goes ahead in the last inning', () => {
   const g = game({ innings: 1 });
   let S = play(g, ...threeK, '1B');

@@ -295,6 +295,8 @@ function runners(S, e) {
   for (const [from, to, how, f] of moves) {
     const r = S.bases[from];
     if (!r) continue;
+    // Someone who didn't move is still on that base (the runners ahead go first): this runner stays put.
+    if (to >= 1 && to <= 3 && to !== from && S.bases[to]) continue;
     S.bases[from] = null;
     const who = label(player(g, side, r.slot, r.p), r.slot), m = runMark(how, f);
     if (how === 'E') { S.E[fld]++; S.eInn[side][S.inn - 1]++; }

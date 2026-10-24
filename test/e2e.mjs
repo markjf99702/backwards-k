@@ -85,6 +85,14 @@ assert.equal(await bases(), '3:Ruiz 1:Castillo');
 await tap('[data-a=redo]');
 assert.equal(await bases(), '3:Ruiz 2:Castillo');
 
+step('an error can’t move a runner onto a base that’s taken');
+await tap('[data-runner="2"]');
+await tap('.sheet [data-k="E"]');
+assert.equal(await page.textContent('#toast'), 'Someone’s on third. Move the runner ahead first.');
+assert.equal(await page.locator('.sheet .pick').count(), 0, 'no fielders to pick');
+await tap('.sheet [data-close]');
+assert.equal(await bases(), '3:Ruiz 2:Castillo');
+
 step('a ground out with fielders; the third out ends the half');
 await tap('[data-r="GO"]');
 await tap('[data-pos="6"]');
