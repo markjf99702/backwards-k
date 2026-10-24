@@ -550,6 +550,24 @@ test('play-by-play reads like a person wrote it', () => {
   assert.equal(S.plays[1].text, 'Okafor grounds out, short to first (6-3). Ruiz to second.');
 });
 
+test('the card marks where a new pitcher took over and where a substitute first batted', () => {
+  const g = game();
+  g.teams[1].pitchers.push({ name: 'Bishop', num: '37' });
+  g.teams[0].lineup[2].push({ name: 'Diaz', num: '' });
+  g.teams[0].lineup[0].push({ name: 'Speedy', num: '' });
+  const S = play(g, '1B', 'K', { t: 'pch', s: 1, i: 1 }, P('b'), { t: 'sub', s: 0, slot: 2, i: 1, ty: 'ph' }, '2B',
+    { t: 'sub', s: 0, slot: 0, i: 1, ty: 'pr' }, 'K', 'K', ...threeK, 'GO 6 3', '1B', '1B', '1B', 'K');
+  const h = cardHtml(S, 0);
+  const td = n => h.match(new RegExp(`<td([^>]*)><button type="button" class="box" data-cell="${n}" aria-label="([^"]*)"`)).slice(1);
+  assert.deepEqual(td(2), [' class="pch sub" title="Bishop pitching from here"', 'Diaz doubles. Batter 1 to third. Bishop pitching from here.']);
+  assert.deepEqual(td(1), ['', 'Batter 2 strikes out swinging.']);
+  assert.match(td(12)[0], /class="sub/, 'the pinch runner’s first time up, in the 2nd');
+  assert.match(h, /<i>PH 1st<\/i> Diaz/);
+  assert.match(h, /<i>PR 1st<\/i> Speedy/);
+  // The home team's card: no change of pitcher for them to face.
+  assert.doesNotMatch(cardHtml(S, 1), /class="[^"]*pch/);
+});
+
 test('the plays: the count and pitches for each at-bat, a line for each half-inning, and a finished game in order', () => {
   const g = game({ innings: 1 });
   let S = play(g, P('b'), P('c'), P('f'), P('b'), '1B', 'BB', P('s'), 'K', 'GO 6 3', 'FO 8');

@@ -1,6 +1,6 @@
 // The scorecard: one row per spot in the batting order, one column per inning, and in each box a small diamond
 // with the batter's trip around the bases drawn the way it's done on paper.
-import { RESULTS, columns, innings, label, player, batKey, ord } from './engine.js';
+import { RESULTS, columns, innings, label, player, batKey, ord, pitcherLabel } from './engine.js';
 import { esc } from './ui.js';
 
 // The diamond in a 60 x 60 box: home, first, second, third.
@@ -64,9 +64,28 @@ function subsOf(g, side) {
 
 const TYPE = { ph: 'PH', pr: 'PR', def: 'in' };
 
+// As on paper: a heavy line along the top of the first box a new pitcher faced, and down the left of a substitute's
+// first box. Gives the boxes' numbers, with the pitcher's name for the first.
+function changes(S, side) {
+  const g = S.g, mine = S.cells.filter(c => c.side === side), pch = new Map(), sub = new Set();
+  g.ev.forEach((e, j) => {
+    // (A change before anyone on this side batted has nothing to mark.)
+    if (e.t === 'pch' && e.s !== side && mine.some(c => c.ev < j)) {
+      const c = mine.find(c => c.ev > j);
+      if (c) pch.set(c.n, pitcherLabel(g, e.s, e.i));
+    }
+    if (e.t === 'sub' && e.s === side) {
+      const c = mine.find(c => c.ev > j && c.slot === e.slot && c.p === e.i);
+      if (c) sub.add(c.n);
+    }
+  });
+  return { pch, sub };
+}
+
 // The card for one team. live: mark where the next batter goes.
 export function cardHtml(S, side, { live = true } = {}) {
-  const g = S.g, cols = columns(S, side), subs = subsOf(g, side);
+  const g = S.g, cols = columns(S, side), subs = subsOf(g, side), marks = changes(S, side);
+  const innOf = new Map(S.plays.filter(p => p.kind === 'sub').map(p => [p.i, p.inn]));
   const at = new Map();
   for (const c of S.cells) if (c.side === side) at.set(`${c.slot}:${c.inn}:${c.k}`, c);
   // Where the batter now at the plate will go.
@@ -91,13 +110,15 @@ export function cardHtml(S, side, { live = true } = {}) {
     h += `<tr${nowAt ? ' class="up"' : ''}><th class="who" scope="row"><span class="ord">${slot + 1}</span><span class="names">`;
     shown.forEach((pi, j) => {
       const p = players[pi] || players[0], e = j ? subs[slot][j - 1] : null;
-      h += `<span class="pl${j < shown.length - 1 ? ' was' : ''}">${e ? `<i>${TYPE[e.ty]}</i> ` : ''}${esc(label(p, slot))}</span>`;
+      const inn = e && innOf.get(g.ev.indexOf(e));
+      h += `<span class="pl${j < shown.length - 1 ? ' was' : ''}">${e ? `<i>${TYPE[e.ty]}${inn ? ' ' + ord(inn) : ''}</i> ` : ''}${esc(label(p, slot))}</span>`;
     });
     h += '</span></th>';
     for (const col of cols) {
       const k = `${slot}:${col.inn}:${col.k}`, c = at.get(k);
-      const cls = [c && c.end ? 'end' : '', k === next ? 'next' : '', col.inn === curInn ? 'cur' : ''].filter(Boolean).join(' ');
-      h += `<td${cls ? ` class="${cls}"` : ''}>${c ? `<button type="button" class="box" data-cell="${c.n}" aria-label="${esc(c.text)}">${cellSvg(c, { count: g.pitches })}</button>` : ''}</td>`;
+      const who = c && marks.pch.get(c.n), from = who ? `${who} pitching from here` : '';
+      const cls = [c && who ? 'pch' : '', c && marks.sub.has(c.n) ? 'sub' : '', c && c.end ? 'end' : '', k === next ? 'next' : '', col.inn === curInn ? 'cur' : ''].filter(Boolean).join(' ');
+      h += `<td${cls ? ` class="${cls}"` : ''}${from ? ` title="${esc(from)}"` : ''}>${c ? `<button type="button" class="box" data-cell="${c.n}" aria-label="${esc(c.text + (from ? ` ${from}.` : ''))}">${cellSvg(c, { count: g.pitches })}</button>` : ''}</td>`;
     }
     const t = { ab: 0, r: 0, h: 0, rbi: 0 };
     shown.forEach(pi => { const b = S.bat[batKey(side, slot, pi)]; if (b) for (const x in t) t[x] += b[x]; });

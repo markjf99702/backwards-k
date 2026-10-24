@@ -474,6 +474,9 @@ details.lineup summary small { color: var(--muted); font-weight: 400; }
 .card td.cur { background: color-mix(in srgb, var(--now) 45%, transparent); }
 .card td.next { box-shadow: inset 0 0 0 2px var(--red); }
 .card td.end { box-shadow: inset 0 -3px 0 var(--red); }
+/* A new pitcher (a heavy line along the top) and a substitute's first time up (down the left), drawn on the grid. */
+.card td.pch { border-top: 3px solid var(--pencil); }
+.card td.sub { border-left: 3px solid var(--pencil); }
 .card td.next.end { box-shadow: inset 0 0 0 2px var(--red), inset 0 -3px 0 var(--red); }
 .card .tot { width: 34px; min-width: 34px; font: 700 16px/1 var(--board-font); color: var(--ink-2); background: var(--soft); }
 .card thead .tot { font-size: 13px; }

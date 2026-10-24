@@ -43,7 +43,9 @@ export function helpSheet() {
       <dt>A small number</dt><dd>Moved up on that batter’s play (by their place in the order)</dd>
       <dt>2-1</dt><dd>The count when the at-bat ended (balls, then strikes)</dd>
       <dt>Red line</dt><dd>Under the last batter of an inning</dd>
-      <dt>PH, PR, in</dt><dd>Pinch hitter, pinch runner, a substitute in the field. A crossed-out name has left the game</dd>
+      <dt>A heavy line on top</dt><dd>A new pitcher took over with that batter</dd>
+      <dt>A heavy line on the left</dt><dd>A substitute’s first time up</dd>
+      <dt>PH, PR, in</dt><dd>Pinch hitter, pinch runner, a substitute in the field, with the inning they came in. A crossed-out name has left the game</dd>
       <dt>R H E LOB</dt><dd>Under the card, inning by inning: runs, hits, the other team’s errors, and runners left on base</dd>
       <dt>X</dt><dd>On the line score: the home team didn’t need to bat</dd>
     </dl>
