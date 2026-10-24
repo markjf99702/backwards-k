@@ -27,6 +27,7 @@ export function showSetup(el) {
       </div>
     </header>
     <main class="setup">
+      <h1 class="sr">New game</h1>
       <form autocomplete="off">
         <div class="two">${[0, 1].map(teamHtml).join('')}</div>
         <fieldset class="opts card-box">
@@ -48,13 +49,13 @@ export function showSetup(el) {
       <legend><b>${side ? 'Home team' : 'Visitors'}</b> <small>${side ? 'bats second' : 'bats first'}</small></legend>
       <input class="team-name-in" data-name maxlength="40" placeholder="${side ? 'Home' : 'Visitors'}" aria-label="${side ? 'Home team' : 'Visitors'} name" autocapitalize="words">
       ${past.length ? `<p class="past-teams"><span>Teams from before:</span>${past.map((t, i) => `<button type="button" class="chip" data-past="${i}">${esc(t.name)}</button>`).join('')}</p>` : ''}
-      <div class="stepper"><span>Batters in the order</span><button type="button" data-step="-1" aria-label="One fewer">−</button><b data-size>9</b><button type="button" data-step="1" aria-label="One more">+</button></div>
+      <div class="stepper"><span>Batters in the order</span><button type="button" data-step="-1" aria-label="One fewer batter">−</button><b data-size role="status">9</b><button type="button" data-step="1" aria-label="One more batter">+</button></div>
       <details class="lineup">
         <summary>Lineup and pitcher <small>optional, add names any time</small></summary>
         <ol class="lineup-edit"></ol>
         <div class="name-row pitcher-row"><span class="lbl">Starting pitcher</span>
-          <label class="num"><span>No.</span><input data-pf="num" inputmode="numeric" maxlength="4"></label>
-          <label class="nm"><span>Name</span><input data-pf="name" maxlength="40" placeholder="Optional" autocapitalize="words"></label>
+          <label class="num"><span>No.</span><input data-pf="num" inputmode="numeric" maxlength="4" aria-label="Starting pitcher number"></label>
+          <label class="nm"><span>Name</span><input data-pf="name" maxlength="40" placeholder="Optional" autocapitalize="words" aria-label="Starting pitcher name"></label>
         </div>
         <div class="row"><button type="button" class="btn quiet sm" data-paste>Paste a list of names</button></div>
       </details>
@@ -64,10 +65,10 @@ export function showSetup(el) {
   function rows(side) {
     const t = T[side], ol = $('.lineup-edit', fs(side));
     ol.innerHTML = t.lineup.map((p, i) => `<li><span class="ord">${i + 1}</span><div class="name-row">
-        <label class="num"><span>No.</span><input data-i="${i}" data-f="num" inputmode="numeric" maxlength="4" value="${esc(p.num)}"></label>
-        <label class="nm"><span>Name</span><input data-i="${i}" data-f="name" maxlength="40" value="${esc(p.name)}" placeholder="Batter ${i + 1}" autocapitalize="words"></label>
+        <label class="num"><span>No.</span><input data-i="${i}" data-f="num" inputmode="numeric" maxlength="4" value="${esc(p.num)}" aria-label="Batter ${i + 1} number"></label>
+        <label class="nm"><span>Name</span><input data-i="${i}" data-f="name" maxlength="40" value="${esc(p.name)}" placeholder="Batter ${i + 1}" autocapitalize="words" aria-label="Batter ${i + 1} name"></label>
       </div></li>`).join('');
-    $('[data-size]', fs(side)).textContent = t.lineup.length;
+    $('[data-size]', fs(side)).innerHTML = `${t.lineup.length}<span class="sr"> batters</span>`;
     $('[data-name]', fs(side)).value = t.name;
     $$('[data-pf]', fs(side)).forEach(i => { i.value = t.pitcher[i.dataset.pf]; });
   }

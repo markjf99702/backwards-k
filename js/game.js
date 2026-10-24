@@ -177,7 +177,8 @@ function frame() {
         ${readOnly ? '' : `<button type="button" class="bar-btn" data-a="menu" aria-label="Game menu"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><circle cx="5" cy="12" r="2.2" fill="currentColor"/><circle cx="12" cy="12" r="2.2" fill="currentColor"/><circle cx="19" cy="12" r="2.2" fill="currentColor"/></svg></button>`}
       </div>
     </header>
-    <div class="game">
+    <main class="game">
+      <h1 class="sr">${esc(teamName(G, 0))} at ${esc(teamName(G, 1))}</h1>
       ${readOnly ? '' : '<p class="sr" role="status" id="said"></p><div class="trouble" role="alert" hidden><p></p><button type="button" class="btn sm"></button></div>'}
       ${readOnly ? `<div class="shared-bar"><p>${esc(note)}</p>${onSave ? '<button type="button" class="btn primary sm" data-a="keep">Save to my games</button>' : ''}</div>` : ''}
       <nav class="vtabs" aria-label="Views">
@@ -192,7 +193,7 @@ function frame() {
         <div class="pane" data-p="box"></div>
         <div class="pane" data-p="plays"></div>
       </section>
-    </div>`;
+    </main>`;
 }
 
 function draw() {
@@ -205,6 +206,9 @@ function paint() {
   $$('.vtabs button', root).forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === view || (view === 'live' && b.dataset.v === pane && wide()))));
   $('.bar .title', root).innerHTML = `<span class="score-line"><b>${esc(teamName(G, 0))}</b> <span class="r">${S.R[0]}</span><i>–</i><span class="r">${S.R[1]}</span> <b>${esc(teamName(G, 1))}</b></span><small>${esc(halfLabel(S))}${G.date ? ' · ' + esc(fmtDate(G.date)) : ''}</small>`;
   $('.live', root).innerHTML = liveHtml();
+  // The tab's title keeps the score, and the heading the teams' names as they change.
+  document.title = `${teamName(G, 0)} ${S.R[0]}, ${teamName(G, 1)} ${S.R[1]} · ${halfLabel(S)} · Backwards K`;
+  $('h1', root).textContent = `${teamName(G, 0)} at ${teamName(G, 1)}`;
   const u = $('.bar .undo', root);
   if (u) {
     u.disabled = !G.ev.length;
@@ -668,10 +672,12 @@ function jam(moves) {
 }
 
 // ---------- who's batting and pitching ----------
-function nameFields(p, prefix = '') {
+// who: whose fields these are, when a list has many ("Batter 3"), so each says so ("Batter 3 name").
+function nameFields(p, prefix = '', who = '') {
+  const named = w => (who ? ` aria-label="${esc(`${who} ${w}`)}"` : '');
   return `<div class="name-row">
-    <label class="num"><span>No.</span><input ${prefix}data-f="num" inputmode="numeric" maxlength="4" value="${esc(p.num)}" autocomplete="off"></label>
-    <label class="nm"><span>Name</span><input ${prefix}data-f="name" maxlength="40" value="${esc(p.name)}" autocomplete="off" autocapitalize="words" placeholder="Optional"></label>
+    <label class="num"><span>No.</span><input ${prefix}data-f="num" inputmode="numeric" maxlength="4" value="${esc(p.num)}" autocomplete="off"${named('number')}></label>
+    <label class="nm"><span>Name</span><input ${prefix}data-f="name" maxlength="40" value="${esc(p.name)}" autocomplete="off" autocapitalize="words" placeholder="Optional"${named('name')}></label>
   </div>`;
 }
 function bindName(body, p, sel = '') {
@@ -765,11 +771,11 @@ function lineupSheet(side = S.half) {
     <ol class="lineup-edit">${Array.from({ length: S.size[side] }, (_, slot) => {
       const list = t.lineup[slot], cur = S.pl[side][slot] ?? 0, p = list[cur];
       const earlier = list.slice(0, cur).map(x => label(x, slot));
-      return `<li data-slot="${slot}"><span class="ord">${slot + 1}</span>${nameFields(p, `data-slot="${slot}" `)}<button type="button" class="btn quiet sm" data-sub="${slot}">Sub</button>${earlier.length ? `<small class="earlier">Earlier: ${esc(earlier.join(', '))}</small>` : ''}</li>`;
+      return `<li data-slot="${slot}"><span class="ord">${slot + 1}</span>${nameFields(p, `data-slot="${slot}" `, `Batter ${slot + 1}`)}<button type="button" class="btn quiet sm" data-sub="${slot}" aria-label="${esc(`Sub for ${label(p, slot)}`)}">Sub</button>${earlier.length ? `<small class="earlier">Earlier: ${esc(earlier.join(', '))}</small>` : ''}</li>`;
     }).join('')}</ol>
     <div class="row"><button type="button" class="btn quiet" data-y="add">Add a batter to the order</button></div>
     <h3>Pitchers</h3>
-    <ol class="lineup-edit">${t.pitchers.map((p, i) => `<li><span class="ord">${i === S.pit[side] ? '●' : i + 1}</span>${nameFields(p, `data-pi="${i}" `)}</li>`).join('')}</ol>
+    <ol class="lineup-edit">${t.pitchers.map((p, i) => `<li><span class="ord">${i === S.pit[side] ? '●' : i + 1}</span>${nameFields(p, `data-pi="${i}" `, `Pitcher ${i + 1}`)}</li>`).join('')}</ol>
     <div class="row"><button type="button" class="btn quiet" data-y="pitcher">New pitcher</button><button type="button" class="btn primary" data-close>Done</button></div>`);
   $$('[data-slot][data-f]', body).forEach(i => i.addEventListener('input', () => {
     const slot = +i.dataset.slot;

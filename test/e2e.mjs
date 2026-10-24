@@ -827,6 +827,38 @@ step('the keyboard stays where it was after each tap, and comes back when a shee
   await p.context().close();
 }
 
+step('each screen says what it is, and the keyboard lands on its heading');
+{
+  const p = await phone();
+  await p.goto(base);
+  assert.equal(await p.title(), 'Backwards K');
+  const heading = async () => { await p.waitForFunction(() => document.activeElement.tagName === 'H1'); return p.evaluate(() => document.activeElement.textContent); };
+  await p.focus('.hero a[href="#/new"]');
+  await p.keyboard.press('Enter');
+  await p.waitForSelector('.setup');
+  assert.equal(await heading(), 'New game');
+  assert.equal(await p.title(), 'New game · Backwards K');
+  assert.equal(await p.getAttribute('[data-side="0"] [data-step="1"]', 'aria-label'), 'One more batter');
+  assert.equal(await p.getAttribute('[data-side="0"] [data-i="2"][data-f="name"]', 'aria-label'), 'Batter 3 name');
+  await p.click('[data-side="0"] [data-step="1"]');
+  assert.equal(await p.textContent('[data-side="0"] [data-size]'), '10 batters');
+  await p.fill('[data-side="0"] [data-name]', 'Foxes');
+  await p.fill('[data-side="1"] [data-name]', 'Comets');
+  await p.click('[data-go]');
+  await p.waitForSelector('.live .field');
+  assert.equal(await heading(), 'Foxes at Comets');
+  assert.equal(await p.locator('main.game h1').count(), 1);
+  assert.equal(await p.title(), 'Foxes 0, Comets 0 · Top 1st · Backwards K');
+  await p.click('[data-r=HR]');
+  assert.equal(await p.title(), 'Foxes 1, Comets 0 · Top 1st · Backwards K');
+  await p.click('[data-a=menu]');
+  await p.click('.sheet [data-y=lineup]');
+  assert.equal(await p.getAttribute('.sheet [data-slot="2"][data-f="name"]', 'aria-label'), 'Batter 3 name');
+  assert.equal(await p.getAttribute('.sheet [data-sub="1"]', 'aria-label'), 'Sub for Batter 2');
+  assert.equal(await p.getAttribute('.sheet [data-pi="0"][data-f="name"]', 'aria-label'), 'Pitcher 1 name');
+  await p.context().close();
+}
+
 step('a game whose last play is one this version doesn’t know still opens');
 {
   const g = sampleUntil(7, S => S.inn === 2);

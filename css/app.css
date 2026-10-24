@@ -129,6 +129,7 @@ p { margin: 0 0 .6em; }
 .bar :focus-visible, .field :focus-visible { outline-color: #fff; box-shadow: 0 0 0 7px var(--navy); }
 .field .runner:focus-visible { box-shadow: 0 0 0 2px var(--red), 0 0 0 7px var(--navy); }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+h1[tabindex="-1"]:focus { outline: none; } /* a screen's heading, given the keyboard on arrival */
 .quiet { color: var(--muted); }
 .hint { color: var(--muted); font-size: 15px; }
 .center { text-align: center; }

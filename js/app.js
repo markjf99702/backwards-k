@@ -15,7 +15,7 @@ import { closeSheet, toast, go, routes, whyNot } from './ui.js';
 import { drive } from './sync.js';
 
 const app = document.getElementById('app');
-let screen = '';
+let screen = '', loaded = false;
 
 async function route(to) {
   const h = typeof to === 'string' ? to : location.hash;
@@ -25,26 +25,41 @@ async function route(to) {
   const fresh = () => { const el = document.createElement('div'); app.replaceChildren(el); return el; };
   document.body.dataset.screen = '';
   window.scrollTo(0, 0);
+  // Moving to another screen (not opening the page) takes the keyboard to the new screen's heading, so a screen
+  // reader says where it is; the address bar's title says it too (a game's keeps the score: see game.js).
+  const first = !loaded;
+  loaded = true;
+  const land = () => {
+    const h = app.querySelector('h1');
+    if (first || !h || document.getElementById('toast').contains(document.activeElement)) return;
+    h.tabIndex = -1;
+    h.focus({ preventScroll: true });
+  };
 
   if (h.startsWith('#s=')) {
     let g = null;
     try { g = cleanGame(await unpack(h.slice(3))); } catch { g = null; }
     if (!g) { toast('That link didn’t come through whole. Ask for it again.'); go('#/', { replace: true }); return; }
-    return open(fresh(), 'game', g, { shared: true, onSave: () => keep(g) });
+    open(fresh(), 'game', g, { shared: true, onSave: () => keep(g) });
+    return land();
   }
   const m = /^#\/g\/([\w-]+)/.exec(h);
   if (m) {
     const g = store.get(m[1]);
     if (!g) { toast('That game isn’t on this device.'); go('#/', { replace: true }); return; }
-    return open(fresh(), 'game', g);
+    open(fresh(), 'game', g);
+    return land();
   }
   if (h === '#/sample') {
     const g = sampleGame(7);
-    return open(fresh(), 'game', g, { shared: true, note: 'The sample game: nine innings, scored the whole way through. Tap any box on the card.', onSave: () => keep({ ...g, id: 'g' + uid() }) });
+    open(fresh(), 'game', g, { shared: true, note: 'The sample game: nine innings, scored the whole way through. Tap any box on the card.', onSave: () => keep({ ...g, id: 'g' + uid() }) });
+    return land();
   }
-  if (h === '#/new') { screen = 'setup'; showSetup(fresh()); return; }
+  if (h === '#/new') { screen = 'setup'; document.title = 'New game · Backwards K'; showSetup(fresh()); return land(); }
   screen = 'home';
+  document.title = 'Backwards K';
   showHome(fresh());
+  land();
 }
 function open(el, name, g, opts) {
   screen = name;
