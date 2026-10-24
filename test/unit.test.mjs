@@ -621,6 +621,18 @@ test('a game survives being tidied (from a file or a link) unchanged', () => {
   assert.deepEqual(Object.keys(cleanDoc({ games: { x: g } }).games), [g.id]);
 });
 
+// What the runner sheet saves when one wild throw or wild pitch moves several runners: one play with every move.
+test('one throw or wild pitch that moved two runners keeps both moves in a file and a link', async () => {
+  const g = game();
+  play(g, '1B', 'BB', { t: 'r', m: [[2, 3, 'E', [2]], [1, 2, 'E', [2]]] }, { t: 'r', m: [[3, 4, 'WP'], [2, 3, 'WP']] });
+  const c = cleanGame(JSON.parse(JSON.stringify(g)));
+  assert.deepEqual(c.ev, g.ev);
+  const { pack, unpack } = await import('../js/share.js');
+  assert.deepEqual(cleanGame(await unpack(await pack(g))).ev, g.ev);
+  const S = replay(c);
+  assert.deepEqual([S.E[1], S.pitching[1][0].wp, S.R[0], S.bases.map(Boolean)], [1, 1, 1, [false, false, false, true]]);
+});
+
 // Hundreds of simulated games: the totals always agree with each other.
 test('simulated games add up', () => {
   for (let seed = 1; seed <= 300; seed++) {

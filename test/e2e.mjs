@@ -101,7 +101,7 @@ assert.equal(await bases(), '3:Ruiz 2:Castillo');
 step('an error can’t move a runner onto a base that’s taken');
 await tap('[data-runner="2"]');
 await tap('.sheet [data-k="E"]');
-assert.equal(await page.textContent('#toast'), 'Someone’s on third. Move the runner ahead first.');
+assert.equal(await page.textContent('#toast'), 'Someone’s on third. Move them up too.');
 assert.equal(await page.locator('.sheet .pick').count(), 0, 'no fielders to pick');
 await tap('.sheet [data-close]');
 assert.equal(await bases(), '3:Ruiz 2:Castillo');
@@ -697,6 +697,59 @@ step('a box’s “Change what it was” offers only what could have happened');
   assert.match(await p.textContent('.sheet .cell-big'), /G Ground out/);
   assert.equal((await stored(p, id)).ev[0].r, 'GO');
   assert.equal((await stored(p, id)).ev[0].f, undefined);
+  await p.context().close();
+}
+
+step('a wild pitch that moves two runners is one play, and one wild pitch');
+{
+  const p = await phone(), id = await startGame(p);
+  const row = (from, to) => `.sheet [data-from="${from}"] [data-to="${to}"]`;
+  await p.click('[data-r="1B"]');
+  await p.click('[data-r=BB]');
+  await p.click('[data-runner="2"]');
+  assert.equal(await p.locator('.sheet .also [data-from="1"] [aria-pressed=true]').textContent(), 'Stayed', 'the others stay unless they’re moved');
+  await p.click(row(1, 2));
+  await p.click('.sheet [data-k=WP]');
+  assert.equal(await plays(p, id), 'pa1B paBB r');
+  assert.deepEqual((await stored(p, id)).ev[2].m, [[2, 3, 'WP'], [1, 2, 'WP']]);
+  assert.equal(await bases(p), '3:Batter 1 2:Batter 2');
+  assert.equal(await p.textContent('.ticker p'), 'Batter 1 moves to third on a wild pitch. Batter 2 moves to second on a wild pitch.');
+  const counted = () => p.evaluate(async id => {
+    const { replay } = await import('./js/engine.js'), { store } = await import('./js/store.js');
+    const S = replay(store.get(id));
+    return { wp: S.pitching[1][0].wp, E: S.E[1] };
+  }, id);
+  assert.deepEqual(await counted(), { wp: 1, E: 0 });
+
+  step('moving runners together can’t put two on a base or pass the runner ahead');
+  await p.click('[data-runner="2"]');
+  await p.click('.sheet [data-k=PB]');
+  assert.equal(await shown(p), 'Someone’s on third. Move them up too.');
+  await p.click(row(2, 4));
+  await p.click('.sheet [data-k=OA]');
+  assert.equal(await shown(p), 'Someone’s on third. Move them up too.');
+  await p.click(row(3, 4));
+  await p.click('.sheet [data-k=E]');
+  await p.click('.sheet [data-pos="2"]');
+  assert.deepEqual((await stored(p, id)).ev[3].m, [[3, 4, 'E', [2]], [2, 4, 'E', [2]]]);
+  assert.deepEqual(await counted(), { wp: 1, E: 1 }, 'one throw, one error');
+  assert.match(await p.textContent('.bug'), /Owls\s*2/i);
+  await p.click('[data-r="1B"]');
+  await p.click('[data-r="1B"]');
+  await p.click('.sheet [data-x=save]');
+  assert.equal(await bases(p), '2:Batter 3 1:Batter 4');
+  await p.click('[data-runner="1"]');
+  await p.click(row(1, 3));
+  await p.click('.sheet [data-k=OA]');
+  assert.equal(await shown(p), 'Someone’s on second. Move them up too.');
+  await p.click(row(2, 3));
+  await p.click('.sheet [data-k=OA]');
+  assert.equal(await shown(p), 'Two runners can’t both be on third.');
+  await p.click(row(1, 4));
+  await p.click('.sheet [data-k=OA]');
+  assert.equal(await shown(p), 'A runner can’t pass the runner ahead of them.');
+  await p.keyboard.press('Escape');
+  assert.equal(await plays(p, id), 'pa1B paBB r r pa1B pa1B', 'and nothing was saved');
   await p.context().close();
 }
 

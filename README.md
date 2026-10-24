@@ -21,7 +21,8 @@ written out in plain words.
   at-bat by themselves), then what the batter did: a hit, a walk, an error, a strikeout swinging or looking, a ground
   out, a fly out and the rest. Counting pitches is optional; you can tap only the results.
 - **Runners move themselves.** With runners on, you see where everyone usually ends up and change whatever went
-  differently. Tap a runner on the field for a steal, a wild pitch, a pickoff or a balk.
+  differently. Tap a runner on the field for a steal, a wild pitch, a pickoff or a balk; everyone who moved up on
+  the same wild pitch or throw goes in as one play.
 - **Tap the field for the fielders.** For a ground out, tap the shortstop and then the first baseman, and the card
   says 6-3. Or skip it. On a keyboard, type their numbers and press Enter.
 - **The scorecard fills itself in.** Each box has the path around the bases, the out number, the count and the RBIs,

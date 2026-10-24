@@ -544,7 +544,12 @@ function runnerSheet(b) {
   const r = S.bases[b];
   if (!r || S.over) return;
   const name = label(player(G, r.side, r.slot, r.p), r.slot), next = b + 1;
-  let to = next;
+  // Where each runner ended up when they moved up without a hit. Everyone else on base can move up on the same wild
+  // pitch, passed ball or throw; they stayed unless the scorer says otherwise.
+  const to = { [b]: next }, others = runnersOn(S).filter(x => x !== b);
+  for (const x of others) to[x] = x;
+  const who = x => label(player(G, S.bases[x].side, S.bases[x].slot, S.bases[x].p), S.bases[x].slot);
+  const chips = (x, words) => `<span class="chips" role="group" aria-label="${esc(words)}">${[1, 2, 3, 4].filter(y => y > x || (y === x && x !== b)).map(y => `<button type="button" data-to="${y}" aria-pressed="${y === to[x]}"${y === 4 ? ' class="home"' : ''}>${y === x ? 'Stayed' : BASES[y]}</button>`).join('')}</span>`;
   const body = openSheet(`<h2 id="sheetTitle">${esc(name)} <small>on ${BASE[b]}</small></h2>
     <div class="row2">
       <button type="button" class="res r-hit" data-k="SB"><b>SB</b><span>Stole ${BASE[next]}</span></button>
@@ -553,7 +558,8 @@ function runnerSheet(b) {
       <button type="button" class="res r-out" data-k="OB"><b>Out</b><span>Out on the bases, another way</span></button>
     </div>
     <h3>Moved up without a hit</h3>
-    <div class="to"><span>To</span><span class="chips" role="group" aria-label="Moved to">${[1, 2, 3, 4].filter(x => x > b).map(x => `<button type="button" data-to="${x}" aria-pressed="${x === to}">${BASES[x]}</button>`).join('')}</span></div>
+    <div class="to" data-from="${b}"><span>To</span>${chips(b, `Where ${name} moved to`)}</div>
+    ${others.length ? `<div class="also">${others.map(x => `<div class="mv" data-from="${x}"><p><b>${esc(who(x))}</b><span>on ${BASE[x]}</span></p>${chips(x, `Where ${who(x)} ended up`)}</div>`).join('')}</div>` : ''}
     <div class="row2">
       <button type="button" class="res" data-k="WP"><b>WP</b><span>Wild pitch</span></button>
       <button type="button" class="res" data-k="PB"><b>PB</b><span>Passed ball</span></button>
@@ -567,7 +573,12 @@ function runnerSheet(b) {
     <div class="row"><button type="button" class="btn quiet" data-close>Close</button></div>`);
   body.addEventListener('click', e => {
     const c = e.target.closest('[data-to]'), k = e.target.closest('[data-k]');
-    if (c) { to = +c.dataset.to; $$('[data-to]', body).forEach(x => x.setAttribute('aria-pressed', String(+x.dataset.to === to))); return; }
+    if (c) {
+      const row = c.closest('[data-from]');
+      to[row.dataset.from] = +c.dataset.to;
+      $$('[data-to]', row).forEach(x => x.setAttribute('aria-pressed', String(x === c)));
+      return;
+    }
     if (!k) return;
     const how = k.dataset.k;
     if (how === 'PR') return subForm(r.side, r.slot, 'pr');
@@ -577,12 +588,26 @@ function runnerSheet(b) {
       closeSheet();
       return act({ t: 'r', m: [[b, 0, how]] });
     }
-    // Moved up: the runners ahead have to be out of the way.
-    for (let x = b + 1; x <= Math.min(to, 3); x++) if (S.bases[x]) return toast(`Someone’s on ${BASE[x]}. Move the runner ahead first.`);
-    if (how === 'E') return pickFielders('E', null, f => { closeSheet(); act({ t: 'r', m: [f && f.length ? [b, to, 'E', f] : [b, to, 'E']] }); }, { title: 'Error' });
+    // Moved up: everyone who moved, in one play, lead runner first.
+    const moves = runnersOn(S).filter(x => to[x] !== x).map(x => [x, to[x], how]);
+    const err = jam(moves);
+    if (err) return toast(err);
+    if (how === 'E') return pickFielders('E', null, f => { closeSheet(); act({ t: 'r', m: f && f.length ? moves.map(m => [...m, f]) : moves }); }, { title: 'Error' });
     closeSheet();
-    act({ t: 'r', m: [[b, to, how]] });
+    act({ t: 'r', m: moves });
   });
+}
+// What's wrong with where the runners would be after some of them move up, in words, or '' if it could happen: two
+// on one base, or one passing the runner ahead (often because the runner ahead stayed).
+function jam(moves) {
+  const at = runnersOn(S).map(x => [x, (moves.find(m => m[0] === x) || [x, x])[1]]);
+  for (let i = 1; i < at.length; i++) {
+    const [from, ahead] = at[i - 1], behind = at[i][1];
+    if (behind < ahead || (behind === 4 && ahead === 4)) continue;
+    if (ahead === from) return `Someone’s on ${BASE[from]}. Move them up too.`;
+    return behind === ahead ? `Two runners can’t both be on ${BASE[ahead]}.` : 'A runner can’t pass the runner ahead of them.';
+  }
+  return '';
 }
 
 // ---------- who's batting and pitching ----------
