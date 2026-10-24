@@ -28,14 +28,13 @@ export function showGame(el, game, opts = {}) {
   S = replay(G);
   el.innerHTML = frame();
   el.addEventListener('click', onClick);
-  el.addEventListener('keydown', onKey);
   drive.chip($('.bar .cloud', el));
   draw();
   wake(true);
 }
 export function leaveGame() {
   flush();
-  if (root) { root.removeEventListener('click', onClick); root.removeEventListener('keydown', onKey); }
+  if (root) root.removeEventListener('click', onClick);
   wake(false);
   G = S = root = null;
 }
@@ -311,9 +310,6 @@ function liveHtml() {
 }
 
 // ---------- taps ----------
-function onKey(e) {
-  if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('[data-pos]')) { e.preventDefault(); e.target.closest('[data-pos]').dispatchEvent(new MouseEvent('click', { bubbles: true })); }
-}
 function onClick(e) {
   const t = e.target.closest('[data-a],[data-r],[data-p],[data-runner],[data-cell],[data-v],[data-cs]');
   if (!t || t.disabled) return;
@@ -371,7 +367,8 @@ const HINT = {
   SAC: 'Tap who fielded the bunt, then who made the out.',
   E: 'Tap the fielder who made the error.',
 };
-// Who fielded it. One tap for a catch or an error; a sequence for throws. Skipping is fine.
+// Who fielded it. One tap for a catch or an error; a sequence for throws. Skipping is fine. From a keyboard, the
+// fielders' numbers pick them too, Backspace takes the last one back, and Enter is Done.
 function pickFielders(code, start, done, { title } = {}) {
   const R = RESULTS[code] || { f: 1, label: title };
   let seq = start ? start.slice() : [];
@@ -386,24 +383,35 @@ function pickFielders(code, start, done, { title } = {}) {
       ${one ? '' : '<button type="button" class="btn primary" data-x="done">Done</button>'}
     </div>`);
   const upd = () => {
+    // Redrawn with each pick: the fielder that had the keyboard keeps it.
+    const had = body.querySelector('[data-pos]:focus');
     body.querySelector('.pick').innerHTML = fieldSvg({ picked: seq });
+    if (had) body.querySelector(`[data-pos="${had.dataset.pos}"]`).focus({ preventScroll: true });
     body.querySelector('.seq').innerHTML = seq.length ? `<b>${esc(mark(code === 'GO' && seq.length === 1 ? 'GO' : code, seq))}</b> ${esc(seq.map(n => POS_NAME[n]).join(' to '))}` : '&nbsp;';
     const d = body.querySelector('[data-x=done]');
     if (d) d.disabled = !seq.length;
   };
+  const add = n => {
+    seq.push(n);
+    if (one) return done(seq);
+    if (seq.length > 6) seq = seq.slice(-6);
+    upd();
+  };
   upd();
   body.addEventListener('click', e => {
     const p = e.target.closest('[data-pos]'), x = e.target.closest('[data-x]');
-    if (p) {
-      seq.push(+p.dataset.pos);
-      if (one) return done(seq);
-      if (seq.length > 6) seq = seq.slice(-6);
-      upd();
-    } else if (x) {
+    if (p) add(+p.dataset.pos);
+    else if (x) {
       if (x.dataset.x === 'back') { seq.pop(); upd(); }
       if (x.dataset.x === 'skip') done(null);
       if (x.dataset.x === 'done') done(seq);
     }
+  });
+  body.addEventListener('keydown', e => {
+    if (e.altKey || e.ctrlKey || e.metaKey) return;
+    if (/^[1-9]$/.test(e.key)) { e.preventDefault(); add(+e.key); }
+    else if (e.key === 'Backspace' && !one) { e.preventDefault(); seq.pop(); upd(); }
+    else if (e.key === 'Enter' && !one && seq.length && !e.target.closest('button,[role=button]')) { e.preventDefault(); done(seq); }
   });
 }
 

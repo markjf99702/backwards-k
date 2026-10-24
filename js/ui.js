@@ -66,6 +66,14 @@ function wire() {
   // A tap on the dimmed page behind it closes it.
   d.addEventListener('click', e => { if (e.target === d) d.close(); });
   d.addEventListener('click', e => { if (e.target.closest('[data-close]')) d.close(); });
+  // Something drawn as a button that isn't a <button> (the fielders on the field) works from a keyboard too.
+  d.addEventListener('keydown', e => {
+    if ((e.key !== 'Enter' && e.key !== ' ') || e.altKey || e.ctrlKey || e.metaKey) return;
+    const b = e.target.closest && e.target.closest('[role=button]');
+    if (!b || b.tagName === 'BUTTON') return;
+    e.preventDefault();
+    if (!e.repeat) b.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  });
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wire); else wire();
 

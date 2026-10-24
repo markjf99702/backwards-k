@@ -549,6 +549,49 @@ step('Fix runners only after a play with runners, or the batter safe');
   await p.context().close();
 }
 
+step('a ground out 6-3 from a keyboard alone: Enter and Space pick the fielders');
+{
+  const p = await phone();
+  await startGame(p);
+  const keys = async (key, n = 1) => { for (let i = 0; i < n; i++) await p.keyboard.press(key); };
+  const at = () => p.evaluate(() => { const a = document.activeElement; return a.dataset.pos || a.dataset.x || a.tagName; });
+  await p.focus('[data-r=GO]');
+  await keys('Enter');
+  await p.waitForSelector('.sheet .pick');
+  assert.equal(await p.getAttribute('.sheet [data-pos="6"]', 'aria-label'), '6, shortstop');
+  await keys('Tab', 6); // from the heading past 1 to 5
+  assert.equal(await at(), '6');
+  await keys('Enter');
+  assert.match(await p.textContent('.sheet .seq'), /^6U shortstop$/);
+  assert.equal(await at(), '6', 'still on the shortstop after picking him');
+  assert.equal(await p.getAttribute('.sheet [data-pos="6"]', 'aria-pressed'), 'true');
+  assert.equal(await p.getAttribute('.sheet [data-pos="6"]', 'aria-label'), '6, shortstop, picked 1st');
+  await keys('Shift+Tab', 3);
+  assert.equal(await at(), '3');
+  await keys('Space');
+  assert.match(await p.textContent('.sheet .seq'), /^6-3 shortstop to first baseman$/);
+  for (let i = 0; i < 12 && await at() !== 'done'; i++) await keys('Tab');
+  await keys('Enter');
+  assert.equal(await p.textContent('.ticker p'), 'Batter 1 grounds out, short to first (6-3).');
+
+  step('and by number: 4, 3, then Enter');
+  await p.focus('[data-r=GO]');
+  await keys('Enter');
+  await p.waitForSelector('.sheet .pick');
+  await keys('4');
+  await keys('5');
+  await keys('Backspace');
+  await keys('3');
+  assert.match(await p.textContent('.sheet .seq'), /^4-3 /);
+  await keys('Enter');
+  assert.equal(await p.textContent('.ticker p'), 'Batter 2 grounds out, second to first (4-3).');
+  // The help's drawing of the field says which number is which.
+  await p.click('[data-v=card]');
+  await p.click('.pane[data-p=card] [data-a=help]');
+  assert.match(await p.getAttribute('.sheet .whole-field', 'aria-label'), /1 pitcher, 2 catcher, 3 first baseman.* 6 shortstop.* 9 right fielder$/);
+  await p.context().close();
+}
+
 step('a game whose last play is one this version doesn’t know still opens');
 {
   const g = sampleUntil(7, S => S.inn === 2);

@@ -23,7 +23,7 @@ written out in plain words.
 - **Runners move themselves.** With runners on, you see where everyone usually ends up and change whatever went
   differently. Tap a runner on the field for a steal, a wild pitch, a pickoff or a balk.
 - **Tap the field for the fielders.** For a ground out, tap the shortstop and then the first baseman, and the card
-  says 6-3. Or skip it.
+  says 6-3. Or skip it. On a keyboard, type their numbers and press Enter.
 - **The scorecard fills itself in.** Each box has the path around the bases, the out number, the count and the RBIs,
   and a strikeout looking gets its backwards K. Tap any box to read what happened. A box can also be switched to
   another kind of out or another way of reaching base, and have its fielders changed; anything else is a job for

@@ -571,7 +571,7 @@ li.scored { border-left: 4px solid var(--red); }
 .seq { min-height: 1.6em; margin: 4px 0; font-size: 15px; color: var(--ink-2); }
 .seq b { font-family: var(--hand); font-size: 22px; color: var(--red); margin-right: 6px; }
 .pick { display: grid; justify-items: center; }
-.whole-field { width: 100%; max-width: 380px; height: auto; display: block; }
+.whole-field { width: 100%; max-width: 380px; height: auto; display: block; overflow: visible; }
 .whole-field .of { fill: var(--grass-a); }
 .whole-field .infield-grass { fill: var(--grass-b); }
 .pos { cursor: pointer; }
@@ -583,8 +583,12 @@ li.scored { border-left: 4px solid var(--red); }
 .pos .ab { font-size: 9.5px; font-weight: 700; fill: var(--muted); }
 .pos .spot.on ~ text { fill: #fff; }
 .pos .order { font-size: 11px; font-weight: 800; fill: #fff; }
-.pos:focus-visible { outline: none; }
+.pos:focus { outline: none; }
 .pos:focus-visible .spot { stroke-width: 4; }
+/* The keyboard's ring: white inside navy, clear of the circle, so it shows on the grass and on the dirt. */
+.pos .ring { fill: none; stroke: none; }
+.pos:focus-visible .ring { stroke: #fff; stroke-width: 3; }
+.pos:focus-visible .ring.halo { stroke: var(--navy); stroke-width: 7; }
 .cell-big { display: grid; grid-template-columns: 112px 1fr; gap: 14px; align-items: start; }
 .cell-pic { background: var(--paper); border: 1.5px solid var(--grid); border-radius: 8px; aspect-ratio: 1; }
 .cell-big p { margin-bottom: 6px; }
