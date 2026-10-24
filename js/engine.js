@@ -114,10 +114,11 @@ export function replay(g) {
     cells: [], extra: [[], []], col: { k: 0, used: new Set() }, last: null,
     plays: [], text: [], bat: {}, pitching: [[], []],
     over: false, ended: false, hold: false, between: false, batted: [false, false],
+    waved: 0, // runners this half-inning who crossed the plate on the third out but didn't count: left on base
   };
   g.ev.forEach((e, i) => { S.i = i; step(S, e); });
   S.i = g.ev.length;
-  if (S.over && !S.between) S.lob[S.half][S.inn - 1] = [1, 2, 3].filter(b => S.bases[b]).length;
+  if (S.over && !S.between) S.lob[S.half][S.inn - 1] = [1, 2, 3].filter(b => S.bases[b]).length + S.waved;
   return S;
 }
 
@@ -241,7 +242,10 @@ function pa(S, e) {
         r.cell.story.push(`Out at ${BASE[from + 1]} on ${batterName}’s ${R.label.toLowerCase()}.`);
       }
     } else if (to === 4 && e.x) {
-      bits.push(`${who} crosses the plate after the third out, so it doesn’t count`);
+      // The third out came first (or was a force): the run doesn't count, and the runner counts as left on base.
+      S.waved++;
+      bits.push(`${who} crosses the plate, but the run doesn’t count`);
+      r.cell.story.push('Crossed the plate, but the run doesn’t count.');
     } else {
       reach(r.cell, from, to, from ? String(slot + 1) : '');
       if (to === 4) {
@@ -342,7 +346,8 @@ function walkoff(S) {
 }
 function endHalf(S, called) {
   const side = S.half;
-  S.lob[side][S.inn - 1] = [1, 2, 3].filter(b => S.bases[b]).length;
+  S.lob[side][S.inn - 1] = [1, 2, 3].filter(b => S.bases[b]).length + S.waved;
+  S.waved = 0;
   if (S.last) S.last.end = true;
   const text = `End of the ${side ? 'bottom' : 'top'} of the ${ord(S.inn)}${called ? ' (called)' : ''}: ${teamName(S.g, 0)} ${S.R[0]}, ${teamName(S.g, 1)} ${S.R[1]}.`;
   S.plays.push({ i: S.i, inn: S.inn, half: side, text, kind: 'end', runs: 0 });

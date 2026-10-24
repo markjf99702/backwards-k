@@ -186,6 +186,18 @@ test('runs on a play that makes the third out on a force don’t count', () => {
   assert.equal(S.half, 1);
 });
 
+test('a runner who crosses the plate on the third out but doesn’t count is left on base', () => {
+  const g = game();
+  play(g, 'K', 'K', '1B', '1B', '1B');
+  const S = play(g, { t: 'pa', r: 'FC', f: [6, 4], m: [[0, 1], [1, 0], [2, 3], [3, 4]], x: 1 });
+  assert.equal(S.R[0], 0);
+  assert.equal(S.lob[0][0], 3, 'the batter, the runner on third and the runner whose run didn’t count');
+  assert.deepEqual(proof(S, 0, 1), [6, 6]);
+  assert.equal(S.cells[2].scored, false);
+  assert.match(S.cells[2].story.join(' '), /Crossed the plate, but the run doesn’t count\./);
+  assert.match(S.text[g.ev.length - 1], /Batter 3 crosses the plate, but the run doesn’t count\./);
+});
+
 // Every trip to the plate in a half-inning ends as a run, a runner left on base or an out (OBR 9.03(c)).
 function proof(S, side, inn) {
   const cells = S.cells.filter(c => c.side === side && c.inn === inn);
@@ -285,6 +297,11 @@ test('simulated games add up', () => {
       assert.equal(hits, S.H[side], `seed ${seed}: hits`);
       const scoredCells = S.cells.filter(c => c.side === side && c.scored).length;
       assert.equal(scoredCells, S.R[side], `seed ${seed}: scored boxes`);
+    }
+    // The box-score proof, every half-inning: each trip to the plate ends as a run, a runner left on or an out.
+    for (const side of [0, 1]) for (let inn = 1; inn <= S.line[side].length; inn++) {
+      const [pa, ends] = proof(S, side, inn);
+      assert.equal(pa, ends, `seed ${seed}: ${side ? 'bottom' : 'top'} ${inn}, PA = R + LOB + outs`);
     }
     assert.notEqual(S.R[0], S.R[1], `seed ${seed}: no ties`);
     // Every half-inning but a walk-off's ends with three outs.
