@@ -114,6 +114,7 @@ export function replay(g) {
     cells: [], extra: [[], []], col: { k: 0, used: new Set() }, last: null,
     plays: [], text: [], bat: {}, pitching: [[], []],
     over: false, ended: false, hold: false, between: false, batted: [false, false],
+    fresh: false, // a half-inning has just started and nothing has happened in it yet
     waved: 0, // runners this half-inning who crossed the plate on the third out but didn't count: left on base
   };
   g.ev.forEach((e, i) => { S.i = i; step(S, e); });
@@ -151,9 +152,10 @@ function step(S, e) {
       if (S.up[e.s] === 0 && S.batted[e.s]) S.up[e.s] = S.size[e.s] - 1;
       return note(S, `${teamName(g, e.s)} add a batter to the order.`, 'sub');
     case 'eoh':
-      S.text[S.i] = 'Ended the half-inning';
+      S.text[S.i] = `Ended the ${S.half ? 'bottom' : 'top'} of the ${ord(S.inn)} early.`;
       return endHalf(S, true);
     case 'end':
+      if (S.fresh) unstart(S);
       S.over = true; S.ended = true;
       return note(S, 'The game is called.', 'end');
     case 'on':
@@ -184,6 +186,7 @@ function pstat(S, side = 1 - S.half, i = S.pit[side]) {
 }
 
 function pitch(S, k) {
+  S.fresh = false;
   const P = pstat(S);
   P.np++; S.seq += k;
   const count = () => `${S.b}-${S.s}`;
@@ -203,6 +206,7 @@ function pitch(S, k) {
 function pa(S, e) {
   const g = S.g, side = S.half, fld = 1 - side, slot = S.up[side], p = S.pl[side][slot], R = RESULTS[e.r];
   if (!R) return;
+  S.fresh = false;
   const P = pstat(S);
   if (!e.auto && R.pitch) {
     P.np++;
@@ -300,6 +304,7 @@ function fielderWords(code, f) {
 }
 
 function runners(S, e) {
+  S.fresh = false;
   const g = S.g, side = S.half, fld = 1 - side;
   const moves = e.m.slice().sort((a, b) => b[0] - a[0]);
   const bits = [];
@@ -364,7 +369,7 @@ function endHalf(S, called) {
   S.lob[side][S.inn - 1] = [1, 2, 3].filter(b => S.bases[b]).length + S.waved;
   S.waved = 0;
   if (S.last) S.last.end = true;
-  const text = `End of the ${side ? 'bottom' : 'top'} of the ${ord(S.inn)}${called ? ' (called)' : ''}: ${teamName(S.g, 0)} ${S.R[0]}, ${teamName(S.g, 1)} ${S.R[1]}.`;
+  const text = `End of the ${side ? 'bottom' : 'top'} of the ${ord(S.inn)}${called ? ', ended early' : ''}: ${teamName(S.g, 0)} ${S.R[0]}, ${teamName(S.g, 1)} ${S.R[1]}.`;
   S.plays.push({ i: S.i, inn: S.inn, half: side, text, kind: 'end', runs: 0 });
   if (S.inn >= S.g.innings) {
     if (side === 0 && S.R[1] > S.R[0]) S.over = true;
@@ -384,6 +389,18 @@ function nextHalf(S) {
   S.line[h][n] = 0; S.hInn[h][n] = 0; S.eInn[h][n] = 0;
   S.col = { k: 0, used: new Set() };
   S.last = null;
+  S.fresh = true;
+}
+// The game ended before anything happened in the half-inning that had just started (a mercy rule, rain between
+// innings): nobody batted in it, so it comes off the line score, and the game stops after the half before it. Keep
+// playing starts it again. Substitutions made in the meantime were made between the two.
+function unstart(S) {
+  const h = S.half, inn = S.inn;
+  S.line[h].pop(); S.hInn[h].pop(); S.eInn[h].pop();
+  S.half = 1 - h;
+  if (h === 0) S.inn--;
+  for (const p of S.plays) if (p.inn === inn && p.half === h) { p.inn = S.inn; p.half = S.half; }
+  S.between = true; S.fresh = false;
 }
 
 // ---------- what the buttons suggest ----------

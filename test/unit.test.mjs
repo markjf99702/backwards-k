@@ -4,6 +4,9 @@ import assert from 'node:assert/strict';
 import { replay, suggest, check, runsCount, scoredAs, mark, now, columns, halfLabel, RESULTS } from '../js/engine.js';
 import { newGame, cleanGame, cleanDoc, parseLineup } from '../js/model.js';
 import { sampleGame } from '../js/sample.js';
+// The card is drawn with ui.js, which looks for the page's sheet as it loads: here there's no page, so no sheet.
+globalThis.document ??= { readyState: 'complete', getElementById: () => null };
+const { lineHtml, cellSvg } = await import('../js/card.js');
 
 const game = (opts = {}) => newGame({ away: 'Foxes', home: 'Comets', ...opts });
 // Plays one event after another, filling in the suggested runner moves the way the app does.
@@ -187,6 +190,52 @@ test('a called game that picks up again ends the usual way', () => {
   assert.equal(S.over, true, 'a walk-off home run');
   assert.equal(halfLabel(S), 'Final');
   assert.equal(S.R[1], 1);
+});
+
+// The cells of one team's row in the line score, as text.
+const lineRow = (S, side) => [...lineHtml(S).split('<tbody>')[1].split('</tr>')[side].matchAll(/<td[^>]*>([^<]*)<\/td>/g)].map(m => m[1]);
+
+test('a game ended between half-innings stops after the last half played (a mercy rule, rain)', () => {
+  // A 3-inning game called right after the bottom of the 1st: the visitors never batted in the 2nd.
+  const g = game({ innings: 3 });
+  let S = play(g, '1B', ...threeK, ...threeK, { t: 'end' });
+  assert.equal(halfLabel(S), 'Called');
+  assert.deepEqual(S.line, [[0], [0]]);
+  assert.deepEqual(S.hInn, [[1], [0]]);
+  assert.deepEqual(S.eInn, [[0], [0]]);
+  assert.deepEqual(S.lob, [[1], [0]], 'no runners left on base in a half nobody batted in');
+  assert.deepEqual([S.inn, S.half], [1, 1]);
+  const called = S.plays.at(-1);
+  assert.equal(called.text, 'The game is called.');
+  assert.deepEqual([called.inn, called.half], [1, 1], 'filed under the bottom of the 1st');
+  assert.deepEqual(lineRow(S, 0), ['0', '', '', '0', '1', '0']);
+  // Keep playing starts the top of the 2nd, and its runs go there.
+  S = play(g, { t: 'on' }, 'HR');
+  assert.deepEqual([S.inn, S.half], [2, 0]);
+  assert.deepEqual(S.line, [[0, 1], [0]]);
+  // Ended in the middle of a half: that half stays, with its runners left on.
+  const m = game({ innings: 3 });
+  S = play(m, ...threeK, '1B', { t: 'end' });
+  assert.deepEqual(S.line, [[0], [0]]);
+  assert.deepEqual(S.lob, [[0], [1]]);
+  assert.deepEqual([S.inn, S.half], [1, 1]);
+});
+
+test('a run limit ends the half early, and a game called there with the home team ahead shows X', () => {
+  // Six innings; the Comets lead 1-0 after the top of the 4th, which ended on the run limit (here, with no runs).
+  const g = game({ innings: 6 });
+  let S = play(g, ...threeK, 'HR', ...threeK, ...threeK, ...threeK, ...threeK, ...threeK, 'K', { t: 'eoh' });
+  assert.equal(S.text[g.ev.length - 1], 'Ended the top of the 4th early.');
+  assert.equal(S.plays.at(-1).text, 'End of the top of the 4th, ended early: Foxes 0, Comets 1.');
+  S = play(g, { t: 'pch', s: 0, i: 0 }, { t: 'end' });
+  assert.deepEqual(S.line, [[0, 0, 0, 0], [1, 0, 0]]);
+  assert.deepEqual(lineRow(S, 1), ['1', '0', '0', 'X', '', '', '1', '1', '0']);
+  assert.deepEqual(lineRow(S, 0).slice(0, 6), ['0', '0', '0', '0', '', '']);
+  assert.ok(S.plays.slice(-2).every(p => p.inn === 4 && p.half === 0), 'the pitching change and the call are in the top of the 4th');
+  // Called in the middle of the top of the 4th instead: the Comets didn't get their turn, so no X.
+  g.ev.splice(g.ev.findIndex(e => e.t === 'eoh'));
+  S = play(g, { t: 'end' });
+  assert.deepEqual(lineRow(S, 1).slice(0, 4), ['1', '0', '0', '']);
 });
 
 test('plays saved after what is now the final (fewer innings set since) stay with the team that was batting', () => {

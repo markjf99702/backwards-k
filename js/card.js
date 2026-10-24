@@ -124,8 +124,8 @@ export function lineHtml(S) {
     h += `<tr><th scope="row">${esc(g.teams[side].name || (side ? 'Home' : 'Visitors'))}</th>`;
     for (let i = 1; i <= n; i++) {
       let v = S.line[side][i - 1];
-      // The home team didn't need its last turn at bat.
-      if (v == null && side === 1 && S.over && !S.ended && i === n && S.line[0][i - 1] != null) v = 'X';
+      // The home team didn't need its last turn at bat: it was ahead when the game ended after the top of an inning.
+      if (v == null && side === 1 && S.over && S.between && S.half === 0 && i === S.inn && S.R[1] > S.R[0]) v = 'X';
       const now = !S.over && S.inn === i && S.half === side;
       h += `<td${now ? ' class="now"' : ''}>${v ?? ''}</td>`;
     }
