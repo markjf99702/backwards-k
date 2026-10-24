@@ -109,7 +109,8 @@ function undo() {
   const r = { e };
   if (e.t === 'add') r.slot = G.teams[e.s].lineup.pop();
   if (e.t === 'sub') { const slot = G.teams[e.s].lineup[e.slot]; if (slot.length - 1 === e.i) r.player = slot.pop(); }
-  if (e.t === 'pch') { const ps = G.teams[e.s].pitchers; if (ps.length - 1 === e.i) r.player = ps.pop(); }
+  // A new pitcher goes again, but not one brought back: an earlier change still points at them.
+  if (e.t === 'pch') { const ps = G.teams[e.s].pitchers; if (ps.length - 1 === e.i && !G.ev.some(x => x.t === 'pch' && x.s === e.s && x.i === e.i)) r.player = ps.pop(); }
   redo.push(r);
   save();
 }

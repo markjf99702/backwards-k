@@ -278,6 +278,25 @@ step('Fix runners, then Cancel, while a name is being saved: nothing is lost');
   await p.context().close();
 }
 
+step('undoing a pitcher brought back keeps both pitchers and every change');
+{
+  const p = await phone(), id = await startGame(p);
+  const pitcher = async () => { await p.click('[data-a=pitcher]'); await p.waitForSelector('.sheet [data-y=new]'); };
+  await pitcher();
+  await p.click('[data-y=new]');
+  await p.fill('.sheet [data-f=name]', 'Bishop');
+  await p.click('[data-x=go]');
+  await p.click('[data-r=K]');
+  for (const j of [0, 1]) { await pitcher(); await p.click('[data-y=back]'); await p.click(`[data-j="${j}"]`); }
+  await p.click('.bar .undo');
+  assert.deepEqual((await stored(p, id)).teams[1].pitchers.map(x => x.name), ['', 'Bishop']);
+  await p.reload();
+  await p.waitForSelector('.live .field');
+  const kept = await p.evaluate(async id => (await import('./js/store.js')).store.get(id).ev.filter(e => e.t === 'pch').map(e => e.i), id);
+  assert.deepEqual(kept, [1, 0]);
+  await p.context().close();
+}
+
 step('tablet sizes: side by side, nothing sideways');
 for (const [w, h] of [[820, 1180], [1180, 820]]) {
   await page.setViewportSize({ width: w, height: h });
