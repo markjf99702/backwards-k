@@ -495,7 +495,7 @@ function moreSheet() {
   const body = openSheet(`<h2 id="sheetTitle">Something else</h2>
     <div class="row2">
       ${item('IBB', 'Intentional walk')}
-      ${item('KD', firstTaken ? 'Not with a runner on first and fewer than two out' : 'Struck out, but reached on a dropped third strike')}
+      ${item('KD', firstTaken ? 'No dropped third strike with a runner on first and fewer than two out' : 'Struck out, but reached on a dropped third strike')}
       ${item('CI', 'Reached on catcher’s interference')}
       ${item('TP', 'Triple play')}
     </div>

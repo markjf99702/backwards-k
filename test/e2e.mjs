@@ -74,7 +74,7 @@ for (const k of ['f', 'f', 'f']) await tap(`[data-p=${k}]`);
 // Two strikes, but a runner on first and nobody out: a dropped third strike is still an out (OBR 5.09(a)(3)).
 await tap('[data-a=more]');
 assert.equal(await page.locator('.sheet [data-r2=KD]').isDisabled(), true);
-assert.match(await page.textContent('.sheet [data-r2=KD]'), /Not with a runner on first and fewer than two out/);
+assert.match(await page.textContent('.sheet [data-r2=KD]'), /No dropped third strike with a runner on first and fewer than two out/);
 await tap('.sheet [data-close]');
 await tap('[data-p=c]');
 assert.match(await ticker(), /Okafor strikes out looking/);
