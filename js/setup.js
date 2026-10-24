@@ -46,8 +46,8 @@ export function showSetup(el) {
   function teamHtml(side) {
     return `<fieldset class="team-set card-box" data-side="${side}">
       <legend><b>${side ? 'Home team' : 'Visitors'}</b> <small>${side ? 'bats second' : 'bats first'}</small></legend>
-      <input class="team-name" data-name maxlength="40" placeholder="${side ? 'Home' : 'Visitors'}" aria-label="${side ? 'Home team' : 'Visitors'} name" autocapitalize="words">
-      ${past.length ? `<p class="recent"><span>Teams from before:</span>${past.map((t, i) => `<button type="button" class="chip" data-past="${i}">${esc(t.name)}</button>`).join('')}</p>` : ''}
+      <input class="team-name-in" data-name maxlength="40" placeholder="${side ? 'Home' : 'Visitors'}" aria-label="${side ? 'Home team' : 'Visitors'} name" autocapitalize="words">
+      ${past.length ? `<p class="past-teams"><span>Teams from before:</span>${past.map((t, i) => `<button type="button" class="chip" data-past="${i}">${esc(t.name)}</button>`).join('')}</p>` : ''}
       <div class="stepper"><span>Batters in the order</span><button type="button" data-step="-1" aria-label="One fewer">−</button><b data-size>9</b><button type="button" data-step="1" aria-label="One more">+</button></div>
       <details class="lineup">
         <summary>Lineup and pitcher <small>optional, add names any time</small></summary>

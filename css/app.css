@@ -241,9 +241,9 @@ fieldset { margin: 0; min-width: 0; }
 .team-set legend { float: left; width: 100%; padding: 0; margin-bottom: 2px; }
 .team-set legend b { font: 800 22px/1 var(--board-font); text-transform: uppercase; letter-spacing: .04em; }
 .team-set legend small { color: var(--muted); margin-left: 6px; }
-.team-name { width: 100%; min-height: 52px; padding: 8px 14px; border-radius: 12px; border: 1.5px solid var(--line-2); background: var(--paper); font: 800 26px/1.1 var(--board-font); letter-spacing: .02em; }
-.recent { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; }
-.recent span { color: var(--muted); font-size: 14px; margin-right: 2px; }
+.team-name-in { width: 100%; min-height: 52px; padding: 8px 14px; border-radius: 12px; border: 1.5px solid var(--line-2); background: var(--paper); font: 800 26px/1.1 var(--board-font); letter-spacing: .02em; }
+.past-teams { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; }
+.past-teams span { color: var(--muted); font-size: 14px; margin-right: 2px; }
 .chip { min-height: 34px; padding: 4px 12px; }
 .stepper { display: flex; align-items: center; gap: 8px; }
 .stepper span { flex: 1; color: var(--ink-2); }
@@ -270,7 +270,7 @@ details.lineup summary small { color: var(--muted); font-weight: 400; }
 .switch small { display: block; font-weight: 400; color: var(--muted); font-size: 15px; }
 .two-sm { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .two-sm label, .form label { display: grid; gap: 4px; font-weight: 700; font-size: 15px; min-width: 0; }
-.two-sm input, .form input, .form select, .team-name-in { width: 100%; min-height: 46px; padding: 8px 12px; border-radius: 10px; border: 1.5px solid var(--line-2); background: var(--paper); font-weight: 400; }
+.two-sm input, .form input, .form select { width: 100%; min-height: 46px; padding: 8px 12px; border-radius: 10px; border: 1.5px solid var(--line-2); background: var(--paper); font-weight: 400; }
 .setup .btn.big { justify-self: center; min-width: 240px; }
 
 /* ---------- the game screen ---------- */
@@ -398,6 +398,7 @@ details.lineup summary small { color: var(--muted); font-weight: 400; }
 .trouble p { flex: 1 1 14em; margin: 0; font-size: 15px; color: var(--ink); }
 @media (min-width: 700px) { .trouble { grid-column: 1 / -1; margin: 0; } }
 .shared-note { padding: 16px; border-radius: 14px; background: var(--card); border: 1px solid var(--line); display: grid; gap: 10px; justify-items: start; }
+.shared-note .link-btn { padding: 0; font-size: inherit; }
 
 /* Tablets and bigger: the scoring controls and the card side by side. */
 @media (min-width: 700px) {

@@ -45,6 +45,7 @@ assert.match(await page.textContent('.hero h1'), /Keep score/);
 
 step('starting a game, with a pasted lineup');
 await tap('text=Score a new game');
+assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('[data-side="0"] [data-name]')).fontSize), '26px', 'team names in the scoreboard type');
 await page.fill('[data-side="0"] [data-name]', 'Foxes');
 await page.fill('[data-side="1"] [data-name]', 'Comets');
 await tap('[data-side="0"] summary');
@@ -448,6 +449,11 @@ const inside = (a, b) => a.left >= b.left - 0.5 && a.right <= b.right + 0.5 && a
 step('a phone in the 7th: the Card tab opens on the batter’s box');
 {
   const p = await playing(seventh());
+  const latest = await p.evaluate(() => {
+    const r = document.querySelector('.recent'), h = r.querySelector('h3').getBoundingClientRect(), half = r.querySelector('.half').getBoundingClientRect();
+    return { under: half.top >= h.bottom - 0.5, across: Math.abs(half.width - r.getBoundingClientRect().width) < 1 };
+  });
+  assert.deepEqual(latest, { under: true, across: true }, 'Latest plays: the list under its heading, all the way across');
   await p.click('[data-v=card]');
   await p.waitForTimeout(100);
   const next = await box(p, '.pane[data-p=card] td.next'), wrap = await box(p, '.pane[data-p=card] .card-wrap');
