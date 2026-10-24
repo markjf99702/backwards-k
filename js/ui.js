@@ -1,0 +1,94 @@
+// Small helpers shared by every screen: escaping, the bottom sheet, the toast, files.
+
+export const $ = (s, el = document) => el.querySelector(s);
+export const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+export const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// The one-file copy (built by scripts/build.mjs), and whether it's shown inside another page.
+export const isSingle = () => 'single' in document.documentElement.dataset;
+export const inFrame = () => { try { return window.top !== window.self; } catch { return true; } };
+export const SITE = 'https://backwards-k.junkdrawer.works/';
+
+// The app icon, drawn in place so the one-file copy needs no other files.
+export const ICON = '<svg viewBox="0 0 64 64" width="34" height="34" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#1c2a44"/><rect x="11" y="11" width="42" height="42" rx="3" fill="#fbf8f0"/><path d="M32 17 L47 32 L32 47 L17 32 Z" fill="none" stroke="#9cb3c9" stroke-width="1.6"/><g fill="none" stroke="#c0392b" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M41 19 V45"/><path d="M40 33 L25 19"/><path d="M34 28 L25 45"/></g></svg>';
+
+// A strikeout looking, drawn as a backwards K wherever it appears in text.
+export const KL = '<i class="kl" aria-label="backwards K">K</i>';
+export const markHtml = (code, m) => (code === 'KL' ? KL : esc(m));
+
+export function fmtDate(d, long) {
+  const [y, m, day] = String(d).split('-').map(Number);
+  if (!y) return '';
+  return new Date(y, m - 1, day).toLocaleDateString(undefined, long ? { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' } : { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+// ---------- the sheet: a panel that slides up on a phone, or a box in the middle on a big screen ----------
+const dlg = () => document.getElementById('sheet');
+let onClose = null;
+
+export function openSheet(html, { wide = false, close } = {}) {
+  const d = dlg();
+  const prev = onClose;
+  onClose = null;
+  if (prev) prev();
+  // A new panel each time, so taps handled by the last sheet's listeners can't reach this one.
+  const body = document.createElement('div');
+  body.className = 'sheet-body';
+  d.querySelector('.sheet-body').replaceWith(body);
+  body.innerHTML = html;
+  d.classList.toggle('wide', wide);
+  onClose = close || null;
+  if (!d.open) d.showModal();
+  body.scrollTop = 0;
+  const t = body.querySelector('[data-focus]') || body.querySelector('h2');
+  if (t) { t.setAttribute('tabindex', '-1'); t.focus({ preventScroll: true }); }
+  return body;
+}
+export function closeSheet() {
+  const d = dlg();
+  if (d.open) d.close();
+}
+export const sheetOpen = () => dlg().open;
+
+function wire() {
+  const d = dlg();
+  if (!d) return;
+  // (The close event comes a moment later; if another sheet opened meanwhile, it's that one's now.)
+  d.addEventListener('close', () => { if (d.open) return; const f = onClose; onClose = null; if (f) f(); d.querySelector('.sheet-body').innerHTML = ''; });
+  // A tap on the dimmed page behind it closes it.
+  d.addEventListener('click', e => { if (e.target === d) d.close(); });
+  d.addEventListener('click', e => { if (e.target.closest('[data-close]')) d.close(); });
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wire); else wire();
+
+// ---------- the toast ----------
+let toastT = null;
+export function toast(msg, { action, run, ms = 3200 } = {}) {
+  const t = document.getElementById('toast');
+  clearTimeout(toastT);
+  t.innerHTML = `<span>${esc(msg)}</span>${action ? `<button type="button">${esc(action)}</button>` : ''}`;
+  t.hidden = false;
+  if (action) t.querySelector('button').addEventListener('click', () => { t.hidden = true; run(); });
+  toastT = setTimeout(() => { t.hidden = true; }, action ? Math.max(ms, 6000) : ms);
+}
+
+// ---------- files ----------
+export function download(name, text, type = 'application/json') {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type }));
+  a.download = name;
+  document.body.append(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+export function pickFile(accept = '.json,application/json') {
+  return new Promise(resolve => {
+    const i = document.createElement('input');
+    i.type = 'file'; i.accept = accept;
+    i.addEventListener('change', () => resolve(i.files[0] || null));
+    i.click();
+  });
+}
+export async function copy(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch { return false; }
+}
+export const slug = s => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'game';

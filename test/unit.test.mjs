@@ -1,0 +1,283 @@
+// The rules of scoring, without a browser:  node --test test/unit.test.mjs
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { replay, suggest, check, runsCount, mark, now, columns, halfLabel, RESULTS } from '../js/engine.js';
+import { newGame, cleanGame, cleanDoc } from '../js/model.js';
+import { sampleGame } from '../js/sample.js';
+
+const game = (opts = {}) => newGame({ away: 'Foxes', home: 'Comets', ...opts });
+// Plays one event after another, filling in the suggested runner moves the way the app does.
+function play(g, ...evs) {
+  for (const e of evs) {
+    if (typeof e === 'string') {
+      const [r, ...f] = e.split(' ');
+      const S = replay(g), ev = { t: 'pa', r, m: suggest(S, r) };
+      if (f.length) ev.f = f.map(Number);
+      g.ev.push(ev);
+    } else g.ev.push(e);
+  }
+  return replay(g);
+}
+const P = k => ({ t: 'p', k });
+const threeK = ['K', 'K', 'K'];
+
+test('three strikeouts end the half-inning and the home team comes up', () => {
+  const S = play(game(), ...threeK);
+  assert.equal(S.half, 1);
+  assert.equal(S.inn, 1);
+  assert.equal(S.outs, 0);
+  assert.deepEqual(S.line[0], [0]);
+  assert.equal(S.cells.filter(c => c.outN).map(c => c.outN).join(), '1,2,3');
+  assert.equal(S.cells[2].end, true);
+  assert.equal(halfLabel(S), 'Bottom 1st');
+});
+
+test('four balls walk the batter, and a walk with the bases loaded forces in a run', () => {
+  const g = game();
+  let S = play(g, P('b'), P('b'), P('b'));
+  assert.equal(S.b, 3);
+  S = play(g, P('b'));
+  assert.ok(S.bases[1], 'the batter walked to first');
+  assert.equal(S.cells[0].r, 'BB');
+  S = play(g, 'BB', 'BB', 'BB');
+  assert.equal(S.R[0], 1);
+  assert.equal(S.cells[3].rbi, 1);
+  assert.ok(S.bases[1] && S.bases[2] && S.bases[3]);
+});
+
+test('three strikes are a strikeout: swinging or looking, and fouls stop at two strikes', () => {
+  const g = game();
+  let S = play(g, P('f'), P('f'), P('f'), P('f'));
+  assert.equal(S.s, 2);
+  S = play(g, P('c'));
+  assert.equal(S.cells[0].r, 'KL');
+  S = play(g, P('s'), P('s'), P('s'));
+  assert.equal(S.cells[1].r, 'K');
+  assert.equal(S.outs, 2);
+  const pit = S.pitching[1][0];
+  assert.equal(pit.np, 8);
+  assert.equal(pit.k, 2);
+});
+
+test('a single moves every runner up one; a home run clears the bases', () => {
+  const g = game();
+  let S = play(g, '2B', '1B');
+  assert.ok(S.bases[1] && S.bases[3] && !S.bases[2]);
+  S = play(g, 'HR');
+  assert.equal(S.R[0], 3);
+  assert.equal(S.cells[2].rbi, 3);
+  assert.equal(S.cells[2].scored, true);
+  assert.equal(S.H[0], 3);
+  assert.ok(!S.bases[1] && !S.bases[2] && !S.bases[3]);
+});
+
+test('runners advancing on a hit are marked with the batter’s place in the order', () => {
+  const g = game();
+  const S = play(g, '1B', '2B');
+  assert.equal(S.cells[0].reach, 3);
+  assert.equal(S.cells[0].notes[3], '2');
+});
+
+test('a double play with a runner on first gets two outs and leaves the bases empty', () => {
+  const S = play(game(), '1B', 'DP 6 4 3');
+  assert.equal(S.outs, 2);
+  assert.ok(!S.bases[1]);
+  assert.equal(S.cells[1].mark, '6-4-3 DP');
+  assert.equal(S.cells[0].outAt, 2);
+});
+
+test('a fielder’s choice puts out the runner from first and leaves the batter on', () => {
+  const g = game();
+  let S = play(g, '1B');
+  assert.deepEqual(suggest(S, 'FC'), [[0, 1], [1, 0]]);
+  S = play(g, 'FC 6 4');
+  assert.equal(S.outs, 1);
+  assert.equal(S.bases[1].cell.n, 1);
+});
+
+test('a sacrifice fly scores the runner from third, with an RBI and no at-bat', () => {
+  const S = play(game(), '3B', 'SF 8');
+  assert.equal(S.R[0], 1);
+  assert.equal(S.cells[1].rbi, 1);
+  assert.equal(S.bat['0.1.0'].ab, 0);
+  assert.equal(S.cells[1].mark, 'SF8');
+});
+
+test('caught stealing for the third out: the batter at the plate leads off the next inning', () => {
+  const g = game();
+  let S = play(g, 'K', 'K', '1B', P('b'));
+  assert.equal(S.up[0], 3);
+  S = play(g, { t: 'r', m: [[1, 0, 'CS', [2, 6]]] });
+  assert.equal(S.half, 1);
+  assert.equal(S.b, 0);
+  S = play(g, ...threeK);
+  assert.equal(now(S).slot, 3, 'the fourth batter leads off the 2nd');
+  assert.equal(S.cells[2].outHow, 'CS 2-6');
+});
+
+test('stolen bases and wild pitches move runners without a plate appearance', () => {
+  const g = game();
+  let S = play(g, '1B', { t: 'r', m: [[1, 2, 'SB']] }, { t: 'r', m: [[2, 4, 'WP']] });
+  assert.equal(S.R[0], 1);
+  assert.equal(S.cells[0].notes[2], 'SB');
+  assert.equal(S.cells[0].notes[4], 'WP');
+  assert.equal(S.bat['0.0.0'].sb, 1);
+  assert.equal(S.cells.length, 1);
+});
+
+test('the home team wins as soon as it goes ahead in the last inning', () => {
+  const g = game({ innings: 1 });
+  let S = play(g, ...threeK, '1B');
+  assert.equal(S.over, false);
+  S = play(g, 'HR');
+  assert.equal(S.over, true);
+  assert.equal(halfLabel(S), 'Final');
+  assert.equal(S.R[1], 2);
+});
+
+test('the bottom of the last inning isn’t played when the home team is already ahead', () => {
+  const g = game({ innings: 2 });
+  let S = play(g, ...threeK, 'HR', ...threeK, ...threeK);
+  assert.equal(S.over, true);
+  assert.equal(S.line[1].length, 1, 'no bottom of the 2nd');
+  S = play(g, { t: 'on' });
+  assert.equal(S.over, false);
+  assert.equal(S.half, 1);
+  assert.equal(S.inn, 2);
+});
+
+test('a tie after the last inning goes to extra innings', () => {
+  const g = game({ innings: 1 });
+  const S = play(g, ...threeK, ...threeK);
+  assert.equal(S.over, false);
+  assert.equal(S.inn, 2);
+  assert.equal(columns(S, 0).length, 2);
+});
+
+test('a team that bats around gets another column for that inning', () => {
+  const g = game();
+  const S = play(g, ...Array(10).fill('1B'));
+  assert.equal(S.cells[9].k, 1);
+  assert.equal(S.cells[9].slot, 0);
+  assert.equal(columns(S, 0).filter(c => c.inn === 1).length, 2);
+});
+
+test('check() catches moves that couldn’t happen', () => {
+  const g = game();
+  const S = play(g, '1B', '1B');
+  assert.equal(check(S, [[0, 1], [1, 2], [2, 3]]), '');
+  assert.match(check(S, [[0, 1], [1, 1], [2, 3]]), /both be on first/);
+  assert.match(check(S, [[0, 1], [1, 4], [2, 3]]), /pass/);
+  assert.match(check(S, [[0, 1], [1, 2]]), /runner on second/);
+  assert.match(check(S, [[0, 1], [1, 2], [2, 1]]), /back/);
+});
+
+test('runs on a play that makes the third out on a force don’t count', () => {
+  const g = game();
+  let S = play(g, 'K', 'K', '1B', '1B', '1B');
+  const m = [[0, 1], [1, 2], [2, 3], [3, 4]];
+  assert.equal(runsCount(S, 'FC', [[0, 1], [1, 0], [2, 3], [3, 4]]), false);
+  assert.equal(runsCount(S, '1B', [[0, 0], [1, 2], [2, 3], [3, 4]]), false, 'batter out');
+  assert.equal(runsCount(S, '1B', [[0, 1], [1, 2], [2, 0], [3, 4]]), true, 'a runner thrown out after the run scored');
+  assert.equal(runsCount(S, '1B', m), true);
+  g.ev.push({ t: 'pa', r: 'FC', m: [[0, 1], [1, 0], [2, 3], [3, 4]], x: 1 });
+  S = replay(g);
+  assert.equal(S.R[0], 0);
+  assert.equal(S.half, 1);
+});
+
+test('a pitching change starts a new pitch count; runs go to the pitcher who let the runner on', () => {
+  const g = game();
+  g.teams[1].pitchers.push({ name: 'Bishop', num: '37' });
+  let S = play(g, P('b'), '1B', { t: 'pch', s: 1, i: 1 }, P('s'), 'HR');
+  assert.equal(S.pitching[1][0].np, 2);
+  assert.equal(S.pitching[1][1].np, 2);
+  assert.equal(S.pitching[1][0].r, 1);
+  assert.equal(S.pitching[1][1].r, 1);
+  assert.equal(now(S).pitcherName, 'Bishop');
+});
+
+test('a pinch runner who scores gets the run', () => {
+  const g = game();
+  g.teams[0].lineup[0].push({ name: 'Speedy', num: '0' });
+  const S = play(g, '1B', { t: 'sub', s: 0, slot: 0, i: 1, ty: 'pr' }, 'HR');
+  assert.equal(S.bat['0.0.1'].r, 1);
+  assert.equal(S.bat['0.0.0'].r || 0, 0);
+  assert.match(S.plays.find(p => p.kind === 'sub').text, /Speedy pinch-runs for Batter 1/);
+});
+
+test('shorthand marks', () => {
+  assert.equal(mark('GO', [6, 3]), '6-3');
+  assert.equal(mark('GO', [3]), '3U');
+  assert.equal(mark('GO'), 'G');
+  assert.equal(mark('FO', [8]), 'F8');
+  assert.equal(mark('E', [6]), 'E6');
+  assert.equal(mark('SAC', [1, 3]), 'SAC 1-3');
+});
+
+test('play-by-play reads like a person wrote it', () => {
+  const g = game();
+  g.teams[0].lineup[0][0].name = 'Ruiz';
+  g.teams[0].lineup[1][0].name = 'Okafor';
+  const S = play(g, '1B', 'GO 6 3');
+  assert.equal(S.plays[0].text, 'Ruiz singles.');
+  assert.equal(S.plays[1].text, 'Okafor grounds out, short to first (6-3). Ruiz to second.');
+});
+
+test('a game survives being tidied (from a file or a link) unchanged', () => {
+  const g = sampleGame(3);
+  const c = cleanGame(JSON.parse(JSON.stringify(g)));
+  assert.deepEqual(c, g);
+  assert.deepEqual(replay(c).R, replay(g).R);
+  assert.equal(cleanGame({ nope: 1 }), null);
+  assert.deepEqual(Object.keys(cleanDoc({ games: { x: g } }).games), [g.id]);
+});
+
+// Hundreds of simulated games: the totals always agree with each other.
+test('simulated games add up', () => {
+  for (let seed = 1; seed <= 300; seed++) {
+    const g = sampleGame(seed, { innings: seed % 3 ? 9 : 6 });
+    const S = replay(g);
+    assert.equal(S.over, true, `seed ${seed} finished`);
+    for (const side of [0, 1]) {
+      const byInning = S.line[side].reduce((a, b) => a + b, 0);
+      assert.equal(byInning, S.R[side], `seed ${seed}: runs by inning`);
+      const batted = Object.entries(S.bat).filter(([k]) => k.startsWith(side + '.')).reduce((a, [, b]) => a + b.r, 0);
+      assert.equal(batted, S.R[side], `seed ${seed}: runs by batter`);
+      const charged = S.pitching[1 - side].reduce((a, p) => a + (p ? p.r : 0), 0);
+      assert.equal(charged, S.R[side], `seed ${seed}: runs by pitcher`);
+      const hits = S.cells.filter(c => c.side === side && RESULTS[c.r].kind === 'hit').length;
+      assert.equal(hits, S.H[side], `seed ${seed}: hits`);
+      const scoredCells = S.cells.filter(c => c.side === side && c.scored).length;
+      assert.equal(scoredCells, S.R[side], `seed ${seed}: scored boxes`);
+    }
+    assert.notEqual(S.R[0], S.R[1], `seed ${seed}: no ties`);
+    // Every half-inning but a walk-off's ends with three outs.
+    const ends = S.plays.filter(p => p.kind === 'end').length;
+    assert.ok(ends >= (g.innings * 2 - 2), `seed ${seed}: enough innings`);
+  }
+});
+
+// Each event replayed from scratch gives what replaying it all at once gives (so undo is safe).
+test('undo is replaying one event fewer', () => {
+  const g = sampleGame(11);
+  const all = replay(g);
+  const back = { ...g, ev: g.ev.slice(0, -1) };
+  const before = replay(back);
+  assert.ok(before.cells.length <= all.cells.length);
+  assert.equal(replay({ ...g, ev: g.ev.slice() }).R.join(), all.R.join());
+});
+
+test('every suggested set of runner moves passes check()', () => {
+  for (let seed = 1; seed <= 25; seed++) {
+    const g = sampleGame(seed);
+    const part = { ...g, ev: [] };
+    for (const e of g.ev) {
+      if (e.t === 'pa') {
+        const S = replay(part);
+        assert.equal(check(S, e.m), '', `seed ${seed}, event ${part.ev.length}: ${JSON.stringify(e)}`);
+      }
+      part.ev.push(e);
+    }
+  }
+});

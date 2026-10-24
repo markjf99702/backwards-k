@@ -1,0 +1,140 @@
+// Google Drive saving, with two devices sharing one pretend Drive:  node test/drive.mjs  (needs Playwright)
+// Nothing here talks to Google: test/fake-google.mjs stands in for sign-in and the Drive API.
+import { createRequire } from 'node:module';
+import { execSync } from 'node:child_process';
+import { createServer } from 'node:http';
+import { readFile } from 'node:fs/promises';
+import { join, dirname, extname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import assert from 'node:assert/strict';
+import { fakeGoogle } from './fake-google.mjs';
+
+const require = createRequire(import.meta.url);
+let pw;
+try { pw = require('playwright'); } catch { pw = require(join(execSync('npm root -g').toString().trim(), 'playwright')); }
+const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2', '.webmanifest': 'application/manifest+json' };
+const server = createServer(async (req, res) => {
+  const path = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+  let body;
+  try { body = await readFile(join(root, path === '/' ? 'index.html' : path)); } catch { res.writeHead(404); res.end(); return; }
+  res.writeHead(200, { 'content-type': TYPES[extname(path)] || 'text/html' });
+  res.end(body);
+}).listen(0);
+const base = `http://localhost:${server.address().port}/`;
+const origin = base.slice(0, -1);
+
+const google = fakeGoogle();
+const browser = await pw.chromium.launch();
+const problems = [];
+// A device: its own browser storage, the shared pretend Drive, and Drive allowed at localhost.
+async function device(name) {
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
+  await google.install(ctx, { rewrite: { '**/js/sync.js': s => s.replace("['https://backwards-k.junkdrawer.works']", `['${origin}']`) } });
+  const page = await ctx.newPage();
+  page.on('pageerror', e => problems.push(`${name}: ${e.message}`));
+  page.on('console', m => { if (m.type() === 'error') problems.push(`${name}: ${m.text()}`); });
+  await page.goto(base);
+  return page;
+}
+const settle = page => page.waitForFunction(() => { const c = document.querySelector('.cloud'); return c && !c.hidden && c.dataset.s === 'ok'; }, null, { timeout: 8000 });
+const syncNow = async page => { await page.click('.cloud'); await page.waitForTimeout(100); await settle(page); };
+const games = page => page.evaluate(() => [...document.querySelectorAll('.gi-teams')].map(g => [...g.children].map(s => s.textContent.replace(/\s+/g, ' ').trim()).join(' ')).sort());
+const gameFiles = () => google.files().filter(f => f.appProperties?.backwardsk === 'game');
+const step = name => console.log('·', name);
+
+async function newGame(page, away, home) {
+  await page.goto(base + '#/new');
+  await page.fill('[data-side="0"] [data-name]', away);
+  await page.fill('[data-side="1"] [data-name]', home);
+  await page.click('[data-go]');
+  await page.waitForSelector('.live .field');
+}
+
+step('turning it on: a folder, and a file for the game');
+const a = await device('phone');
+await newGame(a, 'Foxes', 'Comets');
+await a.click('[data-r="HR"]');
+await a.goto(base);
+await a.click('.drive-card [data-a=on]');
+await settle(a);
+assert.equal(google.files().filter(f => f.appProperties?.backwardsk === 'folder').length, 1);
+assert.equal(gameFiles().length, 1);
+const file = gameFiles()[0], saved = JSON.parse(file.body);
+assert.equal(saved.app, 'backwards-k');
+assert.equal(saved.summary[0], 'Foxes 1, Comets 0 (Top 1st)');
+assert.equal(file.name.endsWith('Foxes at Comets.json'), true, file.name);
+assert.equal(file.appProperties.gid, saved.game.id);
+assert.equal(file.appProperties.up, String(saved.game.updated));
+assert.match(await a.textContent('.drive-card'), /mark@gmail\.com/);
+
+step('a second device joins and gets the game; its own game goes up too');
+const b = await device('tablet');
+await newGame(b, 'Owls', 'Bears');
+await b.goto(base);
+await b.click('.drive-card [data-a=on]');
+await settle(b);
+assert.deepEqual(await games(b), ['Foxes 1 Comets 0', 'Owls 0 Bears 0']);
+assert.equal(gameFiles().length, 2);
+await syncNow(a);
+assert.deepEqual(await games(a), ['Foxes 1 Comets 0', 'Owls 0 Bears 0']);
+
+step('scoring on one device shows up on the other');
+await b.click('.gi >> nth=1');
+await b.waitForSelector('.live .field');
+assert.match(await b.textContent('.bar .title'), /Foxes/);
+await b.click('[data-r="2B"]');
+await b.click('[data-r="1B"]');
+await b.click('[data-x=save]');
+await syncNow(b);
+await syncNow(a);
+assert.deepEqual(await games(a), ['Foxes 1 Comets 0', 'Owls 0 Bears 0']);
+assert.equal(await a.evaluate(() => JSON.parse(localStorage.getItem('backwards-k.v1')).games[Object.keys(JSON.parse(localStorage.getItem('backwards-k.v1')).games).find(k => JSON.parse(localStorage.getItem('backwards-k.v1')).games[k].teams[0].name === 'Foxes')].ev.length), 3);
+
+step('the page showing the game picks up the change');
+await a.click('.gi >> text=Foxes');
+await a.waitForSelector('.live .field');
+await b.click('[data-r="K"]');
+await syncNow(b);
+await syncNow(a);
+assert.match(await a.textContent('.ticker p'), /strikes out swinging/);
+
+step('deleting on one device deletes on the other, and bins the file');
+await b.goto(base);
+await b.click('.gi >> text=Owls');
+await b.click('[data-a=menu]');
+await b.click('[data-y=delete]');
+await b.click('[data-y=delete]');
+await b.waitForSelector('.hero');
+await syncNow(b);
+const owls = gameFiles().find(f => JSON.parse(f.body).game.teams[0].name === 'Owls');
+assert.equal(owls.trashed, true);
+assert.ok(+owls.appProperties.gone > 0);
+await a.goto(base);
+await syncNow(a);
+assert.deepEqual(await games(a), ['Foxes 1 Comets 0']);
+
+step('a sign-in that ran out: the cloud asks for a tap, and one tap fixes it');
+await a.evaluate(() => { const t = JSON.parse(localStorage.getItem('junkdrawer.google')); t.token = 'tok-expired'; localStorage.setItem('junkdrawer.google', JSON.stringify(t)); });
+await a.reload();
+await a.waitForFunction(() => document.querySelector('.cloud')?.dataset.s === 'tap', null, { timeout: 8000 });
+await a.click('.cloud');
+await settle(a);
+
+step('stopping on a device leaves the shared sign-in alone and stops the calls');
+await a.click('.drive-card [data-a=off]');
+await a.click('.drive-card [data-a=off]');
+assert.equal(await a.locator('.drive-card [data-a=on]').count(), 1);
+assert.ok(await a.evaluate(() => localStorage.getItem('junkdrawer.google')), 'the sign-in is still there for the other projects');
+assert.equal(await a.evaluate(() => window.__revoked || 0), 0, 'nothing revoked');
+await b.context().close(); // the other device keeps syncing, as it should
+const n = google.calls.length;
+await newGame(a, 'Larks', 'Wrens');
+await a.waitForTimeout(3000);
+assert.equal(google.calls.length, n, 'no Drive calls after stopping: ' + google.calls.slice(n).join(', '));
+
+// The expired sign-in's 401 is logged by the browser itself; that one is expected.
+assert.deepEqual(problems.filter(p => !/status of 401/.test(p)), [], 'problems while syncing');
+await browser.close();
+server.close();
+console.log('all good');
