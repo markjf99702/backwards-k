@@ -700,7 +700,7 @@ function settingsSheet() {
     <div class="form">
       <label><span>Visitors</span><input data-t="0" maxlength="40" value="${esc(G.teams[0].name)}" placeholder="Visitors"></label>
       <label><span>Home team</span><input data-t="1" maxlength="40" value="${esc(G.teams[1].name)}" placeholder="Home"></label>
-      <label><span>Innings</span><select data-g="innings">${[3, 4, 5, 6, 7, 8, 9, 10, 12].map(n => `<option${n === G.innings ? ' selected' : ''}>${n}</option>`).join('')}</select></label>
+      <label><span>Innings</span><select data-g="innings">${[3, 4, 5, 6, 7, 8, 9, 10, 12].map(n => `<option${n === G.innings ? ' selected' : n < S.inn ? ' disabled' : ''}>${n}</option>`).join('')}</select>${S.inn > 3 ? `<small>Already in the ${ord(S.inn)}, so it can’t be shorter than that.</small>` : ''}</label>
       <label><span>Date</span><input type="date" data-g="date" value="${esc(G.date)}"></label>
       <label><span>Where</span><input data-g="place" maxlength="80" value="${esc(G.place)}" placeholder="Optional"></label>
       <label class="switch"><input type="checkbox" data-g="pitches"${G.pitches ? ' checked' : ''}><span>Count balls and strikes<small>Keeps the count and each pitcher’s pitch count.</small></span></label>

@@ -567,6 +567,7 @@ li.scored { border-left: 4px solid var(--red); }
 .tips { padding-left: 1.1em; margin: 0; display: grid; gap: 8px; font-size: 15.5px; }
 .form { display: grid; gap: 12px; }
 .form .switch span { font-size: 16px; }
+.form label > small { font-weight: 400; color: var(--muted); font-size: 15px; }
 .team-name { display: grid; gap: 4px; margin: 12px 0 8px; font-weight: 700; font-size: 15px; }
 .sheet .team-name input { width: 100%; min-height: 46px; padding: 8px 12px; border-radius: 10px; border: 1.5px solid var(--line-2); background: var(--card); font: 800 22px/1 var(--board-font); }
 .sheet .lineup-edit li { grid-template-columns: 22px 1fr auto; }

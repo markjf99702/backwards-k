@@ -159,6 +159,18 @@ test('the bottom of the last inning isn’t played when the home team is already
   assert.equal(S.inn, 2);
 });
 
+test('plays saved after what is now the final (fewer innings set since) stay with the team that was batting', () => {
+  const g = game();
+  play(g, 'HR', ...threeK, ...threeK, ...threeK, ...threeK, '1B', ...threeK, '1B', ...threeK);
+  g.innings = 1;
+  const S = replay(g);
+  const count = (side, inn) => S.cells.filter(c => c.side === side && (!inn || c.inn === inn)).length;
+  assert.deepEqual([count(0), count(1)], [11, 10]);
+  assert.deepEqual([count(0, 3), count(1, 3)], [4, 4]);
+  assert.deepEqual(S.line, [[1, 0, 0], [0, 0, 0]]);
+  assert.equal(S.over, true);
+});
+
 test('a tie after the last inning goes to extra innings', () => {
   const g = game({ innings: 1 });
   const S = play(g, ...threeK, ...threeK);

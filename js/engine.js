@@ -122,8 +122,14 @@ export function replay(g) {
   return S;
 }
 
+// What happens in a game, as opposed to who's in it.
+const PLAY = new Set(['p', 'pa', 'r', 'eoh']);
+
 function step(S, e) {
   const g = S.g;
+  // A play after the final (fewer innings set since it was scored, or an older game): play went on, so it counts
+  // for the team that was batting.
+  if (S.over && S.between && PLAY.has(e.t)) resume(S);
   switch (e.t) {
     case 'p': return pitch(S, e.k);
     case 'pa': return pa(S, e);
@@ -151,11 +157,15 @@ function step(S, e) {
       S.over = true; S.ended = true;
       return note(S, 'The game is called.', 'end');
     case 'on':
-      S.over = false; S.ended = false; S.hold = true;
       note(S, 'Play goes on.', 'sub');
-      if (S.between) nextHalf(S);
-      return;
+      return resume(S);
   }
+}
+
+// Keep playing, after the game was over or called.
+function resume(S) {
+  S.over = false; S.ended = false; S.hold = true;
+  if (S.between) nextHalf(S);
 }
 
 function note(S, text, kind) {
