@@ -55,11 +55,13 @@ written out in plain words.
   half-inning, except in the last inning), or your league's own (Custom). A half-inning ends itself at the limit
   ("That's 5 runs: the half-inning is over.", and a run after that on the same play doesn't count, unless your league
   counts every run on it), and the game ends itself on the mercy rule, Final, with "(Final, 10-run rule, 4 innings)"
-  in the score you send. The next new game starts with the same rules.
+  in the score you send. The next new game starts with the same rules. Picked in Game settings partway through a
+  game, they count from the last play on: rules that would change plays already scored (a half-inning that already went
+  past the limit, say) aren't taken, and it says why.
 - **Extra innings that start with a runner on second,** as the majors have since 2020 and many tournaments do: turn it
   on in New game (from the first extra inning) or pick the inning in Game settings. Each half-inning from then on
   starts with the batter before its leadoff man on second (OBR 7.01(b)), in a box of his own marked AR, with a line in
-  the plays. He isn't a trip to the plate, and his run is unearned for the pitcher.
+  the plays. He isn't a trip to the plate, and his run is unearned for the pitcher (the one who started the inning).
 - **Pitch limits for youth pitchers.** With pitches counted, pick Little League's limit by league age (Regulation
   VI(c): 50 at 7-8, 75 at 9-10, 85 at 11-12, 95 at 13-16, 105 at 17-18), Pitch Smart's (the same, and 120 at 19-22),
   or a number. The pitcher's button turns amber 5 pitches before it, and red at it, with "finish this batter" (Little

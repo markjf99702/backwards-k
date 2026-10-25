@@ -150,6 +150,22 @@ export function replay(g, upTo = g.ev.length) {
 // What happens in a game, as opposed to who's in it.
 const PLAY = new Set(['p', 'pa', 'r', 'eoh']);
 
+// Whether the game with other settings (g2: other league rules, or another inning for the runner on second) plays
+// back the same up to its last play: each play made from the same inning, half, outs, score and runners, with the
+// game going on or over the same. A run limit a half-inning already went past (or was ended at by hand), a mercy
+// rule the game already went past, or a runner on second in an inning already played would change plays already
+// scored, and move every play after them to the other team. The last play can come out differently: that's the new
+// rules taking effect now.
+export function sameSoFar(g, g2) {
+  const A = replay(g, 0), B = replay(g2, 0), at = S => [S.inn, S.half, S.outs, S.over, ...S.R, ...S.bases.map(Boolean)].join();
+  A.upTo = B.upTo = g.ev.length;
+  for (let i = 0; i < g.ev.length; i++) {
+    if (PLAY.has(g.ev[i].t) && at(A) !== at(B)) return false;
+    A.i = B.i = i; step(A, g.ev[i]); step(B, g2.ev[i]);
+  }
+  return true;
+}
+
 function step(S, e) {
   const g = S.g;
   // A play after the final (fewer innings set since it was scored, or an older game): play went on, so it counts

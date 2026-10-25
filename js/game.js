@@ -3,7 +3,7 @@
 import {
   replay, suggest, check, runsCount, scoredAs, now, RESULTS, BASE, POS, POS_NAME, halfLabel, label, player, teamName,
   pitcherLabel, ord, runnersOn, mark, pitchStat, pitchWords, pitchDay, pitchWork, pitchCount, winningRun, creditedHit, credit, fits,
-  ENDS, regulation, official, winner, AUTO, limitState, restDays, restBand, noCatch, LIMIT_BY,
+  ENDS, regulation, official, winner, AUTO, limitState, restDays, restBand, noCatch, LIMIT_BY, sameSoFar,
 } from './engine.js';
 import { store } from './store.js';
 import { blank, takeBack, putBack, newer, plays } from './model.js';
@@ -1129,11 +1129,27 @@ function menuSheet() {
   });
 }
 
-// The innings a game can start putting a runner on second in: none, the first extra inning, or one near it.
+// The innings a game can start putting a runner on second in: none, the first extra inning, or one near it. Not one
+// that would change plays already scored, in an inning played with (or without) him (see sameSoFar).
 function tieOptions() {
   const near = Array.from({ length: 5 }, (_, i) => Math.max(2, G.innings - 2) + i);
   return [0, ...[...new Set([...near, G.innings + 1, G.tie])].filter(Boolean).sort((a, b) => a - b)]
-    .map(n => `<option value="${n}"${n === G.tie ? ' selected' : ''}>${!n ? 'Not in this game' : `From the ${ord(n)}${n === G.innings + 1 ? ' (extra innings)' : ''}`}</option>`).join('');
+    .map(n => `<option value="${n}"${n === G.tie ? ' selected' : !sameSoFar(G, { ...G, tie: n }) ? ' disabled' : ''}>${!n ? 'Not in this game' : `From the ${ord(n)}${n === G.innings + 1 ? ' (extra innings)' : ''}`}</option>`).join('');
+}
+// League rules that would change plays already scored aren't taken (see sameSoFar), and the row says why. Custom
+// starts with a 5-run limit: when a half-inning already went past it, without one, so another can be typed.
+function setRules(r) {
+  if (!G) return '';
+  let why = '';
+  if (!sameSoFar(G, { ...G, rules: r })) {
+    const open = r && r.set === 'custom' && r.runs && !(G.rules && G.rules.set === 'custom') ? { ...r, runs: 0 } : null;
+    if (!open || !sameSoFar(G, { ...G, rules: open })) return 'Not in this game: those rules would change plays already scored. A half-inning went past that run limit (or was ended at it by hand), or the game went past that mercy rule.';
+    why = `Custom starts with no run limit here: a limit of ${r.runs} would change plays already scored.`;
+    r = open;
+  }
+  G.rules = r;
+  save();
+  return why;
 }
 
 function settingsSheet() {
@@ -1144,6 +1160,7 @@ function settingsSheet() {
     S.inn > 3 ? `Already in the ${ord(S.inn)}, so it can’t be shorter than that.` : '',
     led ? `${G.teams[1].name ? `The ${G.teams[1].name} were` : 'The home team was'} already ahead after the top of the ${ord(S.inn)}: use End the game here.` : '',
   ].filter(Boolean).join(' ');
+  const ties = tieOptions();
   // (A game from a file or a newer version can have more innings than the list, up to 30: its own number is in it.)
   const body = openSheet(`<h2 id="sheetTitle">Game settings</h2>
     <div class="form">
@@ -1153,20 +1170,21 @@ function settingsSheet() {
       <div class="rules-row"></div>
       <label><span>Date</span><input type="date" data-g="date" value="${esc(G.date)}"></label>
       <label><span>Where</span><input data-g="place" maxlength="80" value="${esc(G.place)}" placeholder="Optional" autocapitalize="words" autocorrect="off" spellcheck="false"></label>
-      <label><span>Runner on second</span><select data-g="tie">${tieOptions()}</select><small>Each half-inning from then on starts with the batter before its leadoff man on second, as the majors do in extra innings. His run is unearned.</small></label>
+      <label><span>Runner on second</span><select data-g="tie">${ties}</select><small>Each half-inning from then on starts with the batter before its leadoff man on second, as the majors do in extra innings. His run is unearned.${ties.includes(' disabled') ? ' Innings already played stay as they were scored.' : ''}</small></label>
       <label class="switch"><input type="checkbox" data-g="pitches"${G.pitches ? ' checked' : ''}><span>Count balls and strikes<small>Keeps the count and each pitcher’s pitch count.</small></span></label>
       <div class="limit-row"${G.pitches ? '' : ' hidden'}></div>
     </div>
     <div class="row"><button type="button" class="btn primary" data-close>Done</button></div>`);
   $$('[data-t]', body).forEach(i => i.addEventListener('input', () => { G.teams[+i.dataset.t].name = i.value.trim(); saveSoon(); draw(); }));
   // The league's rules change how the game is played back, so each change is saved and the game drawn again.
-  rulesRow($('.rules-row', body), () => G && G.rules, r => { if (!G) return; G.rules = r; save(); });
+  rulesRow($('.rules-row', body), () => G && G.rules, setRules);
   limitRow($('.limit-row', body), () => G && G.limit, L => { if (!G) return; G.limit = L; save(); });
   $$('[data-g]', body).forEach(i => i.addEventListener(i.type === 'checkbox' || i.tagName === 'SELECT' ? 'change' : 'input', () => {
     const k = i.dataset.g;
     if (k === 'date' && !i.value) return; // (see below)
-    // (Extra innings that started with a runner on second still do, after the new last inning.)
-    if (k === 'innings' && G.tie === G.innings + 1) G.tie = +i.value + 1;
+    // (Extra innings that started with a runner on second still do, after the new last inning, unless that would
+    // change an inning already played.)
+    if (k === 'innings' && G.tie === G.innings + 1 && sameSoFar({ ...G, innings: +i.value }, { ...G, innings: +i.value, tie: +i.value + 1 })) G.tie = +i.value + 1;
     G[k] = k === 'pitches' ? i.checked : k === 'innings' || k === 'tie' ? +i.value : i.value.trim();
     if (k === 'innings') $('[data-g=tie]', body).innerHTML = tieOptions();
     if (k === 'pitches') $('.limit-row', body).hidden = !G.pitches;

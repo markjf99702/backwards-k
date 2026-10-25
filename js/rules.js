@@ -24,7 +24,7 @@ export function rulesWords(r) {
 }
 
 // The League rules row, drawn into host: the four choices, Custom's numbers, and the rules in words. get() gives the
-// rules now; set(rules) takes new ones (null for none).
+// rules now; set(rules) takes new ones (null for none), and can say why not (or what it took instead), for under them.
 export function rulesRow(host, get, set) {
   const draw = () => {
     const r = get(), k = !r ? 'none' : LEAGUES[r.set] ? r.set : 'custom', m = (r && r.mercy[0]) || [];
@@ -45,8 +45,9 @@ export function rulesRow(host, get, set) {
     if (!b) return;
     const v = b.dataset.rules, r = get();
     if (v === (!r ? 'none' : LEAGUES[r.set] ? r.set : 'custom')) return;
-    set(v === 'none' ? null : v === 'custom' ? copy(CUSTOM) : copy(LEAGUES[v]));
+    const why = set(v === 'none' ? null : v === 'custom' ? copy(CUSTOM) : copy(LEAGUES[v]));
     draw();
+    if (why) $('.rules-words', host).textContent = why;
     $(`[data-rules="${v}"]`, host).focus();
   });
   // Custom's numbers and switches: the rules change as they're typed, and only the words under them are redrawn.
@@ -58,8 +59,7 @@ export function rulesRow(host, get, set) {
     r.last = $('[data-rk=last]', host).checked;
     r.all = $('[data-rk=all]', host).checked;
     r.mercy = n('by') && n('after') ? [[Math.min(n('after'), 30), n('by')]] : [];
-    set(r);
-    $('.rules-words', host).textContent = rulesWords(r);
+    $('.rules-words', host).textContent = set(r) || rulesWords(get());
   };
   host.addEventListener('input', change);
   host.addEventListener('change', change);

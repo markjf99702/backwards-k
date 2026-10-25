@@ -1,7 +1,7 @@
 // The rules of scoring, without a browser:  node --test test/unit.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { replay, suggest, check, runsCount, scoredAs, mark, now, columns, halfLabel, RESULTS, runnersOn, pitchDay, pitchStat, pitchWork, pitchCount, winningRun, fits, official, winner, endNote, regulation, limitState, restDays, restBand, noCatch } from '../js/engine.js';
+import { replay, suggest, check, runsCount, scoredAs, mark, now, columns, halfLabel, RESULTS, runnersOn, pitchDay, pitchStat, pitchWork, pitchCount, winningRun, fits, official, winner, endNote, regulation, limitState, restDays, restBand, noCatch, sameSoFar } from '../js/engine.js';
 import { newGame, cleanGame, cleanDoc, parseLineup, parsePaste, takeBack, putBack, starters, newer, merge, seenOf } from '../js/model.js';
 import { sampleGame } from '../js/sample.js';
 // The card is drawn with ui.js, which looks for the page's sheet as it loads: here there's no page, so no sheet.
@@ -606,6 +606,38 @@ test('league rules: five runs a half-inning, not in the last inning, and a run p
   // And one where it holds in the last inning too.
   S = play(game({ innings: 1, rules: { ...MINORS, set: 'custom', last: true } }), ...Array(5).fill('HR'));
   assert.deepEqual([S.R[0], S.half], [5, 1]);
+});
+
+test('rules set partway through a game can’t change plays already scored: only from the last play on', () => {
+  const ok = (g, change) => sameSoFar(g, { ...g, ...change });
+  // A half-inning ended by hand at five runs, then the Minors: the limit would end it, and the hand would end the next.
+  const g = game({ innings: 6 });
+  play(g, ...Array(5).fill('HR'), { t: 'eoh' }, ...threeK);
+  assert.equal(ok(g, { rules: MINORS }), false);
+  // A half-inning that went to six: a limit of 5 or 6 would move the plays after it; 7, or none, wouldn't.
+  const h = game({ innings: 6 });
+  play(h, ...Array(6).fill('HR'), ...threeK);
+  assert.deepEqual([5, 6, 7, 0].map(runs => ok(h, { rules: { ...MINORS, set: 'custom', runs } })), [false, false, true, true]);
+  assert.equal(ok(h, { rules: LL }), true, 'a mercy rule nobody reached');
+  // The fifth run is the last play (then a delay and a new pitcher): the Minors can come in now, and end the half.
+  const k = game({ innings: 6 });
+  play(k, ...Array(5).fill('HR'), { t: 'delay' }, { t: 'pch', s: 1, i: 0 });
+  assert.equal(ok(k, { rules: MINORS }), true);
+  assert.deepEqual([replay({ ...k, rules: MINORS }).half, replay(k).half], [1, 0]);
+  // Past the mercy rule: ten ahead after the top of the 4th, and a play after it.
+  const m = game({ innings: 6 });
+  play(m, ...threeK, ...Array(10).fill('HR'), ...threeK, ...Array(15).fill('K'));
+  assert.equal(ok(m, { rules: LL }), true, 'the play that reached it is the last');
+  play(m, 'K');
+  assert.equal(ok(m, { rules: LL }), false);
+  // A runner on second from an inning already played, or taken off one, would change it; from the next, or at the
+  // start of one nothing has happened in yet (a new pitcher aside), wouldn't.
+  const t = game({ innings: 1 });
+  play(t, ...threeK, ...threeK, { t: 'pch', s: 1, i: 0 });
+  assert.deepEqual([ok(t, { tie: 2 }), ok(t, { tie: 3 })], [true, true]);
+  play(t, 'BB');
+  assert.deepEqual([ok(t, { tie: 2 }), ok(t, { tie: 3 }), ok({ ...t, tie: 2 }, { tie: 0 })], [false, true, false]);
+  assert.equal(ok(sampleGame(3), {}), true);
 });
 
 test('league rules are kept from a file, a link and Drive, and the copy changed last has the say', () => {

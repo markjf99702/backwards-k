@@ -465,6 +465,38 @@ step('league rules: the Minors end a half at five runs, and the next new game st
   await p.context().close();
 }
 
+step('Game settings won’t take league rules that would change plays already scored, and says why');
+{
+  const p = await phone();
+  await p.goto(base + '#/new');
+  await p.click('[data-inn="6"]');
+  await p.click('[data-go]');
+  await p.waitForSelector('.live .field');
+  const id = await p.evaluate(() => location.hash.slice(4));
+  for (let i = 0; i < 6; i++) await p.click('[data-r=HR]');
+  for (let i = 0; i < 3; i++) await p.click('[data-r=K]');
+  await p.click('[data-a=menu]');
+  await p.click('.sheet [data-y=settings]');
+  // The Minors would have ended the top of the 1st at five, and put the three strikeouts on the home team.
+  await p.click('.sheet [data-rules=minors]');
+  assert.equal(await p.getAttribute('.sheet [data-rules=none]', 'aria-pressed'), 'true');
+  assert.match(await p.textContent('.sheet .rules-words'), /^Not in this game: those rules would change plays already scored\./);
+  assert.equal((await stored(p, id)).rules, null);
+  // Custom starts without its 5-run limit, and a limit of 6 isn't taken either; 7 is.
+  await p.click('.sheet [data-rules=custom]');
+  assert.equal(await p.inputValue('.sheet [data-rk=runs]'), '');
+  assert.match(await p.textContent('.sheet .rules-words'), /^Custom starts with no run limit here: a limit of 5 would change plays already scored\.$/);
+  await p.fill('.sheet [data-rk=runs]', '6');
+  assert.match(await p.textContent('.sheet .rules-words'), /^Not in this game/);
+  assert.equal((await stored(p, id)).rules.runs, 0);
+  await p.fill('.sheet [data-rk=runs]', '7');
+  assert.match(await p.textContent('.sheet .rules-words'), /^A half-inning ends at 7 runs/);
+  assert.equal((await stored(p, id)).rules.runs, 7);
+  await p.keyboard.press('Escape');
+  assert.match(await p.textContent('.bar .title'), /6\s*–\s*0.*Bottom 1st/s, 'the game as it was scored');
+  await p.context().close();
+}
+
 step('extra innings that start with a runner on second: he is on the field, on the card and in the plays');
 {
   const p = await phone();
