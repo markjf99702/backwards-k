@@ -646,6 +646,20 @@ details.partway .hint { margin: 10px 0 0; }
 .stats tfoot th, .stats tfoot td { font-weight: 800; border-bottom: 0; }
 .stats small { color: var(--muted); font-size: 12px; display: block; }
 .extras p { font-size: 15px; color: var(--ink-2); margin-bottom: 4px; }
+/* A spray chart: the field in the card's blue lines, each hit a red dot, anything else an open ring. */
+.spray { margin: 14px 0 0; padding: 12px 14px; background: var(--card); border-radius: 12px; box-shadow: var(--shadow); max-width: 340px; }
+.spray figcaption { font: 800 17px/1.1 var(--board-font); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 8px; }
+.spray-field { display: block; width: 100%; height: auto; }
+.spray .fo { fill: var(--paper); stroke: var(--grid); stroke-width: 1; }
+.spray .fi { fill: none; stroke: var(--grid); stroke-width: 1; }
+.spray .tap { fill: transparent; }
+.spray .dot { fill: var(--card); stroke: var(--muted); stroke-width: 1.8; }
+.spray .hit .dot, .spray .dot.hit { fill: var(--red); stroke: var(--card); stroke-width: 2; }
+.spray .mark { fill: none; stroke: var(--ink); stroke-width: 2; }
+.spray-key { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 6px 0 0; font-size: 14px; color: var(--ink-2); }
+.spray-key .key { display: inline-flex; align-items: center; gap: 5px; }
+.spray-key svg { width: 14px; height: 14px; }
+.spray-words { margin: 4px 0 0; font-size: 14px; color: var(--muted); }
 /* The batter sheet's Today: each trip, then what it adds up to. */
 .today { margin-top: 14px; display: grid; gap: 4px; }
 .today p { margin: 0; }
@@ -897,6 +911,8 @@ html:has(dialog.sheet[open]) { overflow: hidden; scrollbar-gutter: stable; }
   #print .stats thead th:first-child { font-size: 14px; }
   #print .stats small { font-size: 10px; }
   #print .extras p, #print .clock { font-size: 12px; margin-bottom: 2px; }
+  #print .spray { box-shadow: none; padding: 0; max-width: 2.4in; break-inside: avoid; }
+  #print .spray-key, #print .spray-words { font-size: 11px; }
   #print .box-grid { grid-template-columns: 1fr 1fr; display: grid; }
 }
 @media print and (orientation: landscape) {

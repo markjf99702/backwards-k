@@ -2,6 +2,7 @@
 import { batKey, pitchStat, pitcherLabel, ip, teamName, label, player, ord, pitchWords, POS_NAME, RESULTS, AUTO, restDays, noCatch, LIMIT_BY, decisions, decisionWords, clockOf, pitchesIn, toWhere } from './engine.js';
 import { esc, KL, clockAt, hm } from './ui.js';
 import { abbr } from './card.js';
+import { sprayField } from './field.js';
 
 // How each substitute first came in, as the card says it: PH, PR, or sub (a change in the field).
 const HOW = { ph: ['PH', 'Pinch hitter'], pr: ['PR', 'Pinch runner'], def: ['sub', 'Substitute'] };
@@ -137,8 +138,36 @@ export function boxHtml(S) {
   return `${from}<div class="box-grid">${[0, 1].map(side => `
     <div>${batting(S, side)}${pitching(S, side)}
       <div class="extras">${notes(S, side)}</div>
+      ${spray(S, c => c.side === side, `Where the ${teamName(S.g, side)} hit it`)}
     </div>`).join('')}
   </div>${clockLine(S)}`;
+}
+
+// ---------- spray charts ----------
+// Where the balls went, once the game says where its hits went (Ask where hits went, or a hit that says): each ball in
+// play whose fielder is known, a hit by where it went and anything else by who fielded it first (6-3 at short).
+const located = c => !!c.f && c.f[0] >= 1 && c.f[0] <= 9 && !!RESULTS[c.r];
+const says = S => S.g.spray || S.cells.some(c => located(c) && RESULTS[c.r].kind === 'hit');
+// The play in a few words, for the chart's dots: "Ruiz, 3rd: single to left", "Okafor, 1st: ground out, 6-3".
+function ballWords(S, c) {
+  const R = RESULTS[c.r], what = R.label.toLowerCase();
+  return `${label(player(S.g, c.side, c.slot, c.p), c.slot)}, ${ord(c.inn)}: ${R.kind === 'hit' ? `${what} to ${toWhere(c.f[0])}` : `${what}, ${c.mark}`}`;
+}
+// A spray chart of the boxes that pass which (a team's, or a batter's), with its title, a key, and its hits in words.
+// now: the box to pick out. '' when the game doesn't say where hits went, or none of these balls is placed.
+export function spray(S, which, title, { now = null } = {}) {
+  if (!says(S)) return '';
+  const cells = S.cells.filter(c => which(c) && located(c));
+  if (!cells.length) return '';
+  const balls = cells.map(c => ({ n: c.f[0], hit: RESULTS[c.r].kind === 'hit', hr: c.r === 'HR', title: ballWords(S, c), now: c === now }));
+  const hits = new Map();
+  for (const b of balls) if (b.hit) hits.set(b.n, (hits.get(b.n) || 0) + 1);
+  const many = (k, one, more = one + 's') => `${k} ${k === 1 ? one : more}`;
+  // (In words too: where the hits went, field by field, and how many balls weren't hits.)
+  const words = [hits.size ? `Hits: ${[...hits].sort((a, b) => b[1] - a[1] || a[0] - b[0]).map(([n, k]) => `${k} to ${toWhere(n)}`).join(', ')}.` : 'No hits placed.',
+    balls.length > hits.size ? `${many(balls.filter(b => !b.hit).length, 'other ball')} in play.` : ''].filter(Boolean).join(' ');
+  const key = `<span class="key"><svg viewBox="-8 -8 16 16" aria-hidden="true"><circle class="dot hit" r="6"/></svg>Hit</span><span class="key"><svg viewBox="-8 -8 16 16" aria-hidden="true"><circle class="dot" r="6"/></svg>Out, error or fielder’s choice</span>`;
+  return `<figure class="spray"><figcaption>${esc(title)}</figcaption>${sprayField(balls, `${title}. ${words}`)}<p class="spray-key">${key}</p><p class="spray-words">${esc(words)}</p></figure>`;
 }
 // When the game started and how long it took, as a box score ends: "First pitch 7:10 pm · Time 2:31 · Delay 0:45". The
 // time of the game is from the first pitch to the last out (or to where it was ended), without the time it stopped

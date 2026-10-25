@@ -9,7 +9,7 @@ import {
 import { store } from './store.js';
 import { blank, takeBack, putBack, newer, plays, setField } from './model.js';
 import { cardHtml, lineHtml, cellSvg } from './card.js';
-import { boxHtml, playsHtml, dayOf } from './box.js';
+import { boxHtml, playsHtml, dayOf, spray } from './box.js';
 import { infieldSvg, fieldSvg, BASE_AT } from './field.js';
 import { $, $$, esc, openSheet, closeSheet, sheetOpen, reveal, toast, KL, markHtml, fmtDate, go, inFrame, nextName, posField, clockAt } from './ui.js';
 import { drive } from './sync.js';
@@ -1029,6 +1029,7 @@ function batterSheet() {
       <button type="button" class="li" data-y="add"><b>Add a batter to the order</b><span>For a team that bats everyone: a new spot after ${esc(label(player(G, n.side, S.size[n.side] - 1, S.pl[n.side][S.size[n.side] - 1] || 0), S.size[n.side] - 1))}.</span></button>
       <button type="button" class="li" data-y="lineup"><b>The whole lineup</b><span>Names, numbers and substitutions for both teams.</span></button>
     </div>
+    ${spray(S, c => c.side === n.side && c.slot === n.slot && c.p === n.p, `Where ${n.name} hit it today`)}
     <div class="row"><button type="button" class="btn primary" data-close>Done</button></div>`);
   bindName(body, () => G.teams[n.side].lineup[n.slot]?.[n.p]);
   body.addEventListener('click', e => {
@@ -1385,6 +1386,7 @@ function cellSheet(c) {
     ${hit ? `<div class="row"><button type="button" class="btn quiet" data-y="w">${c.f ? `Change where it went (${esc(toWhere(c.f[0]))})` : 'Say where it went'}</button></div>` : ''}
     ${!readOnly && e && !group ? `<p class="hint">${hit ? 'The rest of it' : 'This one'} can’t be changed here. Undo takes plays back, latest first, and until the next batter’s turn is over, Fix runners changes where everyone ended up on the play before.</p>` : ''}
     ${c.auto ? `<p class="hint">Extra innings start with a runner on second: the batter before the leadoff man (OBR 7.01(b)). He didn’t bat, and his run is unearned. Game settings has when it starts.</p>` : ''}
+    ${spray(S, x => x.side === c.side && x.slot === c.slot && x.p === c.p, `Where ${name} hit it today`, { now: c })}
     <div class="row"><button type="button" class="btn primary" data-close>Done</button></div>`);
   // Undo takes back plays, not a change made here, so each change has its own Undo, in a message right after it.
   const old = { r: e && e.r, f: e && e.f, k: e && e.k, tap: tapped.e === e ? tapped.r : null };

@@ -2908,7 +2908,15 @@ step('Ask where hits went: a hit asks, one tap or Skip, and the plays say where'
   await p.click('.sheet [data-pos="9"]');
   assert.match(await seen(p), /^Changed to single to right\./);
   assert.match(await p.textContent('.sheet'), /Batter 1 singles to right\./);
+  // Where Batter 1 hit it today, with this box picked out; and the team's, in the box score.
+  assert.equal(await p.textContent('.sheet .spray figcaption'), 'Where Batter 1 hit it today');
+  assert.equal(await p.locator('.sheet .spray .ball.hit.now').count(), 1);
   await p.click('.sheet [data-close]');
+  await p.click('[data-v=box]');
+  assert.equal(await p.textContent('.pane[data-p=box] .spray figcaption'), 'Where the Owls hit it');
+  assert.equal(await p.locator('.pane[data-p=box] .spray .ball.hit').count(), 2);
+  assert.equal(await p.textContent('.pane[data-p=box] .spray-words'), 'Hits: 1 to center, 1 to right.');
+  assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'the box score with its chart fits the phone');
   // The next new game starts with it on, as the last one had it.
   await p.goto(base + '#/new');
   assert.equal(await p.isChecked('[name=spray]'), true);

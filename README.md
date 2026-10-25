@@ -32,9 +32,11 @@ written out in plain words.
   says 6-3. Or skip it. On a keyboard, type their numbers and press Enter.
 - **Where hits went, if you like.** Turn on **Ask where hits went** (in New game, or Game settings) and each hit asks
   where it went: one tap on the fielder it went to (or Skip), the plays say "Ruiz singles to left", and the box on
-  the card has a thin pencil line from home toward where it went. It's off to
-  start with, so a hit stays one tap, and the next new game starts as the last one was. A box on the card can say or
-  change where its hit went.
+  the card has a thin pencil line from home toward where it went. Then there are **spray charts**: the box score has
+  one for each team, and a batter's sheet (or any of his boxes) one for him, each hit a red dot by the fielder it went
+  to (a home run over the fence) and each out an open ring by the fielder who took it, with the hits in words under
+  it. It's off to start with, so a hit stays one tap, and the next new game starts as the last one was. A box on the
+  card can say or change where its hit went.
 - **Or score from a keyboard,** at a laptop or watching on TV: B ball, C called strike, S swinging strike, F foul; 1
   to 4 for a single to a home run; W walk, H hit by pitch, E error; K strikeout (Shift+K looking), G ground out, Y fly
   out, L line out, P pop out; M for More, and U or Ctrl+Z (⌘Z) to undo. G, 6, 3, Enter is a 6-3.
@@ -170,8 +172,9 @@ To put it online with GitHub Pages: **Settings → Pages → Build and deploymen
   lineup, and what Undo takes back with an event.
 - `js/store.js`: games in the browser's storage.
 - `js/game.js`: the game screen: the buttons, the runner and fielder sheets, lineups, substitutions and undo.
-- `js/card.js`: the scorecard and the line score. `js/box.js`: the box score, the play-by-play and a batter's day.
-- `js/field.js`: the field drawings. `js/help.js`: how to read the card.
+- `js/card.js`: the scorecard and the line score. `js/box.js`: the box score, the play-by-play, a batter's day and
+  the spray charts.
+- `js/field.js`: the field drawings, the spray charts' among them. `js/help.js`: how to read the card.
 - `js/home.js`, `js/setup.js`: the first screen, and starting a game.
 - `js/rules.js`: league rules (Little League's, the Minors', or a league's own) and pitch limits, picked in New game
   and Game settings.

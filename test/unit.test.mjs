@@ -1379,6 +1379,37 @@ test('a hit that says where it went has a pencil line in its box, from home towa
   assert.match(cardHtml(S, 0), /class="hit"/);
 });
 
+test('spray charts: where a team’s and a batter’s balls went, once the game says where its hits went', async () => {
+  const { spray } = await import('../js/box.js');
+  const g = game();
+  // An out with its fielders, but no hit says where it went: no chart, with the setting off.
+  let S = play(g, 'GO 6 3', '1B');
+  assert.equal(spray(S, c => c.side === 0, 'Where the Foxes hit it'), '');
+  assert.doesNotMatch(boxHtml(S), /class="spray"/);
+  // With it on, the out is there before any hit is.
+  assert.match(spray(replay({ ...g, spray: true }), c => c.side === 0, 'x'), /class="spray"/);
+  S = play(g, '1B 7', 'HR 8', 'K', 'E 5', '2B 7');
+  const h = spray(S, c => c.side === 0, 'Where the Foxes hit it');
+  assert.match(h, /<figcaption>Where the Foxes hit it<\/figcaption>/);
+  // A dot for each ball placed: the 6-3, the hits to left (two) and center, the error at third. Not the single
+  // nobody placed, nor the strikeout.
+  assert.equal((h.match(/class="ball/g) || []).length, 5);
+  assert.equal((h.match(/class="ball hit/g) || []).length, 3);
+  assert.match(h, /<title>Batter 3, 1st: single to left<\/title>/);
+  assert.match(h, /<title>Batter 1, 1st: ground out, 6-3<\/title>/);
+  assert.match(h, /Hits: 2 to left, 1 to center\. 2 other balls in play\./);
+  // The home run is over the fence, straight out to center.
+  const hr = /class="ball hit" transform="translate\(([\d.]+) ([\d.]+)\)"><title>Batter 4/.exec(h);
+  assert.ok(+hr[1] === 160 && +hr[2] < 36, `the home run at ${hr[1]}, ${hr[2]}`);
+  // One batter's, with the box picked out.
+  const mine = S.cells.filter(c => c.side === 0 && c.slot === 2);
+  const one = spray(S, c => c.side === 0 && c.slot === 2, 'Where Batter 3 hit it today', { now: mine[0] });
+  assert.equal((one.match(/class="ball/g) || []).length, 1);
+  assert.match(one, /class="ball hit now"/);
+  assert.match(boxHtml(S), /Where the Foxes hit it/);
+  assert.doesNotMatch(boxHtml(S), /Where the Comets hit it/, 'the home team hasn’t batted');
+});
+
 test('Ask where hits went is a setting of the game: off to start with, kept, and taken from the copy changed last', () => {
   assert.equal(newGame().spray, false);
   const g = game({ spray: true });

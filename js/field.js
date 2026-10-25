@@ -53,3 +53,28 @@ export function fieldSvg({ picked = [], tappable = true, names = [] } = {}) {
   }
   return s + '</svg>';
 }
+
+// A spray chart: where the balls a batter or a team hit went, on the field as a scorecard draws it (its lines in the
+// card's blue). balls: [{ n: the fielder it went to, hit: whether it was a hit, hr: a home run, title: it in words,
+// now: the one to pick out }], in game order. A hit is a red dot and anything else (an out, an error, a fielder's
+// choice) an open ring, so they differ by shape as well as colour; several to one fielder sit around his spot, the
+// first in the middle. Each fielder's spot is at his angle from home: the outfielders' inside the fence, so a ball
+// caught there doesn't look like a home run, and a home run over it. label: the chart in words, for a screen reader.
+const HOME = [160, 248], FENCE = 212;
+function spot(n, hr) {
+  const [x, y] = SPOT[n], a = Math.atan2(x - HOME[0], HOME[1] - y), d = hr ? FENCE + 16 : n >= 7 ? 175 : Math.hypot(x - HOME[0], y - HOME[1]);
+  return [HOME[0] + d * Math.sin(a), HOME[1] - d * Math.cos(a)];
+}
+const AROUND = [[0, 0], ...[0, 1, 2, 3, 4, 5].map(k => [13 * Math.sin(k * Math.PI / 3), -13 * Math.cos(k * Math.PI / 3)]),
+  ...Array.from({ length: 12 }, (_, k) => [26 * Math.sin(k * Math.PI / 6), -26 * Math.cos(k * Math.PI / 6)])];
+export function sprayField(balls, label = '') {
+  let s = `<svg class="spray-field" viewBox="0 4 320 268" role="img" aria-label="${esc(label)}">
+    <path class="fo" d="M160 248 L10 98 A212 212 0 0 1 310 98 Z"/>
+    <path class="fi" d="M160 248 L230 178 L160 108 L90 178 Z M70 172 Q160 52 250 172"/>`;
+  const at = {};
+  for (const b of balls) {
+    const where = b.n + (b.hr ? 'hr' : ''), k = at[where] = (at[where] || 0) + 1, [dx, dy] = AROUND[(k - 1) % AROUND.length], [x, y] = spot(b.n, b.hr);
+    s += `<g class="ball${b.hit ? ' hit' : ''}${b.now ? ' now' : ''}" transform="translate(${(x + dx).toFixed(1)} ${(y + dy).toFixed(1)})"><title>${esc(b.title)}</title><circle class="tap" r="12"/>${b.now ? '<circle class="mark" r="10"/>' : ''}<circle class="dot" r="6"/></g>`;
+  }
+  return s + '</svg>';
+}
