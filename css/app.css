@@ -366,7 +366,7 @@ details.lineup summary small { color: var(--muted); font-weight: 400; }
 /* The buttons. */
 .pads { display: grid; gap: 8px; }
 .pad { display: grid; gap: 6px; }
-.pitches { grid-template-columns: repeat(4, 1fr); }
+.pitches { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .pt {
   min-height: 52px; padding: 4px; border-radius: 12px; border: 0;
   background: var(--board); color: var(--board-ink); box-shadow: 0 2px 0 var(--board-2);
@@ -377,7 +377,7 @@ details.lineup summary small { color: var(--muted); font-weight: 400; }
 .pt.ball b { color: var(--lamp-b); }
 .pt:not(.ball) b { color: var(--lamp-s); }
 .pt:active { transform: translateY(1px); box-shadow: none; }
-.row4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.row4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
 .res {
   min-height: 56px; padding: 5px 4px; border-radius: 12px; border: 1.5px solid var(--line-2);
   background: var(--card); color: var(--ink); display: grid; place-content: center; text-align: center; line-height: 1.05;
@@ -646,6 +646,49 @@ li.scored { border-left: 4px solid var(--red); }
 .jd-foot a { text-decoration: none; }
 .jd-foot a:hover, .jd-foot a:focus-visible { text-decoration: underline; text-underline-offset: 3px; }
 .jd-foot span { margin: 0 6px; }
+
+/* ---------- big text: a phone zoomed to 150% or 200%, about 260 or 195 pixels across ---------- */
+/* Nothing scrolls sideways: the header and the tabs stop sticking and take two rows, the scoreboard stacks, and
+   rows of choices wrap. */
+@media (max-width: 300px) {
+  .bar, .vtabs { position: static; }
+  .bar-in { height: auto; min-height: var(--bar-h); flex-wrap: wrap; padding: 4px 8px; }
+  .bar-in .back { margin-right: auto; }
+  .bar-in .title { order: 1; flex: 1 1 100%; padding: 0 6px 6px; }
+  .title b { white-space: normal; }
+  .score-line { flex-wrap: wrap; }
+  .vtabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .bug, .bug-teams { flex-direction: column; }
+  .bt + .bt { margin-left: 0; }
+  .bug-state { justify-content: space-between; }
+  .pt span, .res span { overflow-wrap: break-word; }
+  .mv .chips { flex-wrap: wrap; }
+  .mv .chips button { flex: 1 0 auto; }
+  .two-sm { grid-template-columns: minmax(0, 1fr); }
+  .two-sm input { min-width: 0; }
+  fieldset { min-width: 0; }
+  .setup .btn.big { min-width: 0; width: 100%; }
+  .stepper { flex-wrap: wrap; }
+  .stepper span { flex: 1 1 9em; }
+  .card .who { min-width: 84px; }
+  .card-wrap { scroll-padding-left: 112px; }
+  .stats th, .stats td { padding: 6px 4px; }
+  .box-grid > div { min-width: 0; overflow-x: auto; } /* a box score still too wide scrolls on its own */
+  /* The field is too small for everything on it: the count goes above it, and On deck and the pitcher below. */
+  .field { overflow: visible; margin: 34px 0 46px; }
+  .infield { border-radius: 14px; }
+  .count { top: -34px; left: 0; }
+  .deck { top: calc(100% + 6px); bottom: auto; left: 0; max-width: 40%; }
+  .pitcher { top: calc(100% + 6px); right: 0; max-width: 58%; }
+  .runner, .batter { font-size: 13px; padding: 3px 8px; min-height: 30px; }
+}
+@media (max-width: 240px) {
+  .pitches, .row4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .res.r-more { grid-column: 1 / -1; }
+  .runner, .batter { padding: 3px 6px; }
+  .runner::after, .pitcher small { display: none; }
+  .batter { max-width: 54%; }
+}
 
 /* ---------- on paper ---------- */
 #print { display: none; }

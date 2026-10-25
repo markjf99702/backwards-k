@@ -883,6 +883,34 @@ step('after deleting a game, Undo has the keyboard and waits for it; Escape lets
   await p.context().close();
 }
 
+step('zoomed in to 150% and 200% (260 and 195 pixels across), nothing scrolls sideways');
+for (const width of [260, 195]) {
+  const c = await browser.newContext({ viewport: { width, height: Math.round(width * 844 / 390) }, hasTouch: true, serviceWorkers: 'block' });
+  await c.addInitScript(doc => { if (!sessionStorage.getItem('seeded')) { localStorage.setItem('backwards-k.v1', doc); sessionStorage.setItem('seeded', '1'); } },
+    JSON.stringify({ app: 'backwards-k', v: 1, games: { gsample7cut: seventh() }, gone: {} }));
+  const p = await c.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  const fits = async what => assert.deepEqual(await p.evaluate(() => {
+    const b = document.querySelector('dialog[open] .sheet-body');
+    return [document.documentElement.scrollWidth <= innerWidth, !b || b.scrollWidth <= b.clientWidth];
+  }), [true, true], `${width}: ${what} scrolls sideways`);
+  await p.goto(base + '#/g/gsample7cut');
+  await p.waitForSelector('.live .field');
+  await fits('the game');
+  await p.$eval('[data-r="1B"]', b => b.click());
+  await p.waitForSelector('.sheet .moves');
+  await fits('the runners sheet');
+  await p.keyboard.press('Escape');
+  await p.$eval('[data-runner="2"]', b => b.click());
+  await fits('the runner sheet');
+  await p.keyboard.press('Escape');
+  for (const v of ['card', 'box', 'plays']) { await p.$eval(`[data-v=${v}]`, b => b.click()); await fits(`the ${v} tab`); }
+  await p.goto(base + '#/new');
+  await p.waitForSelector('.setup');
+  await fits('the new game screen');
+  await c.close();
+}
+
 step('a game whose last play is one this version doesn’t know still opens');
 {
   const g = sampleUntil(7, S => S.inn === 2);
