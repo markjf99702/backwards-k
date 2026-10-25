@@ -1467,6 +1467,12 @@ test('a play Undo took back fits back in after a forgotten one only where it sti
   assert.equal(fits(play(game(), '3B'), early, at(one)), '', 'still not the third out');
   // A substitution needs its spot in the order.
   assert.equal(fits(S, { t: 'sub', s: 0, slot: 9, i: 1, ty: 'ph' }, at(S)), 'gone');
+  // And a play needs a result that could happen now: no triple play once someone's out, no double play with nobody on.
+  const on2 = play(game(), '1B', '1B');
+  const tp = { t: 'pa', r: 'TP', m: suggest(on2, 'TP') };
+  assert.equal(fits(on2, tp, at(on2)), '');
+  assert.equal(fits(play(game(), '1B', '1B', { t: 'r', m: [[2, 3, 'SB']] }, 'K'), tp, at(on2)), 'result');
+  assert.equal(fits(play(game(), 'HR'), { t: 'pa', r: 'DP', m: [[0, 0], [1, 0]] }, at(play(game(), '1B'))), 'result');
 });
 
 test('a player brought in by a play put back after other changes goes at the end of the list, and the play points at him', () => {
