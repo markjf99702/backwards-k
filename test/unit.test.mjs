@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { replay, suggest, check, runsCount, scoredAs, mark, now, columns, halfLabel, RESULTS, runnersOn, pitchDay, pitchStat, pitchWork, pitchCount, winningRun, fits, official, winner, endNote, regulation, limitState, restDays, restBand, noCatch, sameSoFar } from '../js/engine.js';
-import { newGame, cleanGame, cleanDoc, parseLineup, parsePaste, takeBack, putBack, starters, newer, merge, seenOf, carried } from '../js/model.js';
+import { newGame, cleanGame, cleanDoc, parseLineup, parsePaste, takeBack, putBack, starters, newer, merge, seenOf, carried, setField } from '../js/model.js';
 import { sampleGame } from '../js/sample.js';
 // The card is drawn with ui.js, which looks for the page's sheet as it loads: here there's no page, so no sheet.
 globalThis.document ??= { readyState: 'complete', getElementById: () => null };
@@ -1267,7 +1267,7 @@ test('a game this version makes holds nothing newer', () => {
 const LATER = {
   ev: [{ t: 'xr', b: 2, who: { slot: 3, note: 'last out' } }, { t: 'p', k: 'v' }, { t: 'pa', r: 'OBS', m: [[0, 1]] }, { t: 'sub', s: 0, slot: 2, i: 0, ty: 'cr' }],
   pa: { loc: [120, 80], hard: true }, end: { why: 'rain' },
-  game: { limits: { pitches: 85, rest: [1, 2, 4] } }, team: { coach: 'Ann' }, player: { pos: 'SS', bats: 'L' },
+  game: { limits: { pitches: 85, rest: [1, 2, 4] } }, team: { coach: 'Ann' }, player: { bats: 'L', throws: 'R' },
 };
 function laterGame() {
   const g = everyKind();
@@ -1312,7 +1312,7 @@ test('what a newer version saved is kept only while it is small and plain', () =
   g.ev.push({ t: 'xr', pad: Array.from({ length: 50 }, () => 'y'.repeat(30)) }); // more than 1,000 characters
   g.ev.push({ t: 'no such kind!' }, { t: 'constructor' }, { t: 'toString', a: 1 }, { t: 42 }, ['xr'], null);
   g.limits = { pad: Array.from({ length: 50 }, () => 'z'.repeat(60)) }; // more than 2,000 characters
-  g.teams[0].lineup[0][0].pos = big;
+  g.teams[0].lineup[0][0].bats = big;
   const raw = JSON.parse(JSON.stringify(g).replace('"deep":', '"__proto__":{"polluted":1},"deep":'));
   const c = cleanGame(raw), [x, ...rest] = c.ev.slice(everyKind().ev.length);
   assert.equal(x.note.length, 200);
@@ -1323,7 +1323,7 @@ test('what a newer version saved is kept only while it is small and plain', () =
   assert.equal({}.polluted, undefined);
   assert.deepEqual(rest, [{ t: 'constructor' }, { t: 'toString', a: 1 }], 'the one too long and the ones that aren\u2019t events are left out');
   assert.equal('limits' in c, false);
-  assert.equal(c.teams[0].lineup[0][0].pos.length, 200);
+  assert.equal(c.teams[0].lineup[0][0].bats.length, 200);
   assert.deepEqual(cleanGame(c), c);
   assert.equal(newer(c), true);
   replay(c);
@@ -1732,10 +1732,10 @@ test('pasting a lineup: jersey numbers, or a batting order copied from a game pr
   const preview = 'Visitors lineup\n1 Shohei Ohtani DH\n2 Mookie Betts (R) SS\n3 Freddie Freeman 1B\n4 Will Smith C\n5 Teoscar Hernández RF\n6 Max Muncy 3B\n7 Tommy Edman CF\n8 Andy Pages LF\n9 Kiké Hernández 2B';
   const got = parseLineup(preview);
   assert.equal(got.length, 9);
-  assert.deepEqual(got.slice(0, 3), [{ name: 'Shohei Ohtani', num: '' }, { name: 'Mookie Betts', num: '' }, { name: 'Freddie Freeman', num: '' }]);
+  assert.deepEqual(got.slice(0, 3), [{ name: 'Shohei Ohtani', num: '', pos: 'DH' }, { name: 'Mookie Betts', num: '', pos: 'SS' }, { name: 'Freddie Freeman', num: '', pos: '1B' }]);
   assert.equal(got[4].name, 'Teoscar Hernández');
-  assert.deepEqual(parseLineup('1. 17 Ohtani DH\n2. 50 Betts SS'), [{ name: 'Ohtani', num: '17' }, { name: 'Betts', num: '50' }]);
-  assert.deepEqual(parseLineup('1) Judge #99 RF\n2) Soto LF'), [{ name: 'Judge', num: '99' }, { name: 'Soto', num: '' }]);
+  assert.deepEqual(parseLineup('1. 17 Ohtani DH\n2. 50 Betts SS'), [{ name: 'Ohtani', num: '17', pos: 'DH' }, { name: 'Betts', num: '50', pos: 'SS' }]);
+  assert.deepEqual(parseLineup('1) Judge #99 RF\n2) Soto LF'), [{ name: 'Judge', num: '99', pos: 'RF' }, { name: 'Soto', num: '', pos: 'LF' }]);
   // Numbers that aren't 1, 2, 3 in order are jersey numbers.
   assert.deepEqual(parseLineup('22 Kershaw\n35 Bellinger'), [{ name: 'Kershaw', num: '22' }, { name: 'Bellinger', num: '35' }]);
 });
@@ -1773,12 +1773,12 @@ test('pasting a lineup from a game preview: the heading, the starting pitcher, o
   // All on one line, with commas or numbered.
   assert.deepEqual(just(parseLineup(nine.map((n, i) => `${n} ${pos[i]}`).join(', '))), nine);
   assert.deepEqual(just(parseLineup('1. Ohtani DH 2. Betts SS 3. Freeman 1B')), ['Ohtani', 'Betts', 'Freeman']);
-  assert.deepEqual(parseLineup('1. 17 Ohtani DH 2. 50 Betts SS'), [{ name: 'Ohtani', num: '17' }, { name: 'Betts', num: '50' }]);
+  assert.deepEqual(parseLineup('1. 17 Ohtani DH 2. 50 Betts SS'), [{ name: 'Ohtani', num: '17', pos: 'DH' }, { name: 'Betts', num: '50', pos: 'SS' }]);
   // The position first, after a dash, or a batting average at the end.
   assert.deepEqual(just(parseLineup('SS M. Betts\nDH S. Ohtani\nC W. Smith')), ['M. Betts', 'S. Ohtani', 'W. Smith']);
   assert.deepEqual(just(parseLineup('Shohei Ohtani - DH\nMookie Betts – SS\nFreddie Freeman — 1B')), ['Shohei Ohtani', 'Mookie Betts', 'Freddie Freeman']);
   assert.deepEqual(just(parseLineup('1 Ohtani DH .282\n2 Betts SS .289 12 HR')), ['Ohtani', 'Betts']);
-  assert.deepEqual(parseLineup('1\tShohei Ohtani\tDH\n2\t#50 Mookie Betts\tSS'), [{ name: 'Shohei Ohtani', num: '' }, { name: 'Mookie Betts', num: '50' }]);
+  assert.deepEqual(parseLineup('1\tShohei Ohtani\tDH\n2\t#50 Mookie Betts\tSS'), [{ name: 'Shohei Ohtani', num: '', pos: 'DH' }, { name: 'Mookie Betts', num: '50', pos: 'SS' }]);
 });
 
 // Morris singles, Diaz runs for him, and after the inning Morris comes back in: a sub that points at him again.
@@ -1951,4 +1951,41 @@ test('names on the card: the number beside it, the whole name in a title, and a 
   assert.equal(cardName({ name: 'Christopher Lee', num: '' }, 0, true), 'C.\u00a0Lee');
   assert.equal(cardName({ name: 'Christopher Lee', num: '' }, 0), 'Christopher Lee');
   assert.match(h, /title="Batter 4">Batter 4<\/span>/);
+});
+
+test('positions: kept from a pasted lineup, a file and a link, a team from before and Drive, and shown on the card and the box score', () => {
+  const { batters } = parsePaste('- Noah (C)\n- Olivia - P\n• Ava\nRuiz UT\nSS M. Betts');
+  assert.deepEqual(batters.map(p => p.pos), ['C', 'P', undefined, undefined, 'SS'], 'a utility man has no one place');
+  const g = game();
+  g.teams[0].lineup[0][0] = { name: 'Ruiz', num: '2', pos: 'SS' };
+  g.teams[0].lineup[1][0] = { name: 'Okafor', num: '', pos: 'CF' };
+  g.teams[0].lineup[1].push({ name: 'Diaz', num: '4', pos: 'LF' });
+  g.teams[0].lineup[2][0] = { name: 'Brennan', num: '24', pos: 'Shortstop' }; // not a position: none
+  const S = play(g, '1B', { t: 'sub', s: 0, slot: 1, i: 1, ty: 'ph' }, 'K');
+  const card = cardHtml(S, 0);
+  assert.match(card, /title="Ruiz SS #2">Ruiz <small>SS #2<\/small>/);
+  assert.match(card, /title="Diaz LF #4"><i>PH 1st<\/i> Diaz <small>LF #4<\/small>/);
+  assert.match(card, /title="Okafor CF">Okafor <small>CF<\/small>/);
+  const box = boxHtml(S);
+  assert.match(box, /<span class="ord">1<\/span>Ruiz <small class="ps">SS<\/small><\/th>/);
+  assert.match(box, /PH<\/abbr> Diaz <small class="ps">LF<\/small><\/th>/);
+  const c = cleanGame(JSON.parse(JSON.stringify(g)));
+  assert.deepEqual([c.teams[0].lineup[0][0], c.teams[0].lineup[2][0]], [{ name: 'Ruiz', num: '2', pos: 'SS' }, { name: 'Brennan', num: '24' }]);
+  assert.equal(newer(c), false);
+  assert.deepEqual(cleanGame(c), c);
+  assert.deepEqual(starters(c.teams[0]).slice(0, 3), [{ name: 'Ruiz', num: '2', pos: 'SS' }, { name: 'Okafor', num: '', pos: 'CF' }, { name: 'Brennan', num: '24' }]);
+  // Drive: a position changed on the copy changed last comes in, and one taken off there goes.
+  const a = cleanGame(JSON.parse(JSON.stringify(c))), b = cleanGame(JSON.parse(JSON.stringify(c)));
+  b.teams[0].lineup[0][0].pos = '2B';
+  delete b.teams[0].lineup[1][0].pos;
+  b.updated = a.updated + 10;
+  b.ev.push({ t: 'p', k: 'b' });
+  const { game: m } = merge(a, b);
+  assert.deepEqual([m.teams[0].lineup[0][0].pos, m.teams[0].lineup[1][0].pos], ['2B', undefined]);
+  // Typed or picked: no position is none at all.
+  const p = { name: 'Ava', num: '', pos: 'C' };
+  setField(p, 'pos', '');
+  assert.deepEqual(p, { name: 'Ava', num: '' });
+  setField(p, 'pos', 'RF');
+  assert.equal(p.pos, 'RF');
 });

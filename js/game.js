@@ -6,11 +6,11 @@ import {
   ENDS, regulation, official, winner, AUTO, limitState, restDays, restBand, noCatch, LIMIT_BY, sameSoFar, outAt, outBases, usualBase,
 } from './engine.js';
 import { store } from './store.js';
-import { blank, takeBack, putBack, newer, plays } from './model.js';
+import { blank, takeBack, putBack, newer, plays, setField } from './model.js';
 import { cardHtml, lineHtml, cellSvg } from './card.js';
 import { boxHtml, playsHtml, dayOf } from './box.js';
 import { infieldSvg, fieldSvg, BASE_AT } from './field.js';
-import { $, $$, esc, openSheet, closeSheet, sheetOpen, reveal, toast, KL, markHtml, fmtDate, go, inFrame, nextName } from './ui.js';
+import { $, $$, esc, openSheet, closeSheet, sheetOpen, reveal, toast, KL, markHtml, fmtDate, go, inFrame, nextName, posField } from './ui.js';
 import { drive } from './sync.js';
 import { shareSheet, saveFile } from './share.js';
 import { helpSheet } from './help.js';
@@ -610,14 +610,15 @@ const HINT = {
 };
 // Who fielded it. One tap for a catch or an error; a sequence for throws. Skipping is fine. From a keyboard, the
 // fielders' numbers pick them too, Backspace takes the last one back, and Enter is Done.
-function pickFielders(code, start, done, { title } = {}) {
+// st: how things stood when the ball was hit, for who was where (see fielderNames()).
+function pickFielders(code, start, done, { title, st = S } = {}) {
   const R = RESULTS[code] || { f: 1, label: title };
   let seq = start ? start.slice() : [];
-  const one = R.f === 1;
+  const one = R.f === 1, names = fielderNames(st);
   const body = openSheet(`<h2 id="sheetTitle">${esc(title || R.label)}: who fielded it?</h2>
     <p class="hint">${esc(HINT[code] || 'Tap the fielder who caught it.')}</p>
     <p class="seq" aria-live="polite"></p>
-    <div class="pick">${fieldSvg()}</div>
+    <div class="pick">${fieldSvg({ names })}</div>
     <div class="row">
       ${one ? '' : '<button type="button" class="btn quiet" data-x="back">Undo a tap</button>'}
       <button type="button" class="btn quiet" data-x="skip">Skip</button>
@@ -626,7 +627,7 @@ function pickFielders(code, start, done, { title } = {}) {
   const upd = () => {
     // Redrawn with each pick: the fielder that had the keyboard keeps it.
     const had = body.querySelector('[data-pos]:focus');
-    body.querySelector('.pick').innerHTML = fieldSvg({ picked: seq });
+    body.querySelector('.pick').innerHTML = fieldSvg({ picked: seq, names });
     if (had) body.querySelector(`[data-pos="${had.dataset.pos}"]`).focus({ preventScroll: true });
     body.querySelector('.seq').innerHTML = seq.length ? `<b>${esc(mark(code === 'GO' && seq.length === 1 ? 'GO' : code, seq))}</b> ${esc(seq.map(n => POS_NAME[n]).join(' to '))}` : '&nbsp;';
     const d = body.querySelector('[data-x=done]');
@@ -654,6 +655,20 @@ function pickFielders(code, start, done, { title } = {}) {
     else if (e.key === 'Backspace' && !one) { e.preventDefault(); seq.pop(); upd(); }
     else if (e.key === 'Enter' && !one && seq.length && !e.target.closest('button,[role=button]')) { e.preventDefault(); done(seq); }
   });
+}
+
+// Who's at each position for the team in the field, from where the lineup says each plays and who's pitching:
+// ['', 'Halvorsen', 'Castillo', ...], '' where nobody's said. For the fielder picker, so a parent who knows the names
+// but not the numbers can tap Ruiz.
+function fielderNames(st) {
+  const side = 1 - st.half, t = G.teams[side], out = Array(10).fill(''), known = p => p && (p.name || p.num);
+  const pi = t.pitchers[st.pit[side]];
+  if (known(pi)) out[1] = label(pi, 0);
+  for (let slot = 0; slot < st.size[side]; slot++) {
+    const p = t.lineup[slot] && t.lineup[slot][st.pl[side][slot] ?? 0], n = p ? POS.indexOf(p.pos) : -1;
+    if (n >= 1 && !out[n] && known(p)) out[n] = label(p, slot);
+  }
+  return out;
 }
 
 // Everyone on base, and the batter, with where they most likely ended up already picked.
@@ -922,11 +937,13 @@ function jam(moves) {
 // A name's field is left alone by a phone's keyboard: no autocorrect (which turns Jaxon into Jason as the space after
 // it is typed) and no red underline, just a capital at the start of each word. Team and place names too.
 // who: whose fields these are, when a list has many ("Batter 3"), so each says so ("Batter 3 name").
-function nameFields(p, prefix = '', who = '') {
+// pos: a batter's, with where he plays beside them.
+function nameFields(p, prefix = '', who = '', { pos = false } = {}) {
   const named = w => (who ? ` aria-label="${esc(`${who} ${w}`)}"` : '');
-  return `<div class="name-row">
+  return `<div class="name-row${pos ? ' has-pos' : ''}">
     <label class="num"><span>No.</span><input ${prefix}data-f="num" inputmode="numeric" maxlength="4" value="${esc(p.num)}" autocomplete="off"${named('number')}></label>
     <label class="nm"><span>Name</span><input ${prefix}data-f="name" maxlength="40" value="${esc(p.name)}" autocomplete="off" autocapitalize="words" autocorrect="off" spellcheck="false" placeholder="Optional"${named('name')}></label>
+    ${pos ? posField(p.pos, prefix, who) : ''}
   </div>`;
 }
 // who(): the player those fields are for, found again with each key typed: storage read again (another tab saved,
@@ -935,7 +952,7 @@ function bindName(body, who, sel = '') {
   $$(`${sel}[data-f]`, body).forEach(i => i.addEventListener('input', () => {
     const p = G && who();
     if (!p) return;
-    p[i.dataset.f] = i.value.trim(); saveSoon(); draw();
+    setField(p, i.dataset.f, i.value); saveSoon(); draw();
   }));
 }
 
@@ -944,7 +961,7 @@ function batterSheet() {
   // Their day so far, for the parent whose kid just walked up: every trip in order, then what it adds up to.
   const day = dayOf(S, n.side, n.slot, n.p);
   const body = openSheet(`<h2 id="sheetTitle">At bat <small>${ord(n.slot + 1)} in the order for ${esc(teamName(G, n.side))}</small></h2>
-    ${nameFields(p)}
+    ${nameFields(p, '', '', { pos: true })}
     ${day.line ? `<div class="today"><p><b>Today</b> ${day.trips.map(t => `<span>${ord(t.inn)}: ${markHtml(t.r, t.mark)}, ${esc(t.words)}</span>`).join(' · ')}</p><p class="quiet">${esc(day.line)}.</p></div>` : ''}
     <div class="list">
       <button type="button" class="li" data-y="ph"><b>Pinch hitter</b><span>Someone else bats in this spot.</span></button>
@@ -984,11 +1001,11 @@ function subForm(side, slot, ty, done) {
   if (on) ty = 'pr';
   const body = openSheet(`<h2 id="sheetTitle">${words[ty]} <small>for ${esc(was)}</small></h2>
     ${back.length ? `<p class="pick-row"><span>Back in:</span>${back.map(([i, x]) => `<button type="button" class="chip" data-back="${i}">${esc(named(x, slot))}</button>`).join('')}</p>` : ''}
-    ${nameFields(p)}
+    ${nameFields(p, '', '', { pos: true })}
     <div class="chips wide" role="group" aria-label="What kind of substitution">${Object.entries(words).map(([k, w]) => `<button type="button" data-ty="${k}" aria-pressed="${k === ty}">${w}</button>`).join('')}</div>
     <p class="hint">${on ? `They run for ${esc(was)} on ${BASE[on]}, and take that spot in the batting order from now on.` : `They take ${esc(was)}’s place in the batting order from now on.`}</p>
     <div class="row"><button type="button" class="btn quiet" data-close>Cancel</button><button type="button" class="btn primary" data-x="go">Put them in</button></div>`);
-  $$('[data-f]', body).forEach(i => i.addEventListener('input', () => { p[i.dataset.f] = i.value.trim(); }));
+  $$('[data-f]', body).forEach(i => i.addEventListener('input', () => { setField(p, i.dataset.f, i.value); }));
   body.addEventListener('click', e => {
     const t = e.target.closest('[data-ty]'), b = e.target.closest('[data-back]');
     if (t) { ty = t.dataset.ty; $$('[data-ty]', body).forEach(x => x.setAttribute('aria-pressed', String(x.dataset.ty === ty))); body.querySelector('h2').firstChild.textContent = words[ty] + ' '; }
@@ -1076,7 +1093,7 @@ function newPitcher(side) {
     act({ t: 'pch', s: side, i });
     if (!both) return;
     const list = G.teams[side].lineup[spot], was = label(now[spot], spot);
-    list.push({ ...p });
+    list.push({ ...p, pos: 'P' });
     act({ t: 'sub', s: side, slot: spot, i: list.length - 1, ty: 'def' });
     toast(`Two changes: ${pitcherLabel(G, side, i)} pitches, and bats ${ord(spot + 1)} in place of ${was}.`, { ms: 6000 });
   });
@@ -1095,7 +1112,7 @@ function lineupSheet(side = S.half, { focus, top } = {}) {
     <ol class="lineup-edit">${Array.from({ length: S.size[side] }, (_, slot) => {
       const list = t.lineup[slot], cur = S.pl[side][slot] ?? 0, p = list[cur];
       const before = earlier(side, slot).map(([, x]) => label(x, slot));
-      return `<li data-slot="${slot}"><span class="ord">${slot + 1}</span>${nameFields(p, `data-slot="${slot}" `, `Batter ${slot + 1}`)}<button type="button" class="btn quiet sm" data-sub="${slot}" aria-label="${esc(`Sub for ${label(p, slot)}`)}">Sub</button>${before.length ? `<small class="earlier">Earlier: ${esc(before.join(', '))}</small>` : ''}</li>`;
+      return `<li data-slot="${slot}"><span class="ord">${slot + 1}</span>${nameFields(p, `data-slot="${slot}" `, `Batter ${slot + 1}`, { pos: true })}<button type="button" class="btn quiet sm" data-sub="${slot}" aria-label="${esc(`Sub for ${label(p, slot)}`)}">Sub</button>${before.length ? `<small class="earlier">Earlier: ${esc(before.join(', '))}</small>` : ''}</li>`;
     }).join('')}</ol>
     <div class="row"><button type="button" class="btn quiet" data-y="add">Add a batter to the order</button></div>
     <h3>Pitchers</h3>
@@ -1294,9 +1311,9 @@ function cellSheet(c) {
       if (tapped.e === e) tapped.r = e.r;
       save();
       // Now an error or a ground out, say, with nobody named: who fielded it? (Skip leaves it blank.)
-      if (e.t === 'pa' && e.r !== was && RESULTS[e.r].f && !e.f) return pickFielders(e.r, null, f => { if (f && f.length) { e.f = f; save(); } changed(); });
+      if (e.t === 'pa' && e.r !== was && RESULTS[e.r].f && !e.f) return pickFielders(e.r, null, f => { if (f && f.length) { e.f = f; save(); } changed(); }, { st: replay(G, c.ev) });
       changed();
     }
-    if (y) pickFielders(e.r, e.f, f => { if (f && f.length) e.f = f; else delete e.f; save(); changed(); });
+    if (y) pickFielders(e.r, e.f, f => { if (f && f.length) e.f = f; else delete e.f; save(); changed(); }, { st: replay(G, c.ev) });
   });
 }

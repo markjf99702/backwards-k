@@ -81,6 +81,9 @@ written out in plain words.
   batting order is one more tap, with no typing, and with no DH a new one can take the batting spot of the pitcher
   going out in the same go), and a pinch runner is a tap on the runner. A starter who comes back in (or the runner who
   ran for him) goes back in as the same player, with one line in the box score.
+- **Positions, if you like.** Pick where each batter plays (a pasted lineup keeps them), and the card says "Ruiz SS
+  #2", the box score "Ruiz SS", and the fielders to tap after a ground out have their names under their numbers, for
+  anyone who knows the kids but not the numbers.
 - **Sharing.** Send a link that carries the whole game (nothing is uploaded to share it), copy the score as text for
   a group chat, print both cards and the box score (a page each, Letter or A4, upright or sideways), or save the
   game as a file.

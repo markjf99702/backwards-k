@@ -302,7 +302,10 @@ details.lineup summary small { color: var(--muted); font-weight: 400; }
 .name-row { display: grid; grid-template-columns: 74px 1fr; gap: 8px; min-width: 0; }
 .name-row label { position: relative; display: block; min-width: 0; }
 .name-row label > span { position: absolute; left: 10px; top: 5px; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; pointer-events: none; }
-.name-row input { width: 100%; min-height: 48px; padding: 18px 10px 4px; border-radius: 10px; border: 1.5px solid var(--line-2); background: var(--paper); }
+.name-row input, .name-row select { width: 100%; min-height: 48px; padding: 18px 10px 4px; border-radius: 10px; border: 1.5px solid var(--line-2); background: var(--paper); }
+/* A batter's position beside his number and name. */
+.name-row.has-pos { grid-template-columns: 64px 1fr 68px; }
+.name-row select { padding: 18px 4px 4px 8px; font: inherit; color: var(--ink); }
 .pitcher-row { grid-template-columns: 74px 1fr; margin-top: 10px; }
 .pitcher-row .lbl { grid-column: 1 / -1; font-weight: 700; font-size: 15px; }
 .from-order .pick-row { margin: 8px 0 0; }
@@ -620,6 +623,7 @@ details.lineup summary small { color: var(--muted); font-weight: 400; }
 .stats tr.sub th { padding-left: 26px; font-weight: 400; color: var(--ink-2); }
 .stats td { white-space: nowrap; }
 @media (max-width: 430px) { .stats th, .stats td { padding-left: 4px; padding-right: 4px; } }
+.stats small.ps { display: inline; font-size: 12px; font-weight: 600; color: var(--muted); margin-left: 2px; }
 .stats .how { font-size: 10px; font-weight: 700; color: var(--red); text-transform: uppercase; letter-spacing: .02em; }
 .stats tfoot th, .stats tfoot td { font-weight: 800; border-bottom: 0; }
 .stats small { color: var(--muted); font-size: 12px; display: block; }
@@ -727,6 +731,8 @@ html:has(dialog.sheet[open]) { overflow: hidden; scrollbar-gutter: stable; }
 /* At night the red is lighter, and takes dark ink, as the red buttons do. */
 @media (prefers-color-scheme: dark) { .pos .spot.on ~ text { fill: #1a0d0b; } }
 .pos .order { font-size: 11px; font-weight: 800; fill: #fff; }
+/* Who plays there, on the grass or the dirt: ink with a paper edge. */
+.pos .who { font-size: 12px; font-weight: 700; fill: var(--ink); stroke: var(--paper); stroke-width: 3px; stroke-linejoin: round; paint-order: stroke; }
 .pos:focus { outline: none; }
 .pos:focus-visible .spot { stroke-width: 4; }
 /* The keyboard's ring: white inside navy, clear of the circle, so it shows on the grass and on the dirt. */
@@ -753,7 +759,7 @@ html:has(dialog.sheet[open]) { overflow: hidden; scrollbar-gutter: stable; }
 .team-name { display: grid; gap: 4px; margin: 12px 0 8px; font-weight: 700; font-size: 15px; }
 .sheet .team-name input { width: 100%; min-height: 46px; padding: 8px 12px; border-radius: 10px; border: 1.5px solid var(--line-2); background: var(--card); font: 800 22px/1 var(--board-font); }
 .sheet .lineup-edit li { grid-template-columns: 22px 1fr auto; }
-.sheet .name-row input { background: var(--card); }
+.sheet .name-row input, .sheet .name-row select { background: var(--card); }
 .out textarea { margin-top: 12px; }
 
 /* ---------- the toast ---------- */
@@ -796,6 +802,10 @@ html:has(dialog.sheet[open]) { overflow: hidden; scrollbar-gutter: stable; }
   .pt span, .res span { overflow-wrap: break-word; }
   .mv .chips { flex-wrap: wrap; }
   .mv .chips button { flex: 1 0 auto; }
+  .mv .how { flex-wrap: wrap; }
+  .mv .how.ef .chips { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .name-row.has-pos { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-auto-flow: dense; }
+  .name-row.has-pos .nm { grid-column: 1 / -1; }
   .ticker .acts { gap: 0; }
   .ticker .link-btn { white-space: normal; padding: 0 6px; }
   .two-sm { grid-template-columns: minmax(0, 1fr); }

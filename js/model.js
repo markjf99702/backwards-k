@@ -8,7 +8,7 @@
 // most runs a half-inning (0 for no limit), last: that limit holds in the last inning too, all: every run on the play
 // that reaches it counts, mercy: [[innings, runs ahead], ...] } (engine.js plays them)
 // A team: { name, lineup: [[player, sub, ...] per batting slot], pitchers: [player, ...] }
-// A player: { name, num }
+// A player: { name, num, pos? }, pos: where he plays, when the scorer said ('SS'; one of POSITIONS)
 // Everything that happens in the game is in ev, in order (engine.js reads it).
 // Anything a newer Backwards K saves that this one doesn't know (a new kind of event, pitch, play or substitution, or a
 // new value on a game, team, player or event) is kept as it came, as long as it's small, so this copy can show the
@@ -40,7 +40,7 @@ const int = (v, lo, hi, d) => (Number.isFinite(+v) ? Math.min(hi, Math.max(lo, M
 // substitution.
 const KNOWN = new Map(Object.entries({
   game: ['id', 'created', 'updated', 'date', 'place', 'innings', 'pitches', 'rules', 'tie', 'limit', 'teams', 'ev'],
-  team: ['name', 'lineup', 'pitchers'], player: ['name', 'num'], rules: ['set', 'runs', 'last', 'all', 'mercy'], limit: ['by', 'age', 'max'],
+  team: ['name', 'lineup', 'pitchers'], player: ['name', 'num', 'pos'], rules: ['set', 'runs', 'last', 'all', 'mercy'], limit: ['by', 'age', 'max'],
   p: ['t', 'k'], pa: ['t', 'r', 'f', 'm', 'x'], r: ['t', 'm'], sub: ['t', 's', 'slot', 'i', 'ty'], pch: ['t', 's', 'i'],
   add: ['t', 's'], eoh: ['t'], end: ['t', 'why'], delay: ['t'], on: ['t'],
 }));
@@ -62,8 +62,19 @@ function more(o, known, max) {
   const out = plain(Object.fromEntries(Object.entries(o).filter(([k]) => !known.includes(k))));
   return JSON.stringify(out).length <= max ? out : {};
 }
-const cleanPlayer = p => ({ name: str(p && p.name), num: str(p && p.num, 4), ...(p && typeof p === 'object' ? more(p, KNOWN.get('player'), 500) : {}) });
+// Where a player can play: the nine positions, a designated or extra hitter, and the two outfielders between them in
+// a softball or youth game with four.
+export const POSITIONS = ['P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'LC', 'RC', 'DH', 'EH'];
+const cleanPlayer = p => ({
+  name: str(p && p.name), num: str(p && p.num, 4), ...(p && POSITIONS.includes(p.pos) ? { pos: p.pos } : {}),
+  ...(p && typeof p === 'object' ? more(p, KNOWN.get('player'), 500) : {}),
+});
 const cleanList = (a, f) => (Array.isArray(a) ? a.map(f) : []);
+// A player's number, name or position as typed or picked (no position is none at all, not an empty one).
+export function setField(p, f, v) {
+  v = String(v).trim();
+  if (f === 'pos' && !POSITIONS.includes(v)) delete p.pos; else p[f] = v;
+}
 const BASE = new Set([0, 1, 2, 3, 4]);
 const cleanMoves = m => cleanList(m, x => (Array.isArray(x) ? x : []))
   .filter(x => BASE.has(x[0]) && BASE.has(x[1]))
@@ -190,8 +201,9 @@ export const plays = ev => JSON.stringify(ev, (k, v) => (v && v.constructor === 
 // with commas between them, as in a group text; or a lineup copied from a game preview, "1. Shohei Ohtani DH" or
 // "1 Mookie Betts (R) SS .289". When the lines are numbered 1, 2, 3 in order, those numbers are places in the batting
 // order, not jersey numbers, and lines without one (a team name, a heading) are left out. Headings ("Saturday lineup",
-// "Dodgers lineup vs. LHP Snell:"), bullets, positions, (L) or (R) and batting averages go. A line marked SP, RP or
-// P, or starting "Pitcher:", is the starting pitcher. Returns { batters: [player], pitcher: player or null }.
+// "Dodgers lineup vs. LHP Snell:"), bullets, (L) or (R) and batting averages go, and a position goes with the batter
+// (pos). A line marked SP, RP or P, or starting "Pitcher:", is the starting pitcher. Returns { batters: [player],
+// pitcher: player or null }.
 const POS = 'P|SP|RP|C|1B|2B|3B|SS|LF|CF|RF|DH|EH|UT|IF|OF';
 const TRAIL = new RegExp(`(\\s*[,\\-–—]\\s*|\\s+)(${POS})$`, 'i');
 const LEAD = new RegExp(`^(${POS})\\s+(?=[^\\s.])`); // "SS M. Betts" (capitals only, so it's not a name)
@@ -241,7 +253,9 @@ export function parsePaste(text) {
   const bats = p => p.inOrder && !p.pitch && (ordered || !(p.pos === 'SP' || p.pos === 'RP' || (p.pos === 'P' && dh)));
   const pitcher = all.find(p => p.pitch || PITCHES.has(p.pos));
   const strip = ({ name, num }) => ({ name, num });
-  return { batters: all.filter(bats).slice(0, 30).map(strip), pitcher: pitcher ? strip(pitcher) : null };
+  // A batter keeps his position, as the card and the box score show it (a starter, SP, is the pitcher, P).
+  const at = p => { const pos = PITCHES.has(p.pos) ? 'P' : p.pos; return POSITIONS.includes(pos) ? { ...strip(p), pos } : strip(p); };
+  return { batters: all.filter(bats).slice(0, 30).map(at), pitcher: pitcher ? strip(pitcher) : null };
 }
 // One player from one line: { name, num, pos }.
 function one(l, ordered, initials) {
@@ -307,10 +321,12 @@ export function merge(a, b, seen = null) {
     return { game: a.updated > b.updated ? a : { ...a, updated: now }, second: { ...b, id: 'g' + uid(), place, updated: now } };
   }
   const from = seen && long.ev.length === seen.n && hash(plays(long.ev)) === seen.h ? short : long;
+  // A player's name, number and position as the copy changed last has them.
+  const same = (p, n) => { const { pos, ...rest } = { ...p, name: n.name, num: n.num }; return n.pos ? { ...rest, pos: n.pos } : rest; };
   const named = (t, n) => ({
     ...t, name: n.name,
-    lineup: t.lineup.map((slot, i) => slot.map((p, j) => (n.lineup[i]?.[j] ? { ...p, name: n.lineup[i][j].name, num: n.lineup[i][j].num } : p))),
-    pitchers: t.pitchers.map((p, j) => (n.pitchers[j] ? { ...p, name: n.pitchers[j].name, num: n.pitchers[j].num } : p)),
+    lineup: t.lineup.map((slot, i) => slot.map((p, j) => (n.lineup[i]?.[j] ? same(p, n.lineup[i][j]) : p))),
+    pitchers: t.pitchers.map((p, j) => (n.pitchers[j] ? same(p, n.pitchers[j]) : p)),
   });
   const game = {
     ...from, date: newer.date, place: newer.place, innings: newer.innings, pitches: newer.pitches, rules: newer.rules, tie: newer.tie, limit: newer.limit,
@@ -327,6 +343,6 @@ function hash(s) {
   return h.toString(36);
 }
 
-// A team's batting order to start another game with: whoever started in each spot, by name and number. Next week's
-// order is usually the same players in the same spots; a pinch hitter or a pinch runner rarely starts.
-export const starters = team => team.lineup.map(slot => ({ name: slot[0].name, num: slot[0].num }));
+// A team's batting order to start another game with: whoever started in each spot, by name, number and position.
+// Next week's order is usually the same players in the same spots; a pinch hitter or a pinch runner rarely starts.
+export const starters = team => team.lineup.map(({ 0: p }) => ({ name: p.name, num: p.num, ...(p.pos ? { pos: p.pos } : {}) }));

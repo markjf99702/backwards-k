@@ -19,7 +19,8 @@ function batting(S, side) {
       const p = (team.lineup[slot] || [])[pi] || { name: '', num: '' };
       const how = ty && HOW[ty] ? `<abbr class="how" title="${HOW[ty][1]}">${HOW[ty][0]}</abbr> ` : '';
       const cells = Object.keys(tot).map(x => `<td>${b ? b[x] : '<span aria-label="none">–</span>'}</td>`).join('');
-      rows.push(`<tr${pi ? ' class="sub"' : ''}><th scope="row">${pi ? how : `<span class="ord">${slot + 1}</span>`}${esc(label(p, slot))}</th>${cells}</tr>`);
+      const ps = p.pos ? ` <small class="ps">${esc(p.pos)}</small>` : '';
+      rows.push(`<tr${pi ? ' class="sub"' : ''}><th scope="row">${pi ? how : `<span class="ord">${slot + 1}</span>`}${esc(label(p, slot))}${ps}</th>${cells}</tr>`);
       if (b) for (const x in tot) tot[x] += b[x];
     }
   }

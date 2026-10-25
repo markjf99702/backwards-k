@@ -1,8 +1,8 @@
 // Starting a game: two team names and you're off. Lineups, innings and the rest are optional, and all of it can
 // be changed once the game is going.
-import { newGame, blank, starters, today, parsePaste, carried } from './model.js';
+import { newGame, blank, starters, today, parsePaste, carried, setField } from './model.js';
 import { store } from './store.js';
-import { $, $$, esc, openSheet, closeSheet, go, nextName } from './ui.js';
+import { $, $$, esc, openSheet, closeSheet, go, nextName, posField } from './ui.js';
 import { drive } from './sync.js';
 import { rulesRow, limitRow } from './rules.js';
 
@@ -82,9 +82,10 @@ export function showSetup(el) {
   const fs = side => $(`.team-set[data-side="${side}"]`, el);
   function rows(side) {
     const t = T[side], ol = $('.lineup-edit', fs(side));
-    ol.innerHTML = t.lineup.map((p, i) => `<li><span class="ord">${i + 1}</span><div class="name-row">
+    ol.innerHTML = t.lineup.map((p, i) => `<li><span class="ord">${i + 1}</span><div class="name-row has-pos">
         <label class="num"><span>No.</span><input data-i="${i}" data-f="num" inputmode="numeric" maxlength="4" value="${esc(p.num)}" aria-label="Batter ${i + 1} number"></label>
         <label class="nm"><span>Name</span><input data-i="${i}" data-f="name" maxlength="40" value="${esc(p.name)}" placeholder="Batter ${i + 1}" autocapitalize="words" autocorrect="off" spellcheck="false" enterkeyhint="${i < t.lineup.length - 1 ? 'next' : 'done'}" aria-label="Batter ${i + 1} name"></label>
+        ${posField(p.pos, `data-i="${i}" `, `Batter ${i + 1}`)}
       </div></li>`).join('');
     $('[data-size]', fs(side)).innerHTML = `${t.lineup.length}<span class="sr"> batter${t.lineup.length === 1 ? '' : 's'}</span>`;
     $('[data-name]', fs(side)).value = t.name;
@@ -108,7 +109,7 @@ export function showSetup(el) {
     if (!f) return;
     const t = T[+f.dataset.side];
     if (e.target.matches('[data-name]')) t.name = e.target.value.trim();
-    if (e.target.dataset.f) t.lineup[+e.target.dataset.i][e.target.dataset.f] = e.target.value.trim();
+    if (e.target.dataset.f) setField(t.lineup[+e.target.dataset.i], e.target.dataset.f, e.target.value);
     if (e.target.dataset.pf) t.pitcher[e.target.dataset.pf] = e.target.value.trim();
     if (e.target.dataset.f || e.target.dataset.pf) chips(+f.dataset.side);
   });
@@ -165,7 +166,7 @@ export function showSetup(el) {
 
   function pasteSheet(side) {
     const body = openSheet(`<h2 id="sheetTitle">Paste a lineup</h2>
-      <p class="hint">One player per line, in batting order. Names separated by commas work too. Jersey numbers are picked up: “12 Ruiz” or “Ruiz #12”. A lineup copied from a game preview works as it is: the 1 to 9 down the side, positions and (L) or (R) are left out, and the pitcher (SP, or “Pitcher: Okafor”) goes in as the starting pitcher.</p>
+      <p class="hint">One player per line, in batting order. Names separated by commas work too. Jersey numbers are picked up: “12 Ruiz” or “Ruiz #12”. A lineup copied from a game preview works as it is: the 1 to 9 down the side and (L) or (R) are left out, positions are kept (“Ruiz SS”), and the pitcher (SP, or “Pitcher: Okafor”) goes in as the starting pitcher.</p>
       <textarea rows="10" data-focus autocorrect="off" spellcheck="false" placeholder="Ruiz #2&#10;Okafor #11&#10;Brennan #24"></textarea>
       <div class="row"><button type="button" class="btn quiet" data-close>Cancel</button><button type="button" class="btn primary" data-x="use">Use these</button></div>`);
     body.addEventListener('click', ev => {

@@ -1,5 +1,7 @@
 // Small helpers shared by every screen: escaping, the bottom sheet, the toast, files.
 
+import { POSITIONS } from './model.js';
+
 export const $ = (s, el = document) => el.querySelector(s);
 export const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 export const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -192,4 +194,10 @@ export function nextName(e, sel) {
   e.preventDefault();
   const list = [...e.target.closest('ol, ul').querySelectorAll(sel)], next = list[list.indexOf(e.target) + 1];
   if (next) next.focus(); else e.target.blur();
+}
+
+// Where a batter plays, picked from the positions (or none): a field beside his number and name. attrs: the select's
+// own (data-f="pos" and the rest); who: whose it is, for a list of them ("Batter 3").
+export function posField(pos, attrs = '', who = '') {
+  return `<label class="ps"><span>Pos</span><select ${attrs}data-f="pos"${who ? ` aria-label="${esc(who)} position"` : ''}><option value="">–</option>${POSITIONS.map(x => `<option${x === pos ? ' selected' : ''}>${x}</option>`).join('')}</select></label>`;
 }

@@ -136,8 +136,9 @@ export function cardHtml(S, side, { live = true } = {}) {
       const p = players[pi] || players[0], e = j ? subs[slot][j - 1] : null;
       const inn = e && innOf.get(g.ev.indexOf(e));
       const ty = e && (shown.slice(0, j).includes(pi) ? BACK : TYPE[e.ty]);
-      const num = p.name && p.num ? `#${p.num}` : '';
-      h += `<span class="pl${j < shown.length - 1 ? ' was' : ''}" title="${esc(`${label(p, slot)} ${num}`.trim())}">${e ? `<i>${ty}${inn ? ' ' + ord(inn) : ''}</i> ` : ''}${esc(cardName(p, slot, shown.length > 1))}${num ? ` <small>${esc(num)}</small>` : ''}</span>`;
+      // Beside the name, where he plays and his number, as on paper: "Ruiz SS #2".
+      const num = p.name && p.num ? `#${p.num}` : '', more = [p.pos, num].filter(Boolean).join(' ');
+      h += `<span class="pl${j < shown.length - 1 ? ' was' : ''}" title="${esc(`${label(p, slot)} ${more}`.trim())}">${e ? `<i>${ty}${inn ? ' ' + ord(inn) : ''}</i> ` : ''}${esc(cardName(p, slot, shown.length > 1))}${more ? ` <small>${esc(more)}</small>` : ''}</span>`;
     });
     h += `</span>${nowAt ? '<span class="sr">, at bat</span>' : ''}</th>`;
     for (const col of cols) {

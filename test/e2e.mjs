@@ -2121,11 +2121,11 @@ for (const [n, e] of [[1, { t: 'pa', r: 'ZZ', m: [[0, 1]] }], [2, { t: 'xr', b: 
 
 step('a team from a game a newer Backwards K saved starts a game this one can score');
 {
-  // Its players have something this version doesn't know (where they play, say): the new game gets their names and
+  // Its players have something this version doesn't know (how they bat, say): the new game gets their names and
   // numbers, and nothing that would make it look-only.
   const g = sampleUntil(7, S => S.inn === 2);
   g.id = 'gnewerteam';
-  for (const t of g.teams) for (const x of [...t.lineup.flat(), ...t.pitchers]) x.pos = 'SS';
+  for (const t of g.teams) for (const x of [...t.lineup.flat(), ...t.pitchers]) x.bats = 'L';
   const p = await playing(g, undefined, '.shared-bar');
   await p.goto(base + '#/new');
   await p.click('[data-side="0"] [data-past="0"]');
@@ -2392,6 +2392,45 @@ step('the runners sheet: a runner marked out says where, from the next base on (
   assert.match(await p.textContent('.bar .title'), /0–0/);
   await p.click('[data-v=box]');
   assert.match(await p.textContent('.pane[data-p=box]'), /Errors: right fielder\./);
+  await p.context().close();
+}
+
+step('positions: kept from a pasted lineup, changed in Lineups, on the card and the box score, and names on the fielder picker');
+{
+  const p = await phone();
+  await p.goto(base + '#/new');
+  await p.fill('[data-side="1"] [data-name]', 'Comets');
+  await p.click('[data-side="1"] [data-paste]');
+  await p.fill('.sheet textarea', '1. Abernathy CF\n2. 22 Nakamura SS\n3. Velez 1B\n4. Quinn C\n5. Sutton 3B\n6. Ibarra RF\n7. Kowalski LF\n8. Ferris 2B\n9. Tran DH\nSP: Halvorsen');
+  await p.click('[data-x=use]');
+  assert.equal(await p.inputValue('[data-side="1"] [data-i="1"][data-f="pos"]'), 'SS');
+  await p.selectOption('[data-side="1"] [data-i="8"][data-f="pos"]', '');
+  await p.click('[data-go]');
+  await p.waitForSelector('.live .field');
+  const id = await p.evaluate(() => location.hash.slice(4));
+  assert.deepEqual((await stored(p, id)).teams[1].lineup.map(s => s[0].pos || '-'), ['CF', 'SS', '1B', 'C', '3B', 'RF', 'LF', '2B', '-']);
+  // The fielder picker: each one's name with his number.
+  await p.click('[data-r=GO]');
+  assert.equal(await p.getAttribute('.sheet [data-pos="6"]', 'aria-label'), '6, shortstop, Nakamura');
+  assert.equal(await p.getAttribute('.sheet [data-pos="1"]', 'aria-label'), '1, pitcher, Halvorsen');
+  assert.deepEqual(await p.$$eval('.sheet .pos .who', t => t.map(x => x.textContent)), ['Halvorsen', 'Quinn', 'Velez', 'Ferris', 'Sutton', 'Nakamura', 'Kowalski', 'Abernathy', 'Ibarra']);
+  await p.click('.sheet [data-pos="6"]');
+  await p.click('.sheet [data-pos="3"]');
+  await p.click('.sheet [data-x=done]');
+  // Lineups: Nakamura moves to second.
+  await p.click('[data-a=menu]');
+  await p.click('.sheet [data-y=lineup]');
+  await p.click('.sheet [data-ls="1"]');
+  await p.selectOption('.sheet [data-slot="1"][data-f="pos"]', '2B');
+  await p.keyboard.press('Escape');
+  // (Saved after a pause, as names are.)
+  await p.waitForFunction(id => JSON.parse(localStorage.getItem('backwards-k.v1')).games[id].teams[1].lineup[1][0].pos === '2B', id);
+  await p.click('[data-v=card]');
+  await p.click('[data-cs="1"]');
+  assert.match(await p.innerHTML('.card'), /title="Nakamura 2B #22">Nakamura <small>2B #22<\/small>/);
+  await p.click('[data-v=box]');
+  assert.match(await p.innerHTML('.pane[data-p=box]'), /Nakamura <small class="ps">2B<\/small>/);
+  assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'the box score with positions scrolls sideways');
   await p.context().close();
 }
 
