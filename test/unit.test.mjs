@@ -581,12 +581,17 @@ test('the notes under each team’s box score', () => {
   const notes = side => boxHtml(S).split('<div class="extras">')[side + 1].split('</div>')[0].replace(/<\/?b>/g, '').split(/<\/p><p>|<\/?p>/).filter(Boolean);
   assert.deepEqual(notes(0), [
     'Doubles: Ruiz, Okafor.', 'Home runs: Pruitt.', 'Sacrifice flies: Castillo.', 'Hit by a pitch: Brennan.',
-    'Stolen bases: Brennan.', 'Caught stealing: Han.', 'Left on base: 0.', 'Batters faced: Whitlock 5.',
+    'Stolen bases: Brennan.', 'Caught stealing: Han.', 'Left on base: 0.',
   ]);
   assert.deepEqual(notes(1), [
     'Triples: Batter 1.', 'Sacrifice bunts: Batter 2.', 'Left on base: 1.', 'Errors: catcher’s interference, 3B.',
-    'Wild pitches: Halvorsen.', 'Hit batters: Halvorsen (Brennan).', 'Balks: Bishop.', 'Batters faced: Halvorsen 4, Bishop 4.',
+    'Wild pitches: Halvorsen.', 'Hit batters: Halvorsen (Brennan).', 'Balks: Bishop.',
   ]);
+  // Batters faced, home runs, and pitches and strikes are columns of the pitching lines: IP H R BB K HR BF P-S.
+  const line = who => boxHtml(S).match(new RegExp(`<th scope="row">${who}</th>((?:<td>[^<]*</td>)+)`))[1].match(/<td>([^<]*)<\/td>/g).map(x => x.slice(4, -5));
+  assert.deepEqual(line('Halvorsen').slice(5, 7), ['0', '4']);
+  assert.deepEqual(line('Bishop').slice(5, 7), ['1', '4']);
+  assert.match(line('Bishop')[7], /^\d+-\d+$/);
 });
 
 test('the plays: the count and pitches for each at-bat, a line for each half-inning, and a finished game in order', () => {
@@ -857,7 +862,9 @@ test('a player who was in the spot before comes back in as himself: one box-scor
   assert.equal(S.text[S.text.length - 1], 'Morris comes back in for Diaz.');
   assert.equal(S.pl[0][0], 0);
   const box = boxHtml(S);
-  assert.equal(box.match(/Morris/g).length, 1, 'one row for Morris');
+  assert.equal(box.match(/<th scope="row">[^]*?<\/th>/g).filter(th => /Morris/.test(th)).length, 1, 'one row for Morris');
+  assert.match(box, /<b>Pinch runners:<\/b> Diaz ran for Morris in the 1st\./);
+  assert.doesNotMatch(box, /Morris ran for|Pinch hitters/, 'coming back in isn’t pinch-running');
   assert.match(box, /<tr class="sub"><th scope="row"><abbr class="how" title="Pinch runner">PR<\/abbr> Diaz<\/th>/);
   const card = cardHtml(S, 0), row = card.split('<tr')[2];
   assert.match(row, /<i>PR 1st<\/i> Diaz<\/span><span class="pl"><i>back 1st<\/i> Morris/);
@@ -919,4 +926,19 @@ test('a batter’s day: each trip in order, and only what isn’t zero', () => {
   });
   assert.equal(dayOf(S, 0, 1, 0).line, '1 for 1, an RBI');
   assert.deepEqual(dayOf(S, 1, 5, 0), { trips: [], line: '' }, 'not up yet');
+});
+
+test('the box score: what each pinch hitter did and who ran for whom, and dashes for someone who hasn’t batted', () => {
+  const g = game();
+  g.teams[0].lineup[2] = [{ name: 'Brennan', num: '' }, { name: 'Kowalski', num: '' }];
+  g.teams[0].lineup[0] = [{ name: 'Ruiz', num: '' }, { name: 'Speedy', num: '' }];
+  g.teams[0].lineup[3] = [{ name: 'Castillo', num: '' }, { name: 'Diaz', num: '' }];
+  const S = play(g, '1B', { t: 'sub', s: 0, slot: 0, i: 1, ty: 'pr' }, 'K', { t: 'sub', s: 0, slot: 2, i: 1, ty: 'ph' }, '1B',
+    { t: 'sub', s: 0, slot: 3, i: 1, ty: 'ph' });
+  const box = boxHtml(S);
+  assert.match(box, /<b>Pinch hitters:<\/b> Kowalski singled for Brennan in the 1st; Diaz came in to bat for Castillo in the 1st\./);
+  assert.match(box, /<b>Pinch runners:<\/b> Speedy ran for Ruiz in the 1st\./);
+  assert.match(box, /Diaz<\/th>(<td><span aria-label="none">–<\/span><\/td>){6}<\/tr>/, 'Diaz is up, but hasn’t batted');
+  assert.match(box, /Batter 9<\/th>(<td><span aria-label="none">–<\/span><\/td>){6}<\/tr>/);
+  assert.match(box, /Kowalski<\/th><td>1<\/td><td>0<\/td><td>1<\/td>/);
 });

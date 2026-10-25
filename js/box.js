@@ -7,7 +7,7 @@ import { abbr } from './card.js';
 const HOW = { ph: ['PH', 'Pinch hitter'], pr: ['PR', 'Pinch runner'], def: ['sub', 'Substitute'] };
 
 // One row for each player who was in each spot (a starter who came back in still has one), substitutes under the
-// starter with how they came in.
+// starter with how they came in. Someone who hasn't batted (or run) yet has dashes, not a row of zeros.
 function batting(S, side) {
   const g = S.g, team = g.teams[side];
   const rows = [], tot = { ab: 0, r: 0, h: 0, rbi: 0, bb: 0, k: 0 };
@@ -15,11 +15,12 @@ function batting(S, side) {
     const seen = new Map([[0, null]]);
     for (const e of g.ev) if (e.t === 'sub' && e.s === side && e.slot === slot && !seen.has(e.i)) seen.set(e.i, e.ty);
     for (const [pi, ty] of seen) {
-      const b = S.bat[batKey(side, slot, pi)] || { ab: 0, r: 0, h: 0, rbi: 0, bb: 0, k: 0 };
+      const b = S.bat[batKey(side, slot, pi)];
       const p = (team.lineup[slot] || [])[pi] || { name: '', num: '' };
       const how = ty && HOW[ty] ? `<abbr class="how" title="${HOW[ty][1]}">${HOW[ty][0]}</abbr> ` : '';
-      rows.push(`<tr${pi ? ' class="sub"' : ''}><th scope="row">${pi ? how : `<span class="ord">${slot + 1}</span>`}${esc(label(p, slot))}</th><td>${b.ab}</td><td>${b.r}</td><td>${b.h}</td><td>${b.rbi}</td><td>${b.bb}</td><td>${b.k}</td></tr>`);
-      for (const x in tot) tot[x] += b[x];
+      const cells = Object.keys(tot).map(x => `<td>${b ? b[x] : '<span aria-label="none">–</span>'}</td>`).join('');
+      rows.push(`<tr${pi ? ' class="sub"' : ''}><th scope="row">${pi ? how : `<span class="ord">${slot + 1}</span>`}${esc(label(p, slot))}</th>${cells}</tr>`);
+      if (b) for (const x in tot) tot[x] += b[x];
     }
   }
   return `<table class="stats"><thead><tr><th scope="col">${esc(teamName(g, side))}</th>${['AB', 'R', 'H', 'RBI', 'BB', 'K'].map(k => `<th scope="col">${abbr(k)}</th>`).join('')}</tr></thead>
@@ -31,9 +32,10 @@ function pitching(S, side) {
   for (const e of g.ev) if (e.t === 'pch' && e.s === side) used.add(e.i);
   const rows = [...used].map(i => {
     const p = pitchStat(S, side, i);
-    return `<tr><th scope="row">${esc(pitcherLabel(g, side, i))}</th><td>${ip(p.outs)}</td><td>${p.h}</td><td>${p.r}</td><td>${p.bb}</td><td>${p.k}</td>${g.pitches ? `<td>${p.np}${p.np ? ` <small>${p.str} strike${p.str === 1 ? '' : 's'}</small>` : ''}</td>` : ''}</tr>`;
+    return `<tr><th scope="row">${esc(pitcherLabel(g, side, i))}</th><td>${ip(p.outs)}</td><td>${p.h}</td><td>${p.r}</td><td>${p.bb}</td><td>${p.k}</td><td>${p.hr}</td><td>${p.bf}</td>${g.pitches ? `<td>${p.np}-${p.str}</td>` : ''}</tr>`;
   });
-  return `<table class="stats"><thead><tr><th scope="col">${esc(teamName(g, side))} pitching</th>${['IP', 'H', 'R', 'BB', 'K'].map(k => `<th scope="col">${abbr(k)}</th>`).join('')}${g.pitches ? '<th scope="col">Pitches</th>' : ''}</tr></thead><tbody>${rows.join('')}</tbody></table>`;
+  // Pitches and strikes as a newspaper prints them: 106-69.
+  return `<table class="stats"><thead><tr><th scope="col">${esc(teamName(g, side))} pitching</th>${['IP', 'H', 'R', 'BB', 'K', 'HR', 'BF', ...(g.pitches ? ['P-S'] : [])].map(k => `<th scope="col">${abbr(k)}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table>`;
 }
 
 // Names in game order, each once, with how many times when it's more than one: "Velez 2, Brennan".
@@ -43,9 +45,34 @@ function names(pairs) {
   return [...m].filter(([, k]) => k).map(([n, k]) => n + (k > 1 ? ' ' + k : '')).join(', ');
 }
 
-// The notes under one team's box score, the way a newspaper prints them: its extra-base hits, sacrifices, hit
-// batters, steals, runners left on base and errors, then its pitchers' wild pitches, hit batters, balks and batters
-// faced. Lines with nothing to say are left out.
+// What a pinch hitter did, for the notes: "Kowalski singled for Ruiz in the 7th."
+const PAST = {
+  '1B': 'singled', '2B': 'doubled', '3B': 'tripled', HR: 'homered', BB: 'walked', IBB: 'was walked intentionally',
+  HBP: 'was hit by a pitch', E: 'reached on an error', FC: 'reached on a fielder’s choice', CI: 'reached on catcher’s interference',
+  KD: 'struck out and reached on a dropped third strike', K: 'struck out', KL: 'struck out looking', GO: 'grounded out',
+  FO: 'flied out', LO: 'lined out', PU: 'popped out', SF: 'hit a sacrifice fly', SAC: 'sacrificed',
+  DP: 'grounded into a double play', TP: 'hit into a triple play',
+};
+// Who pinch-hit and pinch-ran for whom, and when: [pinch hitters, pinch runners], each a list of sentences.
+function pinch(S, side) {
+  const g = S.g, out = { ph: [], pr: [] }, cur = {}, been = {};
+  g.ev.forEach((e, j) => {
+    if (e.t !== 'sub' || e.s !== side) return;
+    const was = cur[e.slot] ?? 0, seen = been[e.slot] ||= new Set([0]), back = seen.has(e.i);
+    cur[e.slot] = e.i; seen.add(e.i);
+    if (back || !out[e.ty]) return; // someone coming back in isn't pinch-hitting or running for the first time
+    const who = label(player(g, side, e.slot, e.i), e.slot), them = label(player(g, side, e.slot, was), e.slot);
+    const inn = ord((S.plays.find(p => p.i === j) || { inn: 1 }).inn);
+    if (e.ty === 'pr') return out.pr.push(`${who} ran for ${them} in the ${inn}`);
+    const c = S.cells.find(x => x.side === side && x.slot === e.slot && x.ev > j);
+    out.ph.push(`${who} ${c && c.p === e.i && PAST[c.r] ? PAST[c.r] : 'came in to bat'} for ${them} in the ${inn}`);
+  });
+  return [out.ph.join('; '), out.pr.join('; ')];
+}
+
+// The notes under one team's box score, the way a newspaper prints them: its pinch hitters and runners, extra-base
+// hits, sacrifices, hit batters, steals, runners left on base and errors, then its pitchers' wild pitches, hit
+// batters and balks. Lines with nothing to say are left out.
 function notes(S, side) {
   const g = S.g, cells = S.cells.filter(c => c.side === side), who = c => label(player(g, side, c.slot, c.p), c.slot);
   const of = r => names(cells.filter(c => c.r === r).map(c => [who(c), 1]));
@@ -56,13 +83,14 @@ function notes(S, side) {
   const arms = [...new Set([0, ...g.ev.filter(e => e.t === 'pch' && e.s === side).map(e => e.i)])].map(i => [pitcherLabel(g, side, i), pitchStat(S, side, i)]);
   const hit = S.cells.filter(c => c.side !== side && c.r === 'HBP');
   const errs = names(S.errs[side].map(f => [f === 'CI' ? 'catcher’s interference' : POS[f] || 'fielder not given', 1]));
+  const [ph, pr] = pinch(S, side);
   const lines = [
-    ['Doubles', of('2B')], ['Triples', of('3B')], ['Home runs', of('HR')], ['Sacrifice flies', of('SF')], ['Sacrifice bunts', of('SAC')],
+    ['Pinch hitters', ph], ['Pinch runners', pr], ['Doubles', of('2B')], ['Triples', of('3B')], ['Home runs', of('HR')], ['Sacrifice flies', of('SF')], ['Sacrifice bunts', of('SAC')],
     ['Hit by a pitch', of('HBP')], ['Stolen bases', names(bats.map(([n, b]) => [n, b.sb]))], ['Caught stealing', names(bats.map(([n, b]) => [n, b.cs]))],
     ['Left on base', String(S.lob[side].reduce((a, b) => a + (b || 0), 0))], ['Errors', errs],
     ['Wild pitches', names(arms.map(([n, p]) => [n, p.wp]))],
     ['Hit batters', names(hit.map(c => [`${pitcherLabel(g, side, c.pi)} (${label(player(g, c.side, c.slot, c.p), c.slot)})`, 1]))],
-    ['Balks', names(arms.map(([n, p]) => [n, p.bk]))], ['Batters faced', arms.filter(([, p]) => p.bf).map(([n, p]) => `${n} ${p.bf}`).join(', ')],
+    ['Balks', names(arms.map(([n, p]) => [n, p.bk]))],
   ];
   return lines.filter(([, t]) => t).map(([w, t]) => `<p><b>${w}:</b> ${esc(t)}.</p>`).join('');
 }

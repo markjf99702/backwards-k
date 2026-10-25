@@ -531,6 +531,8 @@ details.lineup summary small { color: var(--muted); font-weight: 400; }
 .stats th[scope="row"] { text-align: left; font-weight: 600; max-width: 12em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .stats .ord { display: inline-block; width: 1.4em; color: var(--muted); font-weight: 700; }
 .stats tr.sub th { padding-left: 26px; font-weight: 400; color: var(--ink-2); }
+.stats td { white-space: nowrap; }
+@media (max-width: 430px) { .stats th, .stats td { padding-left: 4px; padding-right: 4px; } }
 .stats .how { font-size: 10px; font-weight: 700; color: var(--red); text-transform: uppercase; letter-spacing: .02em; }
 .stats tfoot th, .stats tfoot td { font-weight: 800; border-bottom: 0; }
 .stats small { color: var(--muted); font-size: 12px; display: block; }
