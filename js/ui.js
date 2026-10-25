@@ -26,10 +26,12 @@ export const ICON = '<svg viewBox="0 0 64 64" width="34" height="34" aria-hidden
 export const KL = '<i class="kl" aria-label="backwards K">K</i>';
 export const markHtml = (code, m) => (code === 'KL' ? KL : esc(m));
 
+// A game's date, "Sat, Oct 24" (with the year when it isn't this year's), or long, "Saturday, October 24, 2026".
 export function fmtDate(d, long) {
   const [y, m, day] = String(d).split('-').map(Number);
   if (!y) return '';
-  return new Date(y, m - 1, day).toLocaleDateString(undefined, long ? { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' } : { weekday: 'short', month: 'short', day: 'numeric' });
+  const year = long || y !== new Date().getFullYear() ? { year: 'numeric' } : {};
+  return new Date(y, m - 1, day).toLocaleDateString(undefined, long ? { weekday: 'long', month: 'long', day: 'numeric', ...year } : { weekday: 'short', month: 'short', day: 'numeric', ...year });
 }
 
 // ---------- the sheet: a panel that slides up on a phone, or a box in the middle on a big screen ----------

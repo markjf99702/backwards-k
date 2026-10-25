@@ -984,6 +984,15 @@ test('saving one game writes the others as they were saved, not made into JSON a
   assert.equal(m.get('backwards-k.v1'), JSON.stringify(store.doc()));
 });
 
+test('a date from another year says which year', async () => {
+  const { fmtDate } = await import('../js/ui.js');
+  const y = new Date().getFullYear();
+  assert.doesNotMatch(fmtDate(`${y}-03-04`), new RegExp(String(y)));
+  assert.match(fmtDate(`${y - 1}-03-04`), new RegExp(String(y - 1)));
+  assert.match(fmtDate('2019-12-31'), /2019/);
+  assert.match(fmtDate(`${y}-03-04`, true), new RegExp(String(y)), 'the long date always has it');
+});
+
 test('a game can have up to 30 innings', () => {
   assert.equal(cleanGame({ ...game(), innings: 25 }).innings, 25);
   assert.equal(cleanGame({ ...game(), innings: 99 }).innings, 30);
