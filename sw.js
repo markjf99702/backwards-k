@@ -2,7 +2,7 @@
 // Games live in localStorage (and Google Drive, if it's on), not here.
 // Network first, so a new version shows up as soon as you're online.
 
-const CACHE = 'backwards-k-v1'; // bump the number when the file list changes
+const CACHE = 'backwards-k-v2'; // bump the number when the file list changes
 const SHELL = [
   './', 'index.html', 'icon.svg', 'manifest.webmanifest',
   'icon-180.png', 'icon-192.png', 'icon-512.png', 'icon-512-maskable.png',
