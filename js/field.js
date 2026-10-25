@@ -60,6 +60,8 @@ export function fieldSvg({ picked = [], tappable = true, names = [] } = {}) {
 // choice) an open ring, so they differ by shape as well as colour; several to one fielder sit around his spot, the
 // first in the middle. Each fielder's spot is at his angle from home: the outfielders' inside the fence, so a ball
 // caught there doesn't look like a home run, and a home run over it. label: the chart in words, for a screen reader.
+// (The drawing has room above the fence and below home for a second home run to center, or a few pop-ups to the
+// catcher, with the one picked out ringed.)
 const HOME = [160, 248], FENCE = 212;
 function spot(n, hr) {
   const [x, y] = SPOT[n], a = Math.atan2(x - HOME[0], HOME[1] - y), d = hr ? FENCE + 16 : n >= 7 ? 175 : Math.hypot(x - HOME[0], y - HOME[1]);
@@ -68,7 +70,7 @@ function spot(n, hr) {
 const AROUND = [[0, 0], ...[0, 1, 2, 3, 4, 5].map(k => [13 * Math.sin(k * Math.PI / 3), -13 * Math.cos(k * Math.PI / 3)]),
   ...Array.from({ length: 12 }, (_, k) => [26 * Math.sin(k * Math.PI / 6), -26 * Math.cos(k * Math.PI / 6)])];
 export function sprayField(balls, label = '') {
-  let s = `<svg class="spray-field" viewBox="0 4 320 268" role="img" aria-label="${esc(label)}">
+  let s = `<svg class="spray-field" viewBox="0 -8 320 288" role="img" aria-label="${esc(label)}">
     <path class="fo" d="M160 248 L10 98 A212 212 0 0 1 310 98 Z"/>
     <path class="fi" d="M160 248 L230 178 L160 108 L90 178 Z M70 172 Q160 52 250 172"/>`;
   const at = {};

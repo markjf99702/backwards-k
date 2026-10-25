@@ -1410,6 +1410,15 @@ test('spray charts: where a team’s and a batter’s balls went, once the game 
   assert.match(one, /class="ball hit now"/);
   assert.match(boxHtml(S), /Where the Foxes hit it/);
   assert.doesNotMatch(boxHtml(S), /Where the Comets hit it/, 'the home team hasn’t batted');
+  // Room in the drawing for a second home run to center, picked out, and five pop-ups to the catcher.
+  const { sprayField } = await import('../js/field.js');
+  const svg = sprayField([{ n: 8, hit: true, hr: true }, { n: 8, hit: true, hr: true, now: true }, ...Array(5).fill({ n: 2, hit: false })]);
+  const [, top, , height] = /viewBox="([-\d.]+) ([-\d.]+) ([\d.]+) ([\d.]+)"/.exec(svg).slice(1).map(Number);
+  // (A dot reaches 7 from its middle, with its outline, and the ring round the one picked out 11.)
+  for (const [, now, x, y] of svg.matchAll(/class="ball[^"]*?( now)?" transform="translate\(([-\d.]+) ([-\d.]+)\)/g)) {
+    const r = now ? 11 : 7;
+    assert.ok(+y - r >= top && +y + r <= top + height, `a ball at ${x}, ${y} is inside ${top} to ${top + height}`);
+  }
 });
 
 test('Ask where hits went is a setting of the game: off to start with, kept, and taken from the copy changed last', () => {
