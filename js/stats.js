@@ -164,10 +164,11 @@ export function season(games, name, yr) {
   }
   // (The team's name from every year's games.)
   for (const g of mine.slice().sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))) for (const t of g.teams) if (teamKey(t.name) === key) spell('team', t.name.trim().replace(/\s+/g, ' '));
-  const at = d => d.game.date + d.game.id;
+  // (A player's games in the order the team's are: by date, and a doubleheader's in the order they were scored.)
+  const at = new Map(list.map((g, i) => [g.id, i])), first = (a, b) => at.get(a.game.id) - at.get(b.game.id);
   const players = [...people.values()].map(x => {
     x.name = x.key ? most('p:' + x.key) : '';
-    x.days.sort((a, b) => (at(a) < at(b) ? -1 : 1)); x.arms.sort((a, b) => (at(a) < at(b) ? -1 : 1));
+    x.days.sort(first); x.arms.sort(first);
     x.bat = x.days.reduce((t, d) => add(t, d.line), BAT());
     x.pit = x.arms.reduce((t, d) => add(t, d.line), PIT());
     // The day each pitcher can pitch again, by the rest his league's pitch limit asks for after each outing.
@@ -209,6 +210,8 @@ export { ip };
 const n = (k, one, more) => (!k ? '' : k === 1 ? one : `${k} ${more}`);
 // A day's or a season's batting, naming only what isn't zero: "2 for 3, a double, 2 RBI, a walk" (only: without the
 // hits and at-bats).
+// Whether he batted (or ran) in a game he was in, rather than only playing in the field or not being up yet.
+export const batted = b => !!(b.pa || b.r || b.sb);
 export function batWords(b, only = false) {
   return [only ? '' : `${b.h} for ${b.ab}`, n(b.d, 'a double', 'doubles'), n(b.t, 'a triple', 'triples'), n(b.hr, 'a home run', 'home runs'), n(b.r, 'a run', 'runs'),
     n(b.rbi, 'an RBI', 'RBI'), n(b.bb, 'a walk', 'walks'), b.hbp ? `hit by a pitch ${b.hbp === 1 ? 'once' : `${b.hbp} times`}` : '', n(b.sb, 'a stolen base', 'stolen bases'),
@@ -234,7 +237,7 @@ export function seasonText(T, x) {
     head,
     x.days.length ? `Batting: ${three(avg(b))} (${b.h} for ${b.ab}) in ${nGames(b.g)}${batWords(b, true) ? `, with ${batWords(b, true)}` : ''}. On base ${three(obp(b))}, slugging ${three(slg(b))}.` : '',
     x.arms.length ? `Pitching: ${nGames(p.g)}, ${pitchWords(p)}.` : '',
-    last ? `Last game, ${fmtDate(last.game.date)} ${vs(last.game)}: ${batWords(last.line)}.` : '',
+    last ? `Last game, ${fmtDate(last.game.date)} ${vs(last.game)}: ${batted(last.line) ? batWords(last.line) : 'didn’t bat'}.` : '',
   ].filter(Boolean).join('\n');
 }
 // A spreadsheet's cell: in quotes when it has a comma, a quote or a line break, and never read as a formula.

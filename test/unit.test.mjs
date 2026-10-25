@@ -2541,6 +2541,19 @@ test('a season: a game set up ahead, with nothing scored yet, isn’t in it, tho
   assert.ok(ST.earlier(games, later, 0).some(x => x.name === 'Quinn'));
 });
 
+test('a season: a doubleheader’s games in the order they were scored, and a last game he didn’t bat in says so', () => {
+  // (The second game's id comes first, as one Drive kept as a second copy might.)
+  const one = seasonGame({ date: '2026-06-06', bats: [FOX, []] }, '1B', 'K', 'K', 'K', ...threeK), two = seasonGame({ date: '2026-06-06', bats: [FOX, []] }, 'K', 'K', 'K', ...threeK);
+  Object.assign(one, { id: 'gz', created: 100 }); Object.assign(two, { id: 'ga', created: 200 });
+  let T = ST.season([two, one], 'Foxes'), r = T.bat.find(x => x.key === 'ruiz');
+  assert.deepEqual([T.games.map(x => x.id), r.days.map(d => d.game.id)], [['ga', 'gz'], ['gz', 'ga']]);
+  assert.match(ST.seasonText(T, r), /\nLast game, .+: 0 for 1, a strikeout\.$/);
+  // Quinn, fourth in a one-inning game that's gone to extras, hasn't batted yet.
+  const going = seasonGame({ date: '2026-06-13', bats: [[...FOX, 'Quinn'], []] }, ...threeK, ...threeK);
+  T = ST.season([one, going], 'Foxes');
+  assert.match(ST.seasonText(T, T.bat.find(x => x.key === 'quinn')), /\nLast game, .+ at Comets: didn’t bat\.$/);
+});
+
 test('the teams on the home screen, and players from earlier games for the substitution sheets', () => {
   const games = seasonGames();
   games.push(seasonGame({ date: '2026-05-30', away: '', home: 'Comets' }, ...threeK));

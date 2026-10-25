@@ -3,8 +3,8 @@
 // with her boxes from the card. Nothing new is saved: it's all played back from the games (stats.js).
 import { store } from './store.js';
 import {
-  season, teamHref, keyFrom, avg, obp, slg, ops, era, strikes, three, two, pct, ip, batWords, pitchWords, seasonText, teamCsv,
-  playerCsv, posList, thisWeek,
+  season, teamHref, keyFrom, avg, obp, slg, ops, era, strikes, three, two, pct, ip, batted, batWords, pitchWords, seasonText,
+  teamCsv, playerCsv, posList, thisWeek,
 } from './stats.js';
 import { located } from './engine.js';
 import { $, esc, fmtDate, toast, copy, download, inFrame, slug, openSheet } from './ui.js';
@@ -199,7 +199,7 @@ function playerPage(el, T, x) {
   const b = x.bat, p = x.pit;
   // Her season's spray chart: the balls she put in play in the games that say where hits went.
   const balls = x.days.filter(d => d.game.spray).flatMap(d => d.cells.filter(c => located(c)).map(c => ball(c, ballWords(c, fmtDate(d.game.date)))));
-  const days = x.days.slice().reverse().map(d => logItem(d.game, `<span class="gl-line">${esc(d.line.pa || d.line.r || d.line.sb ? batWords(d.line) : 'Didn’t bat')}</span>
+  const days = x.days.slice().reverse().map(d => logItem(d.game, `<span class="gl-line">${esc(batted(d.line) ? batWords(d.line) : 'Didn’t bat')}</span>
       ${d.cells.length ? `<span class="gl-boxes" aria-hidden="true">${d.cells.map(c => `<span class="cell-pic">${cellSvg(c, { count: d.game.pitches })}</span>`).join('')}</span>` : ''}`));
   const arms = x.arms.slice().reverse().map(a => {
     const L = a.line, dec = L.w ? 'W' : L.l ? 'L' : L.s ? 'S' : '';
