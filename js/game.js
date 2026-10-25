@@ -214,7 +214,8 @@ function paint() {
   $('.side', root).dataset.pane = view === 'live' ? pane : view;
   $$('.vtabs button', root).forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === view || (view === 'live' && b.dataset.v === pane && wide()))));
   $('.bar .title', root).innerHTML = `<span class="score-line"><b>${esc(teamName(G, 0))}</b> <span class="r">${S.R[0]}</span><i>–</i><span class="r">${S.R[1]}</span> <b>${esc(teamName(G, 1))}</b></span><small>${esc(halfLabel(S))}${G.date ? ' · ' + esc(fmtDate(G.date)) : ''}</small>`;
-  $('.live', root).innerHTML = liveHtml();
+  // (The buttons too are only drawn while they're on screen: not behind a phone's other tabs.)
+  if (view === 'live' || wide()) $('.live', root).innerHTML = liveHtml(); else $('.live', root).replaceChildren();
   // The tab's title keeps the score, and the heading the teams' names as they change.
   document.title = `${teamName(G, 0)} ${S.R[0]}, ${teamName(G, 1)} ${S.R[1]} · ${halfLabel(S)} · Backwards K`;
   $('h1', root).textContent = `${teamName(G, 0)} at ${teamName(G, 1)}`;
@@ -266,7 +267,21 @@ function trouble() {
   b.textContent = file ? 'Save as a file' : 'Share this game';
 }
 
+// Only the pane on screen is drawn: on a phone, the Card, Box score or Plays tab when it's the one showing, and on a
+// tablet or bigger, the one beside or under the buttons. The others are drawn when they're shown (a tap on a tab, or
+// the screen turned), so a tap in the 9th doesn't redraw two long tables nobody can see.
+const onScreen = () => (view !== 'live' ? view : wide() ? pane : '');
+matchMedia('(min-width: 700px)').addEventListener('change', () => { if (root) draw(); });
 function drawSide() {
+  const shown = onScreen();
+  for (const el of $$('.side .pane', root)) if (el.dataset.p !== shown) el.replaceChildren();
+  if (shown === 'box') $('.pane[data-p=box]', root).innerHTML = `<div class="line-wrap">${lineHtml(S)}</div>${boxHtml(S)}`;
+  if (shown === 'plays') $('.pane[data-p=plays]', root).innerHTML = `<div class="plays">${playsHtml(S)}</div>`;
+  if (shown === 'card') drawCard();
+  // A line score wider than the screen (extra innings on a phone) shows its end: the latest innings and R H E.
+  for (const lw of $$('.line-wrap', root)) lw.scrollLeft = lw.scrollWidth;
+}
+function drawCard() {
   const side = cardSide ?? (S.over ? 0 : S.half);
   const card = $('.pane[data-p=card]', root);
   const wrap = card.querySelector('.card-wrap'), keepX = wrap ? wrap.scrollLeft : 0;
@@ -286,10 +301,6 @@ function drawSide() {
     lastInn = key;
     requestAnimationFrame(() => scrollCard(w));
   }
-  $('.pane[data-p=box]', root).innerHTML = `<div class="line-wrap">${lineHtml(S)}</div>${boxHtml(S)}`;
-  // A line score wider than the screen (extra innings on a phone) shows its end: the latest innings and R H E.
-  for (const lw of $$('.line-wrap', root)) lw.scrollLeft = lw.scrollWidth;
-  $('.pane[data-p=plays]', root).innerHTML = `<div class="plays">${playsHtml(S)}</div>`;
 }
 // The batter's box on screen: the card scrolls sideways to his inning, with the box before it showing, right where the
 // names end. And on a phone's Card tab, or beside the buttons on a big screen, the page scrolls when his row is below

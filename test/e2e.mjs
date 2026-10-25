@@ -196,7 +196,7 @@ await tap('[data-a=on]');
 assert.equal(await page.locator('.final').count(), 0);
 
 step('it’s all still there after a reload');
-const state = () => page.evaluate(() => [document.querySelector('.linescore').textContent, document.querySelector('.ticker p').textContent, document.querySelector('.bar .title').textContent].join('|'));
+const state = () => page.evaluate(() => [document.querySelector('.bug').textContent, document.querySelector('.ticker p').textContent, document.querySelector('.bar .title').textContent].join('|'));
 const before = await state();
 await page.reload();
 await page.waitForSelector('.live .field');
@@ -873,6 +873,29 @@ async function playing(g, viewport = { width: 390, height: 844 }, ready = '.live
   await p.waitForSelector(ready);
   await p.evaluate(() => document.fonts.ready);
   return p;
+}
+
+step('only the pane on screen is drawn, and the one shown next is drawn as it’s shown');
+{
+  const drawn = p => p.evaluate(() => [...document.querySelectorAll('.side .pane')].map(x => `${x.dataset.p}:${x.childElementCount ? 'drawn' : 'empty'}`).join(' '));
+  // A phone on the Score tab: none of them.
+  const p = await playing(seventh());
+  await p.click('[data-r=K]');
+  assert.equal(await drawn(p), 'card:empty box:empty plays:empty');
+  await p.click('[data-v=plays]');
+  assert.equal(await drawn(p), 'card:empty box:empty plays:drawn');
+  assert.match(await p.textContent('.pane[data-p=plays]'), /strikes out swinging/);
+  await p.click('[data-v=box]');
+  assert.equal(await drawn(p), 'card:empty box:drawn plays:empty');
+  // Turned on its side, as wide as a tablet: the Box score is beside the buttons, so it's drawn there.
+  await p.click('[data-v=live]');
+  assert.equal(await drawn(p), 'card:empty box:empty plays:empty');
+  await p.setViewportSize({ width: 1180, height: 820 });
+  await p.waitForFunction(() => document.querySelector('.pane[data-p=box]').childElementCount);
+  await p.click('[data-r=K]');
+  assert.equal(await drawn(p), 'card:empty box:drawn plays:empty');
+  assert.match(await p.textContent('.pane[data-p=box]'), /Velez/);
+  await p.context().close();
 }
 
 step('a phone in the 7th: the Card tab opens on the batter’s box');
