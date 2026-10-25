@@ -848,9 +848,12 @@ function newPitcher(side) {
   body.querySelector('[data-f=name]').focus();
 }
 
-// Both teams' orders: rename anyone, sub anyone, add a batter.
-function lineupSheet(side = S.half) {
-  const t = G.teams[side];
+// Both teams' orders: rename anyone, sub anyone, add a batter. focus: a batting slot whose name gets the keyboard (a
+// batter just added), brought into sight. Otherwise Lineups opened again (the other team, a substitution made from it)
+// stays scrolled where it was (top: how far), rather than jumping back to the top.
+function lineupSheet(side = S.half, { focus, top } = {}) {
+  const t = G.teams[side], was = sheetOpen() && $('#sheet .sheet-body');
+  if (top == null) top = was && was.querySelector('[data-ls]') ? was.scrollTop : 0;
   const body = openSheet(`<h2 id="sheetTitle">Lineups</h2>
     <div class="seg" role="group" aria-label="Team">${[0, 1].map(s => `<button type="button" data-ls="${s}" aria-pressed="${s === side}">${esc(teamName(G, s))}</button>`).join('')}</div>
     <label class="team-name"><span>Team name</span><input data-team maxlength="40" value="${esc(t.name)}" placeholder="${side ? 'Home' : 'Visitors'}"></label>
@@ -875,10 +878,12 @@ function lineupSheet(side = S.half) {
   body.addEventListener('click', e => {
     const ls = e.target.closest('[data-ls]'), sub = e.target.closest('[data-sub]'), y = e.target.closest('[data-y]');
     if (ls) lineupSheet(+ls.dataset.ls);
-    if (sub) subForm(side, +sub.dataset.sub, side === S.half && S.up[side] === +sub.dataset.sub ? 'ph' : 'def', () => lineupSheet(side));
-    if (y && y.dataset.y === 'add') { t.lineup.push([blank()]); G.ev.push({ t: 'add', s: side }); redo = []; save(); lineupSheet(side); }
+    if (sub) { const at = body.scrollTop; subForm(side, +sub.dataset.sub, side === S.half && S.up[side] === +sub.dataset.sub ? 'ph' : 'def', () => lineupSheet(side, { top: at })); }
+    if (y && y.dataset.y === 'add') { t.lineup.push([blank()]); G.ev.push({ t: 'add', s: side }); redo = []; save(); lineupSheet(side, { focus: S.size[side] - 1 }); }
     if (y && y.dataset.y === 'pitcher') newPitcher(side);
   });
+  const name = focus != null && body.querySelector(`[data-slot="${focus}"][data-f=name]`);
+  if (name) { name.focus(); reveal(name.closest('li')); } else body.scrollTop = top;
 }
 
 // ---------- the menu ----------

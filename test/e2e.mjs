@@ -359,6 +359,31 @@ step('the end of the order the first time through: a warning on deck, and a batt
   await p.context().close();
 }
 
+step('adding a batter from Lineups: the new spot’s name gets the keyboard, in sight, and the list stays put');
+{
+  const p = await phone();
+  await startGame(p);
+  for (let i = 0; i < 3; i++) { await p.click('[data-a=batter]'); await p.click('.sheet [data-y=add]'); }
+  await p.click('[data-a=menu]');
+  await p.click('.sheet [data-y=lineup]');
+  await p.click('.sheet .row [data-y=add]');
+  const got = await p.evaluate(() => ({ slot: document.activeElement.dataset.slot, f: document.activeElement.dataset.f, top: document.querySelector('.sheet-body').scrollTop }));
+  assert.deepEqual({ slot: got.slot, f: got.f }, { slot: '12', f: 'name' }, 'the 13th batter’s name has the keyboard');
+  assert.ok(got.top > 0, 'and the list didn’t jump back to the top');
+  const li = await box(p, '.sheet [data-slot="12"][data-f=name]'), last = await box(p, '.sheet-body > .row:last-child');
+  assert.ok(inside(li, await box(p, '#sheet')) && li.bottom <= last.top + 0.5, `the new name is in sight (${li.top}-${li.bottom}, the buttons from ${last.top})`);
+  await p.keyboard.type('Nevaeh');
+  // A substitution from Lineups comes back to the list where it was.
+  const before = await p.evaluate(() => document.querySelector('.sheet-body').scrollTop);
+  await p.click('.sheet [data-sub="11"]');
+  await p.fill('.sheet [data-f=name]', 'Jaxon');
+  await p.click('.sheet [data-x=go]');
+  await p.waitForSelector('.sheet [data-ls]');
+  assert.equal(await p.evaluate(() => document.querySelector('.sheet-body').scrollTop), before, 'back from the substitution, scrolled where it was');
+  assert.equal(await p.inputValue('.sheet [data-slot="12"][data-f=name]'), 'Nevaeh');
+  await p.context().close();
+}
+
 step('a pinch runner, and then the starter back in from Lineups: the same player, not a new one');
 {
   const p = await phone(), id = await startGame(p);
