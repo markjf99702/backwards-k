@@ -927,6 +927,32 @@ step('Fix runners after the next pitch: the fix goes in, and the pitch stays');
   await p.context().close();
 }
 
+step('Fix runners starts from the play that was tapped: a line out that scored the run, then held, is a line out');
+{
+  const p = await phone(), id = await startGame(p);
+  await p.click('[data-r=K]');
+  await p.click('[data-r="3B"]');
+  await p.click('[data-r=LO]');
+  await p.click('.sheet [data-pos="7"]');
+  await p.waitForSelector('.sheet .moves');
+  await p.click('.mv[data-from="3"] [data-to="4"]');
+  await p.click('.sheet [data-x=save]');
+  assert.equal(await p.textContent('.ticker p'), 'Batter 3 hits a sacrifice fly to left (SF7). Batter 2 scores.');
+  await p.click('[data-a=fixlast]');
+  await p.waitForSelector('.sheet .moves');
+  assert.equal(await p.textContent('.sheet h2'), 'Line out L7');
+  await p.click('.mv[data-from="3"] [data-to="3"]');
+  await p.click('.sheet [data-x=save]');
+  assert.equal(await p.textContent('.ticker p'), 'Batter 3 lines out to left (L7).');
+  assert.equal((await stored(p, id)).ev[2].r, 'LO');
+  // And back again: the run scores, and it's a sacrifice fly once more.
+  await p.click('[data-a=fixlast]');
+  await p.click('.mv[data-from="3"] [data-to="4"]');
+  await p.click('.sheet [data-x=save]');
+  assert.equal((await stored(p, id)).ev[2].r, 'SF');
+  await p.context().close();
+}
+
 step('a box’s “Change what it was” offers only what could have happened');
 {
   const p = await phone(), id = await startGame(p);

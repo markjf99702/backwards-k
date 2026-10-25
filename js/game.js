@@ -16,12 +16,16 @@ import { helpSheet } from './help.js';
 
 let G = null, S = null, root = null, redo = [];
 let view = 'live', pane = 'card', cardSide = null, readOnly = false, onSave = null, lastInn = '', note = '';
+// The play the scorer tapped for the latest plate appearance, before it was scored from where everyone ended up (a line
+// out that brought the run in from third is saved as a sacrifice fly): Fix runners starts again from it. Only kept
+// here, never saved; after a reload, Fix runners starts from the play as saved.
+let tapped = { e: null, r: '' };
 const BASES = ['', '1st', '2nd', '3rd', 'Home'];
 
 // el: where to draw. game: the game. opts.shared: someone else's game from a link (look, don't touch), with
 // onSave to keep a copy.
 export function showGame(el, game, opts = {}) {
-  G = game; root = el; redo = []; readOnly = !!opts.shared; onSave = opts.onSave || null;
+  G = game; root = el; redo = []; readOnly = !!opts.shared; onSave = opts.onSave || null; tapped = { e: null, r: '' };
   view = 'live'; cardSide = null; lastInn = '';
   if (readOnly) { view = matchMedia('(min-width: 700px)').matches ? 'live' : 'card'; pane = 'card'; }
   S = replay(G);
@@ -411,7 +415,9 @@ function choose(code, f) {
   // to ask. (For the odd one that went differently, Fix runners is right under the field.)
   if (!on || QUIET.has(code) || (S.outs === 2 && R.kind === 'out') || (code === 'DP' && on === 1) || (code === 'TP' && on === 2)) {
     closeSheet();
-    return act(withF({ t: 'pa', r: code, m }, f));
+    const e = withF({ t: 'pa', r: code, m }, f);
+    tapped = { e, r: code };
+    return act(e);
   }
   runnersSheet(code, f, m);
 }
@@ -530,6 +536,7 @@ function runnersSheet(code, f, moves, { st = S, editing = false, done = act } = 
       // A sacrifice fly or bunt, or not, from where everyone ended up.
       const e2 = withF({ t: 'pa', r: scoredAs(st, code, f, m), m }, f);
       if (third && !counts.v) e2.x = 1;
+      if (!editing) tapped = { e: e2, r: code };
       closeSheet();
       done(e2);
     }
@@ -557,8 +564,8 @@ function fixable() {
 function fixLast() {
   const k = fixable();
   if (k < 0) return;
-  const e = G.ev[k], id = G.id, was = plays(G.ev);
-  runnersSheet(e.r, e.f || null, e.m, {
+  const e = G.ev[k], id = G.id, was = plays(G.ev), code = tapped.e === e ? tapped.r : e.r;
+  runnersSheet(code, e.f || null, e.m, {
     st: replay({ ...G, ev: G.ev.slice(0, k) }),
     editing: true,
     done: e2 => {
@@ -570,6 +577,7 @@ function fixLast() {
         if (S2.half !== S.half || S2.inn !== S.inn || S2.outs !== S.outs) return toast('That changes the outs. Undo back to that play instead.');
       }
       G.ev[k] = e2;
+      tapped = { e: e2, r: code };
       redo = [];
       save();
       say(`Fixed: ${S.text[k]}`);
@@ -948,7 +956,7 @@ function cellSheet(c) {
     ${!readOnly && e && !group ? '<p class="hint">This one can’t be changed here. Undo takes plays back, latest first, and until the next batter’s turn is over, Fix runners changes where everyone ended up on the play before.</p>' : ''}
     <div class="row"><button type="button" class="btn primary" data-close>Done</button></div>`);
   // Undo takes back plays, not a change made here, so each change has its own Undo, in a message right after it.
-  const old = { r: e && e.r, f: e && e.f, k: e && e.k };
+  const old = { r: e && e.r, f: e && e.f, k: e && e.k, tap: tapped.e === e ? tapped.r : null };
   const changed = () => {
     const cell = S.cells[c.n];
     cellSheet(cell);
@@ -960,6 +968,7 @@ function cellSheet(c) {
         if (!G || G.ev[c.ev] !== e) return; // the game changed somewhere else meanwhile
         if (e.t === 'p') e.k = old.k;
         else { e.r = old.r; if (old.f) e.f = old.f; else delete e.f; }
+        if (tapped.e === e && old.tap != null) tapped.r = old.tap;
         save();
         cellSheet(S.cells[c.n]);
       },
@@ -971,6 +980,8 @@ function cellSheet(c) {
       const was = e.r;
       if (e.t === 'p') e.k = sw.dataset.sw === 'KL' ? 'c' : 's';
       else { e.r = sw.dataset.sw; if (!RESULTS[e.r].f) delete e.f; }
+      // Fix runners starts from what the box says now.
+      if (tapped.e === e) tapped.r = e.r;
       save();
       // Now an error or a ground out, say, with nobody named: who fielded it? (Skip leaves it blank.)
       if (e.t === 'pa' && e.r !== was && RESULTS[e.r].f && !e.f) return pickFielders(e.r, null, f => { if (f && f.length) { e.f = f; save(); } changed(); });
