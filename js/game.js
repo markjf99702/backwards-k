@@ -282,6 +282,9 @@ function drawSide() {
 
 function liveHtml() {
   const n = now(S), g = G;
+  // The first time through, the order coming back round to the top is worth a warning: a youth team that bats
+  // everyone may have more kids than the order has spots yet.
+  const top = n.deck === 0 && S.size[n.side] > 1 && !S.cells.some(c => c.side === n.side && c.slot === n.slot);
   // After the final, whoever was left on base is still drawn there, but there's nothing more to tap.
   const runner = b => {
     const r = S.bases[b];
@@ -309,7 +312,7 @@ function liveHtml() {
       ${infieldSvg()}
       ${[3, 2, 1].map(runner).join('')}
       ${S.over ? '' : `<button type="button" class="batter" data-a="batter" style="left:${BASE_AT[0][0]}%;top:${BASE_AT[0][1]}%" aria-label="At bat: ${esc(n.name)}. Tap to name or pinch-hit."><small>${n.slot + 1}</small><span>${esc(n.name)}</span></button>`}
-      ${S.over ? '' : `<p class="deck"><span>On deck</span> ${esc(n.deckName)}</p>`}
+      ${S.over ? '' : `<p class="deck"><span>On deck</span> ${esc(n.deckName)}${top ? '<small>Top of the order</small>' : ''}</p>`}
       ${g.pitches && !S.over ? `<div class="count"><span class="sr">${countWords()}</span><span aria-hidden="true">B</span>${dots(S.b, 3, 'b')}<span aria-hidden="true">S</span>${dots(S.s, 2, 's')}</div>` : ''}
       ${S.over ? '' : `<button type="button" class="pitcher" data-a="pitcher" aria-label="Pitching: ${esc(n.pitcherName)}${g.pitches ? ', ' + n.pitches + ' pitches' : ''}. Tap to change pitchers."><span>${esc(n.pitcherName)}</span>${g.pitches ? `<b>${n.pitches}</b><small>pitch${n.pitches === 1 ? '' : 'es'}</small>` : ''}</button>`}
     </div>`;
@@ -685,6 +688,7 @@ function batterSheet() {
     ${day.line ? `<div class="today"><p><b>Today</b> ${day.trips.map(t => `<span>${ord(t.inn)}: ${markHtml(t.r, t.mark)}, ${esc(t.words)}</span>`).join(' · ')}</p><p class="quiet">${esc(day.line)}.</p></div>` : ''}
     <div class="list">
       <button type="button" class="li" data-y="ph"><b>Pinch hitter</b><span>Someone else bats in this spot.</span></button>
+      <button type="button" class="li" data-y="add"><b>Add a batter to the order</b><span>For a team that bats everyone: a new spot after ${esc(label(player(G, n.side, S.size[n.side] - 1, S.pl[n.side][S.size[n.side] - 1] || 0), S.size[n.side] - 1))}.</span></button>
       <button type="button" class="li" data-y="lineup"><b>The whole lineup</b><span>Names, numbers and substitutions for both teams.</span></button>
     </div>
     <div class="row"><button type="button" class="btn primary" data-close>Done</button></div>`);
@@ -693,6 +697,11 @@ function batterSheet() {
     const y = e.target.closest('[data-y]');
     if (y && y.dataset.y === 'ph') subForm(n.side, n.slot, 'ph');
     if (y && y.dataset.y === 'lineup') lineupSheet(n.side);
+    if (y && y.dataset.y === 'add') {
+      closeSheet();
+      G.teams[n.side].lineup.push([blank()]);
+      act({ t: 'add', s: n.side });
+    }
   });
 }
 

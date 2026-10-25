@@ -297,6 +297,23 @@ step('the next new game starts with the last game’s innings and pitch counting
   await p.context().close();
 }
 
+step('the end of the order the first time through: a warning on deck, and a batter added from the batter sheet');
+{
+  const p = await phone(), id = await startGame(p);
+  for (const r of ['BB', 'BB', 'BB', 'K', 'BB', 'K', 'BB']) await p.click(`[data-r=${r}]`);
+  assert.equal(await p.locator('.deck small').count(), 0, 'not yet');
+  await p.click('[data-r=BB]');
+  assert.equal(await p.textContent('.deck'), 'On deck Batter 1Top of the order');
+  await p.click('[data-a=batter]');
+  await p.click('.sheet [data-y=add]');
+  assert.equal(await p.textContent('.deck'), 'On deck Batter 10');
+  assert.equal((await stored(p, id)).teams[0].lineup.length, 10);
+  await p.click('.bar .undo');
+  assert.equal(await p.textContent('.deck'), 'On deck Batter 1Top of the order');
+  assert.equal((await stored(p, id)).teams[0].lineup.length, 9);
+  await p.context().close();
+}
+
 step('a pinch runner, and then the starter back in from Lineups: the same player, not a new one');
 {
   const p = await phone(), id = await startGame(p);
