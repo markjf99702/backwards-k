@@ -130,7 +130,9 @@ export function dayOf(S, side, slot, p) {
 }
 
 export function boxHtml(S) {
-  return `<div class="box-grid">${[0, 1].map(side => `
+  // Scored from partway through: the lines are from then on, and the runs before are only in the score.
+  const j = S.joined, from = j ? `<p class="joined">Scored from the ${j.half ? 'bottom' : 'top'} of the ${ord(j.inn)}. The batting and pitching lines are from then on; the ${j.r[0] + j.r[1] === 1 ? 'run' : 'runs'} before (${esc(teamName(S.g, 0))} ${j.r[0]}, ${esc(teamName(S.g, 1))} ${j.r[1]}) count in the score.</p>` : '';
+  return `${from}<div class="box-grid">${[0, 1].map(side => `
     <div>${batting(S, side)}${pitching(S, side)}
       <div class="extras">${notes(S, side)}</div>
     </div>`).join('')}

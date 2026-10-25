@@ -134,6 +134,7 @@ export function replay(g, upTo = g.ev.length) {
     gone: [new Set(), new Set()], // spots whose player left the game, skipped in a continuous order (Little League 4.04)
     left: [[], []], // each team's players who left the game, and came back: { slot, p, inn, back }
     crs: [[], []], // each team's courtesy runners: { name, for, inn }
+    joined: null, // scored from partway through: { inn, half, r: the runs each team had then } (see 'join')
     pit: [0, 0],
     line: [[0], []], hInn: [[0], []], eInn: [[0], []], lob: [[], []],
     R: [0, 0], H: [0, 0], E: [0, 0],
@@ -231,6 +232,20 @@ function step(S, e) {
       S.size[e.s]++;
       if (top) S.up[e.s] = S.size[e.s] - 1;
       return note(S, `${teamName(g, e.s)} add a batter to the order.`, 'sub');
+    }
+    // Scored from partway through (the first event, from New game): the inning and half the scorer picked it up in,
+    // each team's runs so far, and who led off. The innings before are missed, '–' on the line score, and the runs so far
+    // count in the score without an inning of their own.
+    case 'join': {
+      if (S.i !== 0) return note(S, 'Only a game’s first play can say it was picked up partway through.', 'sub');
+      const inn = Math.min(30, Math.max(1, e.inn | 0)), h = e.half ? 1 : 0, r = [0, 1].map(x => Math.min(99, Math.max(0, (e.r && e.r[x]) | 0)));
+      S.inn = inn; S.half = h; S.R = r.slice();
+      S.joined = { inn, half: h, r };
+      for (const k of ['line', 'hInn', 'eInn']) for (const x of [0, 1]) S[k][x] = Array(inn - 1).fill(null);
+      for (const k of ['line', 'hInn', 'eInn']) { S[k][0][inn - 1] = h ? null : 0; if (h) S[k][1][inn - 1] = 0; }
+      if (e.up < S.size[h]) S.up[h] = e.up;
+      const lead = r[0] === r[1] ? `tied ${r[0]}–${r[1]}` : `${teamName(g, r[1] > r[0] ? 1 : 0)} ${Math.max(...r)}, ${teamName(g, r[1] > r[0] ? 0 : 1)} ${Math.min(...r)}`;
+      return note(S, `Scored from the ${h ? 'bottom' : 'top'} of the ${ord(inn)}: ${lead}.`, 'sub');
     }
     // Someone else is batting than the order says (the scorer missed a trip to the plate, or the batters went out of
     // turn): the order picks up with him, and the spots passed over stay empty this time round. The count, if pitches
@@ -884,6 +899,7 @@ export function fits(S, e, at) {
   if ((e.t === 'sub' || e.t === 'gone' || e.t === 'back') && !(e.slot < S.size[e.s])) return 'gone';
   if (e.t === 'cr' && !(S.bases[e.b] && S.bases[e.b].side === e.s)) return 'runners';
   if (e.t === 'up' && (!(e.slot < S.size[e.s]) || S.gone[e.s].has(e.slot))) return 'gone';
+  if (e.t === 'join' && S.i !== 0) return 'over';
   return '';
 }
 
@@ -957,6 +973,9 @@ export function endNote(S) {
   if (!S.over || !S.ended) return '';
   return S.why ? ENDS[S.why].short : official(S) ? '' : 'before it was official';
 }
+// Whether a team's half of an inning was played before the scorer picked the game up (see 'join'): not scored.
+export const missed = (S, side, inn) => !!S.joined && (inn < S.joined.inn || (inn === S.joined.inn && side === 0 && S.joined.half === 1));
+
 // Innings to draw on the scorecard: the scheduled ones, plus any extras played.
 export function innings(S) {
   return Math.max(S.g.innings, S.inn, S.line[0].length, S.line[1].length);

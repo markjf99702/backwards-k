@@ -1,6 +1,6 @@
 // The scorecard: one row per spot in the batting order, one column per inning, and in each box a small diamond
 // with the batter's trip around the bases drawn the way it's done on paper.
-import { RESULTS, columns, innings, label, player, batKey, ord, pitcherLabel } from './engine.js';
+import { RESULTS, columns, innings, label, player, batKey, ord, pitcherLabel, missed } from './engine.js';
 import { esc } from './ui.js';
 
 // The diamond in a 60 x 60 box: home, first, second, third.
@@ -147,7 +147,8 @@ export function cardHtml(S, side, { live = true } = {}) {
     for (const col of cols) {
       const k = `${slot}:${col.inn}:${col.k}`, c = at.get(k);
       const who = c && marks.pch.get(c.n), from = who ? `${who} pitching from here` : '';
-      const cls = [c && who ? 'pch' : '', c && marks.sub.has(c.n) ? 'sub' : '', c && c.end ? 'end' : '', k === next ? 'next' : '', col.inn === curInn ? 'cur' : ''].filter(Boolean).join(' ');
+      // (Shaded: an inning played before the scorer picked the game up.)
+      const cls = [c && who ? 'pch' : '', c && marks.sub.has(c.n) ? 'sub' : '', c && c.end ? 'end' : '', k === next ? 'next' : '', col.inn === curInn ? 'cur' : '', missed(S, side, col.inn) ? 'missed' : ''].filter(Boolean).join(' ');
       const up = k === next ? `<span class="sr">${esc(label(player(g, side, slot, S.pl[side][slot] || 0), slot))} is up</span>` : '';
       h += `<td${cls ? ` class="${cls}"` : ''}${from ? ` title="${esc(from)}"` : ''}>${c ? `<button type="button" class="box" data-cell="${c.n}" aria-label="${esc(boxWords(c, g.pitches) + (from ? ` ${from}.` : ''))}">${cellSvg(c, { count: g.pitches })}</button>` : up}</td>`;
     }
@@ -161,8 +162,8 @@ export function cardHtml(S, side, { live = true } = {}) {
   for (const [name, arr] of rows) {
     h += `<tr><th class="who" scope="row"${name === 'E' ? ' title="Errors by the other team while these batters were up"' : ''}>${name}</th>`;
     for (const [inn, n] of Object.entries(span)) {
-      const v = arr[inn - 1];
-      h += `<td colspan="${n}">${v == null || (name === 'LOB' && S.line[side][inn - 1] == null) ? '' : v}</td>`;
+      const v = arr[inn - 1], gone = missed(S, side, +inn);
+      h += `<td colspan="${n}"${gone ? ' class="missed"' : ''}>${gone ? '–' : v == null || (name === 'LOB' && S.line[side][inn - 1] == null) ? '' : v}</td>`;
     }
     h += `<td class="tot" colspan="4">${name === 'R' || name === 'H' ? tot[name] : name === 'LOB' ? tot.LOB : tot.E}</td></tr>`;
   }
@@ -178,7 +179,8 @@ export function lineHtml(S) {
   for (const side of [0, 1]) {
     h += `<tr><th scope="row">${esc(g.teams[side].name || (side ? 'Home' : 'Visitors'))}</th>`;
     for (let i = 1; i <= n; i++) {
-      let v = S.line[side][i - 1];
+      // (Before the scorer picked the game up: a dash, the runs then are in R.)
+      let v = missed(S, side, i) ? '–' : S.line[side][i - 1];
       // The home team didn't need its last turn at bat: it was ahead when the game ended after the top of an inning.
       if (v == null && side === 1 && S.over && S.between && S.half === 0 && i === S.inn && S.R[1] > S.R[0]) v = 'X';
       const now = !S.over && S.inn === i && S.half === side;

@@ -2440,6 +2440,38 @@ step('a continuous order: a player who left the game is skipped with no out, and
   await p.context().close();
 }
 
+step('starting partway through: from the bottom of the 3rd, with the runs so far and who’s up');
+{
+  const p = await phone();
+  await p.goto(base + '#/new');
+  await p.fill('[data-side="0"] [data-name]', 'Foxes');
+  await p.fill('[data-side="1"] [data-name]', 'Comets');
+  await p.click('[data-inn="6"]');
+  await p.click('details.partway summary');
+  assert.equal(await p.inputValue('[name=from]'), '1.0', 'the start, unless it says otherwise');
+  assert.equal(await p.locator('[name=from] option').count(), 12);
+  await p.selectOption('[name=from]', '3.1');
+  assert.equal(await p.textContent('[name=lead] option'), '1. Batter 1');
+  assert.match(await p.textContent('details.partway'), /Who’s up for the Comets/);
+  await p.fill('[name=r0]', '4');
+  await p.fill('[name=r1]', '2');
+  await p.selectOption('[name=lead]', '5');
+  await p.click('[data-go]');
+  await p.waitForSelector('.live .field');
+  const id = await p.evaluate(() => location.hash.slice(4));
+  assert.deepEqual((await stored(p, id)).ev, [{ t: 'join', inn: 3, half: 1, r: [4, 2], up: 5 }]);
+  assert.match(await p.textContent('.bar .title'), /Foxes 4–2 Comets\s*Bottom 3rd/);
+  assert.match(await p.textContent('.batter'), /Batter 6/);
+  await p.click('[data-v=box]');
+  assert.match(await p.textContent('.pane[data-p=box]'), /Scored from the bottom of the 3rd\./);
+  assert.deepEqual(await p.$$eval('.linescore tbody tr:first-child td', t => t.slice(0, 4).map(x => x.textContent)), ['–', '–', '–', '']);
+  await p.context().close();
+  // Nothing said: a game from the start, as always.
+  const q = await phone(), id2 = await startGame(q);
+  assert.deepEqual((await stored(q, id2)).ev, []);
+  await q.context().close();
+}
+
 step('someone else is batting: the order picks up with him, and the box passed over stays empty');
 {
   const p = await phone(), id = await startGame(p);

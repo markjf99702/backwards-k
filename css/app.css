@@ -321,6 +321,10 @@ details.lineup summary small { color: var(--muted); font-weight: 400; }
 .switch small { display: block; font-weight: 400; color: var(--muted); font-size: 15px; }
 .sheet .double { margin: 16px 0 6px; }
 .two-sm { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.two-sm .wide { grid-column: 1 / -1; }
+.two-sm select { width: 100%; min-height: 46px; padding: 8px 10px; border-radius: 10px; border: 1.5px solid var(--line-2); background: var(--paper); font: inherit; font-weight: 400; color: var(--ink); }
+details.partway .two-sm { margin-top: 8px; }
+details.partway .hint { margin: 10px 0 0; }
 .two-sm label, .form label { display: grid; gap: 4px; font-weight: 700; font-size: 15px; min-width: 0; }
 .two-sm input, .form input, .form select { width: 100%; min-height: 46px; padding: 8px 12px; border-radius: 10px; border: 1.5px solid var(--line-2); background: var(--paper); font-weight: 400; }
 /* League rules: the four choices, Custom's numbers, and the rules in words under them. */
@@ -626,6 +630,10 @@ details.lineup summary small { color: var(--muted); font-weight: 400; }
 .stats tr.sub th { padding-left: 26px; font-weight: 400; color: var(--ink-2); }
 .stats td { white-space: nowrap; }
 @media (max-width: 430px) { .stats th, .stats td { padding-left: 4px; padding-right: 4px; } }
+/* Scored from partway through: the innings before, shaded, and a line over the box score. */
+.card td.missed { background: repeating-linear-gradient(135deg, transparent 0 6px, var(--grid-2) 6px 7px); }
+.card tfoot td.missed { color: var(--muted); }
+.joined { color: var(--ink-2); font-size: 15px; margin: 0 0 12px; }
 .stats small.ps { display: inline; font-size: 12px; font-weight: 600; color: var(--muted); margin-left: 2px; }
 .stats .how { font-size: 10px; font-weight: 700; color: var(--red); text-transform: uppercase; letter-spacing: .02em; }
 .stats tfoot th, .stats tfoot td { font-weight: 800; border-bottom: 0; }

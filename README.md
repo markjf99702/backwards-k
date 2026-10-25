@@ -87,6 +87,9 @@ written out in plain words.
   name on the base changes, and the player she ran for keeps her spot in the order, and the run and any steals.
   Missed a trip to the plate, or batted out of turn? **Someone else is batting** (tap the batter) picks who's up, and
   the order goes on from there, with the box passed over left empty.
+- **Got there late?** New game's **Starting partway through?** takes the half-inning you're picking it up in, each
+  team's runs so far and who's up. The innings before are dashes on the line score and shaded on the card, the runs
+  so far are in the score, and the box score says it was scored from, say, the bottom of the 3rd.
 - **Positions, if you like.** Pick where each batter plays (a pasted lineup keeps them), and the card says "Ruiz SS
   #2", the box score "Ruiz SS", and the fielders to tap after a ground out have their names under their numbers, for
   anyone who knows the kids but not the numbers.

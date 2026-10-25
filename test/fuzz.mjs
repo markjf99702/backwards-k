@@ -45,6 +45,8 @@ function makeGame(setup) {
     t.lineup = Array.from({ length: setup.size[s] }, (_, i) => [i % 4 === 3 ? M.blank() : { name: `${s ? 'H' : 'V'}${i + 1}`, num: String(i + 1) }]);
     t.pitchers = [{ name: `${s ? 'H' : 'V'}P1`, num: '' }];
   });
+  // Scored from partway through (New game's Starting partway through?): the first event.
+  if (setup.join) g.ev.push({ t: 'join', ...setup.join });
   return g;
 }
 const QUIET = new Set(['K', 'KL', 'PU', 'BB', 'IBB', 'HBP', 'CI']);
@@ -348,7 +350,8 @@ function rules(C, fresh) {
   }
   for (const side of [0, 1]) {
     // (cells: every box, the runner put on second to start an extra inning's too; pas: the trips to the plate.)
-    const f = 1 - side, cells = S.cells.filter(c => c.side === side), pas = cells.filter(c => !c.auto), R = S.R[side];
+    // (R: the runs scored here, without those a game picked up partway through had then.)
+    const f = 1 - side, cells = S.cells.filter(c => c.side === side), pas = cells.filter(c => !c.auto), R = S.R[side] - (S.joined ? S.joined.r[side] : 0);
     const bats = Object.entries(S.bat).filter(([k]) => k.startsWith(side + '.')).map(([, b]) => b), arms = S.pitching[f].filter(Boolean);
     const add = (key, got, want, what) => { if (got !== want) bad(key, `side ${side}: ${what} ${got}, should be ${want}`); };
     add('R', sum(S.line[side]), R, 'runs by inning'); add('R', cells.filter(c => c.scored).length, R, 'boxes that scored');
@@ -540,6 +543,8 @@ for (let n = 0; n < GAMES; n++) {
   setup.tie = weighed(rnd, [[6, 0], [3, setup.innings + 1], [1, Math.max(2, setup.innings - 1)]]);
   // A pitch limit in some (the box score's days of rest, and who can't catch).
   setup.limit = weighed(rnd, [[6, 0], [1, { by: 'll', age: '9-10', max: 75 }], [1, { by: 'ps', age: '15-16', max: 95 }], [1, { by: '', age: '', max: 40 }]]);
+  // Picked up partway through in some, now and then in its last inning or in the home team's half.
+  if (rnd() < 0.15) setup.join = { inn: 1 + Math.floor(rnd() * setup.innings), half: rnd() < 0.5 ? 1 : 0, r: [Math.floor(rnd() * 8), Math.floor(rnd() * 8)], up: Math.floor(rnd() * setup.size[0]) % Math.min(...setup.size) };
   // Make up the game a step at a time, keeping the steps the screen would take.
   const C = { setup, g: makeGame(setup), redo: [], kept: null, tapped: { e: null, r: '' } };
   save(C);

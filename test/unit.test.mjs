@@ -2100,3 +2100,36 @@ test('someone else is batting: the order picks up with him, the spots passed ove
   assert.deepEqual(c, g);
   assert.equal(newer(g), false);
 });
+
+test('starting partway through: the innings before are dashes and shaded, the runs so far are in the score, and the game goes on from there', () => {
+  const g = game({ innings: 6 });
+  g.teams[1].lineup.forEach((slot, i) => { slot[0] = { name: 'H' + (i + 1), num: '' }; });
+  // Picked up in the bottom of the 3rd, Foxes 4, Comets 2, with the Comets' 6th batter up.
+  let S = play(g, { t: 'join', inn: 3, half: 1, r: [4, 2], up: 5 });
+  assert.equal(S.text[0], 'Scored from the bottom of the 3rd: Foxes 4, Comets 2.');
+  assert.deepEqual([S.inn, S.half, S.R, now(S).name, halfLabel(S)], [3, 1, [4, 2], 'H6', 'Bottom 3rd']);
+  S = play(g, 'HR', ...threeK);
+  assert.deepEqual([S.R, S.inn, S.half], [[4, 3], 4, 0]);
+  assert.deepEqual(lineRow(S, 0).slice(0, 4), ['–', '–', '–', '0']);
+  assert.deepEqual(lineRow(S, 1).slice(0, 4), ['–', '–', '1', '']);
+  assert.match(lineHtml(S), /<td class="rhe">4<\/td><td class="rhe">0<\/td>/, 'the Foxes’ R is the runs they had');
+  const card = cardHtml(S, 1);
+  assert.equal((card.match(/class="missed"/g) || []).length, 9 * 2 + 4 * 2, 'two innings of nine batters shaded, and R H E LOB under them');
+  assert.match(card, /<td class="tot" colspan="4">3<\/td>/, 'the card’s R is the score');
+  assert.match(boxHtml(S), /<p class="joined">Scored from the bottom of the 3rd\. The batting and pitching lines are from then on; the runs before \(Foxes 4, Comets 2\) count in the score\.<\/p>/);
+  assert.match(playsHtml(S), /Scored from the bottom of the 3rd: Foxes 4, Comets 2\./);
+  // The game ends as it would have: the Comets go ahead in the 6th, and it's over.
+  const late = game({ innings: 6 });
+  S = play(late, { t: 'join', inn: 6, half: 1, r: [5, 5], up: 0 }, '1B', { t: 'pa', r: '2B', m: [[0, 2], [1, 4]] });
+  assert.deepEqual([S.over, S.R, halfLabel(S)], [true, [5, 6], 'Final']);
+  // Only a game's first play can say so; a file keeps it; Undo takes it back to the start.
+  S = play(game(), 'K', { t: 'join', inn: 5, half: 0, r: [1, 1], up: 0 });
+  assert.deepEqual([S.inn, S.R], [1, [0, 0]]);
+  assert.deepEqual(cleanGame(JSON.parse(JSON.stringify(g))), g);
+  assert.equal(newer(g), false);
+  assert.deepEqual(cleanGame({ ...g, ev: [{ t: 'join', inn: 99, half: 1, r: [-3, 'x'], up: 2 }] }).ev, [{ t: 'join', inn: 30, half: 1, r: [0, 0], up: 2 }]);
+  const one = game();
+  play(one, { t: 'join', inn: 2, half: 0, r: [1, 0], up: 3 });
+  takeBack(one);
+  assert.deepEqual([replay(one).inn, replay(one).R], [1, [0, 0]]);
+});

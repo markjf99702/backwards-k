@@ -3,6 +3,7 @@
 import { newGame, blank, starters, today, parsePaste, carried, setField } from './model.js';
 import { store } from './store.js';
 import { $, $$, esc, openSheet, closeSheet, go, nextName, posField } from './ui.js';
+import { ord } from './engine.js';
 import { drive } from './sync.js';
 import { rulesRow, limitRow } from './rules.js';
 
@@ -56,6 +57,16 @@ export function showSetup(el) {
             <label><span>Date</span><input type="date" name="date" value="${opt.date}"></label>
             <label><span>Where</span><input name="place" maxlength="80" placeholder="Optional" autocapitalize="words" autocorrect="off" spellcheck="false"></label>
           </div>
+          <details class="lineup partway">
+            <summary>Starting partway through? <small>optional</small></summary>
+            <div class="two-sm">
+              <label class="wide"><span>Scoring from the</span><select name="from"></select></label>
+              <label><span>Visitors’ runs</span><input name="r0" type="number" inputmode="numeric" min="0" max="99" placeholder="0"></label>
+              <label><span>Home team’s runs</span><input name="r1" type="number" inputmode="numeric" min="0" max="99" placeholder="0"></label>
+              <label class="wide"><span>Who’s up</span><select name="lead"></select></label>
+            </div>
+            <p class="hint">For a game that’s already going. The innings before are left blank on the card, and each team’s runs so far are in the score.</p>
+          </details>
         </fieldset>
         <button class="btn primary big" type="button" data-go>Play ball</button>
         <p class="hint center">All of this can be changed during the game.</p>
@@ -91,6 +102,7 @@ export function showSetup(el) {
     $('[data-name]', fs(side)).value = t.name;
     $$('[data-pf]', fs(side)).forEach(i => { i.value = t.pitcher[i.dataset.pf]; });
     chips(side);
+    if ($('[name=from]', el)) partway();
   }
   // The starting pitcher can be picked from the order: a tap fills the number and name.
   const same = (a, b) => (a.name && b.name ? a.name.toLowerCase() === b.name.toLowerCase() : !!a.num && a.num === b.num);
@@ -98,13 +110,27 @@ export function showSetup(el) {
     const t = T[side], list = t.lineup.map((p, i) => [i, p]).filter(([, p]) => p.name || p.num);
     $('.from-order', fs(side)).innerHTML = list.length ? `<p class="pick-row" role="group" aria-label="From the order"><span>From the order:</span>${list.map(([i, p]) => `<button type="button" class="chip" data-pick="${i}" aria-pressed="${same(p, t.pitcher)}">${esc(p.name ? p.name + (p.num ? ' #' + p.num : '') : '#' + p.num)}</button>`).join('')}</p>` : '';
   }
+  // Starting partway through: which half-inning (the start of the game is no part at all), and who's up for the team
+  // batting in it.
+  function partway() {
+    const from = $('[name=from]', el), lead = $('[name=lead]', el), was = from.value || '1.0', last = Math.max(opt.innings, 1);
+    const halves = [];
+    for (let inn = 1; inn <= last; inn++) for (const h of [0, 1]) halves.push([`${inn}.${h}`, inn === 1 && !h ? 'Top of the 1st (the start)' : `${h ? 'Bottom' : 'Top'} of the ${ord(inn)}`]);
+    from.innerHTML = halves.map(([v, w]) => `<option value="${v}"${v === was ? ' selected' : ''}>${w}</option>`).join('');
+    if (!from.value) from.value = '1.0';
+    const h = +from.value.split('.')[1], pick = lead.value || '0', t = T[h];
+    lead.innerHTML = t.lineup.map((p, i) => `<option value="${i}"${String(i) === pick ? ' selected' : ''}>${i + 1}. ${esc(p.name || (p.num ? '#' + p.num : `Batter ${i + 1}`))}</option>`).join('');
+    $('[name=lead]', el).closest('label').firstElementChild.textContent = `Who’s up for the ${t.name || (h ? 'home team' : 'visitors')}`;
+  }
   [0, 1].forEach(rows);
+  partway();
   rulesRow($('.rules-row', el), () => opt.rules, r => { opt.rules = r; });
   // (A pitch limit needs the pitches counted.)
   limitRow($('.limit-row', el), () => opt.limit, L => { opt.limit = L; });
   el.querySelector('input[name=pitches]').addEventListener('change', e => { $('.limit-row', el).hidden = !e.target.checked; });
 
   el.addEventListener('input', e => {
+    if (e.target.matches('[name=from]')) return partway();
     const f = e.target.closest('.team-set');
     if (!f) return;
     const t = T[+f.dataset.side];
@@ -112,6 +138,7 @@ export function showSetup(el) {
     if (e.target.dataset.f) setField(t.lineup[+e.target.dataset.i], e.target.dataset.f, e.target.value);
     if (e.target.dataset.pf) t.pitcher[e.target.dataset.pf] = e.target.value.trim();
     if (e.target.dataset.f || e.target.dataset.pf) chips(+f.dataset.side);
+    if (e.target.matches('[data-name]') || e.target.dataset.f) partway();
   });
   // Enter in a batter's name goes to the next batter's name (past the number, which needs another keyboard).
   el.addEventListener('keydown', e => nextName(e, '.lineup-edit [data-f=name]'));
@@ -126,7 +153,7 @@ export function showSetup(el) {
     const b = e.target.closest('button');
     if (!b) return;
     const f = b.closest('.team-set'), side = f ? +f.dataset.side : -1;
-    if (b.dataset.inn) { opt.innings = +b.dataset.inn; $$('[data-inn]', el).forEach(x => x.setAttribute('aria-pressed', String(+x.dataset.inn === opt.innings))); }
+    if (b.dataset.inn) { opt.innings = +b.dataset.inn; $$('[data-inn]', el).forEach(x => x.setAttribute('aria-pressed', String(+x.dataset.inn === opt.innings))); partway(); }
     if (b.dataset.step) {
       const t = T[side], n = Math.min(30, Math.max(1, t.lineup.length + +b.dataset.step));
       while (t.lineup.length < n) t.lineup.push(blank());
@@ -157,6 +184,12 @@ export function showSetup(el) {
       g.teams[s].lineup = t.lineup.map(p => [{ ...p }]);
       g.teams[s].pitchers = [{ ...t.pitcher }];
     });
+    // Picked up partway through: the first event says from where, the runs so far and who's up.
+    const [inn, half] = form.from.value.split('.').map(Number);
+    if (inn > 1 || half) {
+      const runs = x => Math.min(99, Math.max(0, parseInt(x, 10) || 0));
+      g.ev.push({ t: 'join', inn, half, r: [runs(form.r0.value), runs(form.r1.value)], up: +form.lead.value || 0 });
+    }
     store.save(g);
     drive.changed();
     // Ask the browser to keep this site's games when it clears space (it decides; nothing to do with the answer).

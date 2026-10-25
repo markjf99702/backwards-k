@@ -1,6 +1,7 @@
 // What a game looks like when it's saved, and how to tidy one that came from a file, a link or Google Drive.
 //
 // A game: { id, created, updated, date, place, innings, pitches, rules, tie, limit, teams: [visitors, home], ev: [events] }
+// (A game scored from partway through starts with { t: 'join', inn, half, r: [runs, runs], up }: see engine.js.)
 // tie: the first inning that starts with a runner on second (extra innings, OBR 7.01(b)), or 0 for none.
 // limit: a pitch limit, or 0 for none: { by: 'll' (Little League), 'ps' (Pitch Smart) or '' (a number), age: the
 // pitchers' league age ('11-12', for the rest they need after), max: the most pitches } (engine.js)
@@ -43,9 +44,9 @@ const KNOWN = new Map(Object.entries({
   team: ['name', 'lineup', 'pitchers'], player: ['name', 'num', 'pos'], rules: ['set', 'runs', 'last', 'all', 'mercy'], limit: ['by', 'age', 'max'],
   p: ['t', 'k'], pa: ['t', 'r', 'f', 'm', 'x'], r: ['t', 'm'], sub: ['t', 's', 'slot', 'i', 'ty'], pch: ['t', 's', 'i'],
   add: ['t', 's'], eoh: ['t'], end: ['t', 'why'], delay: ['t'], on: ['t'], gone: ['t', 's', 'slot'], back: ['t', 's', 'slot'],
-  cr: ['t', 's', 'b', 'slot', 'name', 'num'], up: ['t', 's', 'slot'],
+  cr: ['t', 's', 'b', 'slot', 'name', 'num'], up: ['t', 's', 'slot'], join: ['t', 'inn', 'half', 'r', 'up'],
 }));
-const EVENTS = new Set(['p', 'pa', 'r', 'sub', 'pch', 'add', 'eoh', 'end', 'delay', 'on', 'gone', 'back', 'cr', 'up']), KINDS = ['b', 'c', 's', 'f'], SUBS = ['ph', 'pr', 'def'];
+const EVENTS = new Set(['p', 'pa', 'r', 'sub', 'pch', 'add', 'eoh', 'end', 'delay', 'on', 'gone', 'back', 'cr', 'up', 'join']), KINDS = ['b', 'c', 's', 'f'], SUBS = ['ph', 'pr', 'def'];
 // A value from a newer version, as plain JSON: text (200 characters at most), numbers, true, false and null, and lists
 // (50 long) and objects (20 values) of those, four deep. Anything else is left out (undefined).
 function plain(v, deep = 0) {
@@ -113,6 +114,12 @@ function cleanEvent(e) {
     // A player who left the game, skipped in a continuous order, and back in it: her spot in the order.
     // (And someone else is batting than the order said: his spot.)
     case 'gone': case 'back': case 'up': o = { t: e.t, s: int(e.s, 0, 1, 0), slot: int(e.slot, 0, 40, 0) }; break;
+    // Scored from partway through (the first event): the inning and half, each team's runs then, and who led off.
+    case 'join': {
+      const r = Array.isArray(e.r) ? e.r : [];
+      o = { t: 'join', inn: int(e.inn, 1, 30, 1), half: e.half ? 1 : 0, r: [int(r[0], 0, 99, 0), int(r[1], 0, 99, 0)], up: int(e.up, 0, 40, 0) };
+      break;
+    }
     // A courtesy runner for the runner on base b: someone in the order (her spot), or a name and number.
     case 'cr':
       o = { t: 'cr', s: int(e.s, 0, 1, 0), b: int(e.b, 1, 3, 1) };
