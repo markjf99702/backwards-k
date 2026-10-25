@@ -663,6 +663,21 @@ test('extra innings that start with a runner on second: the batter before the le
   assert.deepEqual([game().tie, cleanGame({ ...g, tie: 'x' }).tie, cleanGame({ ...g, tie: 99 }).tie], [0, 0, 30]);
 });
 
+test('a reliever who starts the extra inning is charged with the runner put on second, not the pitcher who left', () => {
+  const g = game({ innings: 1, tie: 2 });
+  g.teams[1].pitchers.push({ name: 'Reliever', num: '' });
+  // The home team brings in a reliever for the top of the 2nd, after the runner is on second.
+  let S = play(g, ...threeK, ...threeK, { t: 'pch', s: 1, i: 1 });
+  assert.deepEqual([S.bases[2].pi, S.cells.at(-1).pi], [1, 1]);
+  S = play(g, '2B');
+  assert.deepEqual([pitchStat(S, 1, 0).r, pitchStat(S, 1, 1).r, pitchStat(S, 1, 1).ur], [0, 1, 1]);
+  // A pitcher who comes in once the inning is under way leaves the runner to the one who started it (OBR 9.16(g)).
+  const h = game({ innings: 1, tie: 2 });
+  h.teams[1].pitchers.push({ name: 'Reliever', num: '' });
+  S = play(h, ...threeK, ...threeK, 'K', { t: 'pch', s: 1, i: 1 }, '2B');
+  assert.deepEqual([pitchStat(S, 1, 0).r, pitchStat(S, 1, 0).ur, pitchStat(S, 1, 1).r], [1, 1, 0]);
+});
+
 test('pitch limits: amber five before, red at it with a batter to finish, and the rest each pitcher needs (Little League Regulation VI)', () => {
   const L = { by: 'll', age: '11-12', max: 85 };
   const g = game({ limit: L });

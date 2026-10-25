@@ -185,6 +185,9 @@ function step(S, e) {
       // are the pitcher's who left (OBR 9.16(h)).
       if (e.s === 1 - S.half) S.relief = S.b >= 2 && S.b > S.s ? S.relief ?? S.pit[e.s] : null;
       S.pit[e.s] = e.i;
+      // A pitcher brought in before anything has happened in the half-inning starts it, so the runner put on second
+      // to start an extra inning is his, not the one's who left (OBR 7.01(b), 9.16(g)).
+      if (S.fresh && e.s === 1 - S.half) for (const r of S.bases) if (r && r.cell.auto) r.pi = r.cell.pi = e.i;
       {
         // The starter, or someone who pitched earlier, comes back in; anyone else is new.
         const back = !e.i || g.ev.slice(0, S.i).some(x => x.t === 'pch' && x.s === e.s && x.i === e.i), who = pitcherLabel(g, e.s, e.i);
