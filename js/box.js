@@ -118,8 +118,10 @@ export function boxHtml(S) {
 }
 
 // In half-innings: newest first during a game, so the last few plays are at the top, and from the first pitch on
-// once it's over. Under each at-bat, the count it ended on and how many pitches (each one in words in its title);
-// under the end of each half-inning, its runs, hits, errors and runners left on.
+// once it's over. Each play is led by its mark on the card, in a column of its own (6-3, F8, a backwards K; for a
+// runner's play, its first runner's: SB, WP, CS 2-6), so the shorthand is learnt beside the words. Under each at-bat,
+// the count it ended on and how many pitches (each one in words in its title); under the end of each half-inning, its
+// runs, hits, errors and runners left on.
 export function playsHtml(S, { limit = 0 } = {}) {
   const g = S.g, groups = [];
   for (const p of S.plays) {
@@ -135,13 +137,17 @@ export function playsHtml(S, { limit = 0 } = {}) {
     h += `<section class="half"><h3>${grp.half ? 'Bottom' : 'Top'} of the ${ord(grp.inn)} <span>${esc(teamName(g, grp.half))} batting</span></h3><ol>`;
     for (const p of order(grp.list)) {
       if (limit && n++ >= limit) break;
-      const c = p.kind === 'pa' && g.pitches && S.cells[p.cell], np = c ? c.seq.length : 0;
+      const cell = p.kind === 'pa' && S.cells[p.cell], c = g.pitches && cell, np = c ? c.seq.length : 0;
       const more = np ? `<small class="pc" title="${esc(cap(pitchWords(c.seq)))}">${c.count[0]}-${c.count[1]} · ${np} pitch${np === 1 ? '' : 'es'}</small>`
         : p.sum ? `<small>${esc(p.sum)}</small>` : '';
-      h += `<li class="${p.kind}${p.runs ? ' scored' : ''}">${p.r === 'KL' ? `<span class="pk">${KL}</span>` : ''}${esc(p.text)}${p.runs ? ` <b class="runs">+${p.runs}</b>` : ''}${more}</li>`;
+      const mk = cell ? markCol(cell.r, cell.mark) : p.kind === 'run' ? markCol('', p.mark) : '';
+      h += `<li class="${p.kind}${p.runs ? ' scored' : ''}">${mk}<span class="pw">${esc(p.text)}${p.runs ? ` <b class="runs">+${p.runs}</b>` : ''}${more}</span></li>`;
     }
     h += '</ol></section>';
   }
   return h;
 }
 const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+// A play's mark for its column: a backwards K, or the mark with a line break only where it has a space ("SAC" over
+// "1-3", never "SAC 1-" over "3"). The words beside it say it too, so a screen reader hears the play once.
+const markCol = (code, m) => `<b class="pm" aria-hidden="true">${code === 'KL' ? KL : String(m || '').split(' ').filter(Boolean).map(w => `<span>${esc(w)}</span>`).join(' ')}</b>`;

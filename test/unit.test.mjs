@@ -782,6 +782,22 @@ test('the plays: the count and pitches for each at-bat, a line for each half-inn
   assert.doesNotMatch(playsHtml(replay(g)), /class="pc"/);
 });
 
+test('the plays: each play led by its mark on the card, and a runner’s play by its first runner’s', () => {
+  const g = game({ innings: 1 });
+  const S = play(g, '1B', { t: 'r', m: [[1, 2, 'SB']] }, { t: 'pa', r: 'SAC', f: [1, 3], m: [[2, 3], [0, 0]] }, { t: 'r', m: [[3, 4, 'WP']] },
+    'BB', { t: 'r', m: [[1, 2, 'OA']] }, { t: 'pa', r: 'DP', f: [6, 4, 3], m: [[2, 0], [0, 0]] },
+    P('c'), P('c'), P('c'), '1B', { t: 'sub', s: 1, slot: 1, i: 1, ty: 'ph' }, { t: 'r', m: [[1, 0, 'CS', [2, 6]]] }, 'E 6', { t: 'r', m: [[1, 2, 'BK']] });
+  // In order from the first play: a mark for each plate appearance and runner's play (none for Adv, nor for a pinch
+  // hitter or the end of the half), never broken inside "SAC 1-3", and a backwards K drawn as one.
+  const h = playsHtml({ ...S, over: true });
+  const marks = [...h.matchAll(/<li class="(\w+)[^"]*">(?:<b class="pm" aria-hidden="true">(.*?)<\/b>)?/g)].map(([, kind, m]) => `${kind}:${m ?? '-'}`);
+  assert.deepEqual(marks, [
+    'pa:<span>1B</span>', 'run:<span>SB</span>', 'pa:<span>SAC</span> <span>1-3</span>', 'run:<span>WP</span>', 'pa:<span>BB</span>', 'run:', 'pa:<span>6-4-3</span> <span>DP</span>', 'end:-',
+    'pa:<i class="kl" aria-label="backwards K">K</i>', 'pa:<span>1B</span>', 'sub:-', 'run:<span>CS</span> <span>2-6</span>', 'pa:<span>E6</span>', 'run:<span>BK</span>',
+  ]);
+  assert.match(h, /<span class="pw">Batter 1 singles\.<small class="pc"/, 'the words, then the count, beside the mark');
+});
+
 test('a game survives being tidied (from a file or a link) unchanged', () => {
   const g = sampleGame(3);
   const c = cleanGame(JSON.parse(JSON.stringify(g)));

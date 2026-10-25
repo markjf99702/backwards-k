@@ -611,7 +611,11 @@ li.end { background: transparent; border-style: dashed; color: var(--muted); fon
 li.sub { background: transparent; color: var(--ink-2); }
 li.scored { border-left: 4px solid var(--red); }
 .runs { color: var(--red); font-weight: 800; margin-left: 4px; }
-.pk { color: var(--red); font-weight: 800; margin-right: 4px; }
+/* Each play led by its mark on the card, in the scorer's red pencil. */
+:is(.plays, .recent) li:is(.pa, .run) { display: grid; grid-template-columns: 3.4em minmax(0, 1fr); column-gap: 6px; align-items: baseline; }
+:is(.plays, .recent) li.scored { padding-left: 9px; } /* (the red edge is 3 pixels wider, and the marks stay in line) */
+.pm { font: 400 18px/1.05 var(--hand); color: var(--red); }
+.pm span { white-space: nowrap; }
 
 /* ---------- the sheet ---------- */
 .sheet {

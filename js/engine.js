@@ -392,7 +392,7 @@ function runners(S, e) {
   // The run that puts the home team ahead in its last turn ends the game: nobody behind it gets further than the
   // bases it took (need), and it's said last, as the winning run (win).
   const live = !S.over && S.R[1] <= S.R[0];
-  let need = 0, win = null;
+  let need = 0, win = null, mk = '';
   for (const [from, was, how, f] of moves) {
     const r = S.bases[from];
     if (!r || moved.has(from) || S.outs >= 3) continue;
@@ -402,6 +402,7 @@ function runners(S, e) {
     if (to >= 1 && to <= 3 && to !== from && S.bases[to]) continue;
     S.bases[from] = null;
     const who = label(player(g, side, r.slot, r.p), r.slot), m = runMark(how, f);
+    mk ||= m; // the play's mark in the play-by-play: the first of its moves' (SB, WP, CS 2-6)
     if (how === 'E' && !err) err = f && f[0] ? f : [0];
     if (how === 'SB') bstat(S, side, r.slot, r.p).sb++;
     if (how === 'CS') bstat(S, side, r.slot, r.p).cs++;
@@ -432,7 +433,7 @@ function runners(S, e) {
   if (balk) pstat(S).bk++;
   const text = (balk ? 'Balk. ' : '') + (bits.length ? sentences(bits) + '.' : '');
   S.text[S.i] = text;
-  S.plays.push({ i: S.i, inn: S.inn, half: side, text, kind: 'run', runs });
+  S.plays.push({ i: S.i, inn: S.inn, half: side, text, kind: 'run', runs, mark: mk });
   walkoff(S);
   if (S.outs >= 3) endHalf(S);
 }

@@ -29,9 +29,10 @@ written out in plain words.
   to 4 for a single to a home run; W walk, H hit by pitch, E error; K strikeout (Shift+K looking), G ground out, Y fly
   out, L line out, P pop out; M for More, and U or Ctrl+Z (⌘Z) to undo. G, 6, 3, Enter is a 6-3.
 - **The scorecard fills itself in.** Each box has the path around the bases, the out number, the count and the RBIs,
-  and a strikeout looking gets its backwards K. Tap any box to read what happened. A box can also be switched to
-  another kind of out or another way of reaching base, and have its fielders changed; anything else is a job for
-  Undo, or for Fix runners, which stays until the next batter's turn is over.
+  and a strikeout looking gets its backwards K. Tap any box to read what happened. In the play-by-play each play is
+  led by its mark from the card (6-3, F8, SB, CS 2-6), so the shorthand comes with the words. A box can also be
+  switched to another kind of out or another way of reaching base, and have its fielders changed; anything else is a
+  job for Undo, or for Fix runners, which stays until the next batter's turn is over.
 - **Undo anything.** A game is a list of what happened, so Undo takes plays back, latest first, as many as you like.
   It's at the top of the screen, and under the field beside the play it would take back, and it says which one it
   took (with Redo) when the line under the field is out of sight. Forgot a play a few back, a steal or a pitching
