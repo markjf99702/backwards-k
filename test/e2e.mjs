@@ -860,6 +860,26 @@ step('starting a game asks the browser to keep this site’s games');
   await p.context().close();
 }
 
+step('with many games, the home lists the 20 changed last, and Show all lists the rest');
+{
+  const games = Array.from({ length: 25 }, (_, i) => ({ ...sampleGame(1 + (i % 5)), id: 'gmany' + String(i).padStart(2, '0'), updated: 1000 + i }));
+  const c = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
+  await c.addInitScript(doc => { if (!sessionStorage.getItem('seeded')) { localStorage.setItem('backwards-k.v1', doc); sessionStorage.setItem('seeded', '1'); } },
+    JSON.stringify({ app: 'backwards-k', v: 1, games: Object.fromEntries(games.map(g => [g.id, g])), gone: {} }));
+  const p = await c.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base);
+  await p.waitForSelector('.gi');
+  const ids = () => p.$$eval('.gi', l => l.map(a => a.getAttribute('href').slice(4)));
+  assert.deepEqual(await ids(), games.slice(5).reverse().map(g => g.id), 'the latest 20, latest first');
+  assert.equal(await p.textContent('[data-a=all]'), 'Show all 25 games');
+  await p.click('[data-a=all]');
+  assert.deepEqual(await ids(), games.slice().reverse().map(g => g.id));
+  assert.equal(await p.evaluate(() => document.activeElement.getAttribute('href')), '#/g/gmany04', 'the keyboard on the first one that was out of sight');
+  assert.equal(await p.locator('[data-a=all]').count(), 0);
+  await c.close();
+}
+
 step('a file that isn’t a game says so');
 {
   const p = await phone();

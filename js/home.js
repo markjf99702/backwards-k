@@ -6,8 +6,12 @@ import { today, cleanGame } from './model.js';
 import { drive } from './sync.js';
 import { helpSheet } from './help.js';
 
+// The 20 games changed last are listed, and the rest after a tap on Show all (remembered until the page is reloaded).
+const FEW = 20;
+let everyGame = false;
+
 export function showHome(el) {
-  const games = store.all();
+  const games = store.all(), listed = everyGame ? games : games.slice(0, FEW);
   const item = g => {
     let S;
     try { S = replay(g); } catch { return ''; }
@@ -36,8 +40,9 @@ export function showHome(el) {
       </section>
       <section class="games">
         <h2>Your games</h2>
-        ${games.length ? `<ul class="game-list">${games.map(item).join('')}</ul>`
+        ${games.length ? `<ul class="game-list">${listed.map(item).join('')}</ul>`
           : '<p class="quiet">No games yet. Score one, or open the sample to see a finished card.</p>'}
+        ${listed.length < games.length ? `<div class="row more"><button type="button" class="btn quiet" data-a="all">Show all ${games.length} games</button></div>` : ''}
       </section>
       <section class="learn">
         <a class="tile" href="#/sample"><b>See a sample game</b><span>Nine innings between the Foxes and the Comets, scored the whole way through. Tap any box.</span></a>
@@ -59,6 +64,12 @@ export function showHome(el) {
     const a = e.target.closest('[data-a]');
     if (!a) return;
     if (a.dataset.a === 'help') helpSheet();
+    if (a.dataset.a === 'all') {
+      everyGame = true;
+      showHome(el);
+      // The keyboard goes on to the first game that was out of sight.
+      el.querySelectorAll('.gi')[FEW]?.focus();
+    }
     if (a.dataset.a === 'export') download(`backwards-k-backup-${today()}.json`, JSON.stringify(store.doc(), null, 1));
     if (a.dataset.a === 'import') {
       const f = await pickFile();
