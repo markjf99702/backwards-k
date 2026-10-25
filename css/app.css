@@ -252,8 +252,11 @@ fieldset { margin: 0; min-width: 0; }
 .team-name-in { width: 100%; min-height: 52px; padding: 8px 14px; border-radius: 12px; border: 1.5px solid var(--line-2); background: var(--paper); font: 800 26px/1.1 var(--board-font); letter-spacing: .02em; }
 .past-teams { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; }
 .past-teams span { color: var(--muted); font-size: 14px; margin-right: 2px; }
-.back-in { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 10px; }
-.back-in span { color: var(--muted); font-size: 14px; margin-right: 2px; }
+/* "Back in:" and "From the order:", a row of people to pick from. */
+.pick-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 10px; }
+.pick-row span { color: var(--muted); font-size: 14px; margin-right: 2px; }
+.pick-row .chip[aria-pressed="true"] { background: var(--navy); border-color: var(--navy); color: var(--on-navy); }
+@media (prefers-color-scheme: dark) { .pick-row .chip[aria-pressed="true"] { background: var(--on-navy); border-color: var(--on-navy); color: var(--navy); } }
 .chip { min-height: 34px; padding: 4px 12px; }
 .stepper { display: flex; align-items: center; gap: 8px; }
 .stepper span { flex: 1; color: var(--ink-2); }
@@ -273,6 +276,7 @@ details.lineup summary small { color: var(--muted); font-weight: 400; }
 .name-row input { width: 100%; min-height: 48px; padding: 18px 10px 4px; border-radius: 10px; border: 1.5px solid var(--line-2); background: var(--paper); }
 .pitcher-row { grid-template-columns: 74px 1fr; margin-top: 10px; }
 .pitcher-row .lbl { grid-column: 1 / -1; font-weight: 700; font-size: 15px; }
+.from-order .pick-row { margin: 8px 0 0; }
 .opts { display: grid; gap: 14px; }
 .opt { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
 .opt .lbl { font-weight: 700; }

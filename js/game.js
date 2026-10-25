@@ -2,7 +2,7 @@
 // away on a phone) the scorecard, the box score and the play-by-play.
 import {
   replay, suggest, check, runsCount, scoredAs, now, RESULTS, BASE, POS, POS_NAME, halfLabel, label, player, teamName,
-  pitcherLabel, ord, runnersOn, mark, pitchStat, ip, pitchWords,
+  pitcherLabel, ord, runnersOn, mark, pitchStat, pitchWords, pitchDay,
 } from './engine.js';
 import { store } from './store.js';
 import { blank, takeBack, putBack } from './model.js';
@@ -705,11 +705,12 @@ const named = (p, slot) => label(p, slot) + (p.name && p.num ? ' #' + p.num : ''
 
 // A new player in a batting slot: a pinch hitter, a pinch runner, or a change in the field. Or someone who was in
 // this spot before coming back in (a starter re-entering, or the runner who ran for him), as the same player.
-function subForm(side, slot, ty) {
+// done: what comes next (the Lineups sheet again, for several changes in a row); otherwise back to the game.
+function subForm(side, slot, ty, done) {
   const p = blank(), was = label(player(G, side, slot, S.pl[side][slot]), slot), back = earlier(side, slot);
   const words = { ph: 'Pinch hitter', pr: 'Pinch runner', def: 'Substitute' };
   const body = openSheet(`<h2 id="sheetTitle">${words[ty]} <small>for ${esc(was)}</small></h2>
-    ${back.length ? `<p class="back-in"><span>Back in:</span>${back.map(([i, x]) => `<button type="button" class="chip" data-back="${i}">${esc(named(x, slot))}</button>`).join('')}</p>` : ''}
+    ${back.length ? `<p class="pick-row"><span>Back in:</span>${back.map(([i, x]) => `<button type="button" class="chip" data-back="${i}">${esc(named(x, slot))}</button>`).join('')}</p>` : ''}
     ${nameFields(p)}
     <div class="chips wide" role="group" aria-label="What kind of substitution">${Object.entries(words).map(([k, w]) => `<button type="button" data-ty="${k}" aria-pressed="${k === ty}">${w}</button>`).join('')}</div>
     <p class="hint">They take ${esc(was)}’s place in the batting order from now on.</p>
@@ -720,13 +721,16 @@ function subForm(side, slot, ty) {
     if (t) { ty = t.dataset.ty; $$('[data-ty]', body).forEach(x => x.setAttribute('aria-pressed', String(x.dataset.ty === ty))); body.querySelector('h2').firstChild.textContent = words[ty] + ' '; }
     if (b) {
       closeSheet();
-      return act({ t: 'sub', s: side, slot, i: +b.dataset.back, ty });
+      act({ t: 'sub', s: side, slot, i: +b.dataset.back, ty });
+      if (done) done();
+      return;
     }
     if (e.target.closest('[data-x=go]')) {
       const list = G.teams[side].lineup[slot];
       list.push(p);
       closeSheet();
       act({ t: 'sub', s: side, slot, i: list.length - 1, ty });
+      if (done) done();
     }
   });
   body.querySelector('[data-f=name]').focus();
@@ -736,7 +740,7 @@ function pitcherSheet(side) {
   const i = S.pit[side], p = G.teams[side].pitchers[i], st = pitchStat(S, side, i);
   const body = openSheet(`<h2 id="sheetTitle">Pitching <small>for ${esc(teamName(G, side))}</small></h2>
     ${nameFields(p)}
-    <p class="quiet">${G.pitches ? `${st.np} pitches (${st.str} strikes), ` : ''}${ip(st.outs)} innings, ${st.h} hits, ${st.r} runs, ${st.bb} walks, ${st.k} strikeouts.</p>
+    <p class="quiet">${esc(pitchDay(st, G.pitches))}</p>
     <div class="list">
       <button type="button" class="li" data-y="new"><b>New pitcher</b><span>Bring in a reliever. Their pitch count starts at zero.</span></button>
       ${G.teams[side].pitchers.length > 1 ? '<button type="button" class="li" data-y="back"><b>Bring back an earlier pitcher</b><span>Someone who already pitched today.</span></button>' : ''}
@@ -753,13 +757,32 @@ function pitcherSheet(side) {
     }
   });
 }
+// The same person, by name, or by number when there's no name to go by.
+const samePerson = (a, b) => (a.name && b.name ? a.name.toLowerCase() === b.name.toLowerCase() : !!a.num && a.num === b.num);
+// Chips that fill a player's number and name from a list: [[key, player]], with the one now filled in pressed.
+const pickChips = (words, list, now) => (list.length ? `<p class="pick-row" role="group" aria-label="${esc(words)}"><span>${esc(words)}:</span>${list.map(([k, x]) => `<button type="button" class="chip" data-pick="${k}" aria-pressed="${samePerson(x, now)}">${esc(label(x, 0) + (x.name && x.num ? ' #' + x.num : ''))}</button>`).join('')}</p>` : '');
+
 function newPitcher(side) {
-  const p = blank();
+  const p = blank(), t = G.teams[side];
+  // In youth ball, high school and any game without a DH, a reliever is usually someone already in the order.
+  const order = [];
+  for (let slot = 0; slot < S.size[side]; slot++) {
+    const x = t.lineup[slot][S.pl[side][slot] ?? 0];
+    if (x && (x.name || x.num) && !t.pitchers.some(y => samePerson(x, y))) order.push([slot, x]);
+  }
   const body = openSheet(`<h2 id="sheetTitle">New pitcher <small>for ${esc(teamName(G, side))}</small></h2>
+    ${pickChips('From the order', order, p)}
     ${nameFields(p)}
     <div class="row"><button type="button" class="btn quiet" data-close>Cancel</button><button type="button" class="btn primary" data-x="go">Bring them in</button></div>`);
   $$('[data-f]', body).forEach(i => i.addEventListener('input', () => { p[i.dataset.f] = i.value.trim(); }));
   body.addEventListener('click', e => {
+    const k = e.target.closest('[data-pick]');
+    if (k) {
+      const x = order.find(([slot]) => slot === +k.dataset.pick)[1];
+      for (const f of ['num', 'name']) { p[f] = x[f]; $(`[data-f=${f}]`, body).value = x[f]; }
+      $$('[data-pick]', body).forEach(c => c.setAttribute('aria-pressed', String(c === k)));
+      return;
+    }
     if (!e.target.closest('[data-x=go]')) return;
     G.teams[side].pitchers.push(p);
     closeSheet();
@@ -792,7 +815,7 @@ function lineupSheet(side = S.half) {
   body.addEventListener('click', e => {
     const ls = e.target.closest('[data-ls]'), sub = e.target.closest('[data-sub]'), y = e.target.closest('[data-y]');
     if (ls) lineupSheet(+ls.dataset.ls);
-    if (sub) subForm(side, +sub.dataset.sub, side === S.half && S.up[side] === +sub.dataset.sub ? 'ph' : 'def');
+    if (sub) subForm(side, +sub.dataset.sub, side === S.half && S.up[side] === +sub.dataset.sub ? 'ph' : 'def', () => lineupSheet(side));
     if (y && y.dataset.y === 'add') { t.lineup.push([blank()]); G.ev.push({ t: 'add', s: side }); redo = []; save(); lineupSheet(side); }
     if (y && y.dataset.y === 'pitcher') newPitcher(side);
   });

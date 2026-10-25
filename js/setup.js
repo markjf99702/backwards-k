@@ -64,6 +64,7 @@ export function showSetup(el) {
           <label class="num"><span>No.</span><input data-pf="num" inputmode="numeric" maxlength="4" aria-label="Starting pitcher number"></label>
           <label class="nm"><span>Name</span><input data-pf="name" maxlength="40" placeholder="Optional" autocapitalize="words" aria-label="Starting pitcher name"></label>
         </div>
+        <div class="from-order"></div>
       </details>
     </fieldset>`;
   }
@@ -77,6 +78,13 @@ export function showSetup(el) {
     $('[data-size]', fs(side)).innerHTML = `${t.lineup.length}<span class="sr"> batter${t.lineup.length === 1 ? '' : 's'}</span>`;
     $('[data-name]', fs(side)).value = t.name;
     $$('[data-pf]', fs(side)).forEach(i => { i.value = t.pitcher[i.dataset.pf]; });
+    chips(side);
+  }
+  // The starting pitcher can be picked from the order: a tap fills the number and name.
+  const same = (a, b) => (a.name && b.name ? a.name.toLowerCase() === b.name.toLowerCase() : !!a.num && a.num === b.num);
+  function chips(side) {
+    const t = T[side], list = t.lineup.map((p, i) => [i, p]).filter(([, p]) => p.name || p.num);
+    $('.from-order', fs(side)).innerHTML = list.length ? `<p class="pick-row" role="group" aria-label="From the order"><span>From the order:</span>${list.map(([i, p]) => `<button type="button" class="chip" data-pick="${i}" aria-pressed="${same(p, t.pitcher)}">${esc(p.name ? p.name + (p.num ? ' #' + p.num : '') : '#' + p.num)}</button>`).join('')}</p>` : '';
   }
   [0, 1].forEach(rows);
 
@@ -87,6 +95,7 @@ export function showSetup(el) {
     if (e.target.matches('[data-name]')) t.name = e.target.value.trim();
     if (e.target.dataset.f) t.lineup[+e.target.dataset.i][e.target.dataset.f] = e.target.value.trim();
     if (e.target.dataset.pf) t.pitcher[e.target.dataset.pf] = e.target.value.trim();
+    if (e.target.dataset.f || e.target.dataset.pf) chips(+f.dataset.side);
   });
   el.addEventListener('click', e => {
     const b = e.target.closest('button');
@@ -106,6 +115,12 @@ export function showSetup(el) {
       $('details', fs(side)).open = true;
     }
     if (b.matches('[data-paste]')) pasteSheet(side);
+    if (b.dataset.pick) {
+      const t = T[side];
+      t.pitcher = { ...t.lineup[+b.dataset.pick] };
+      $$('[data-pf]', fs(side)).forEach(i => { i.value = t.pitcher[i.dataset.pf]; });
+      chips(side);
+    }
   });
   // A plain button, not a form submission: inside another page's frame, forms can be switched off.
   const form = el.querySelector('form');

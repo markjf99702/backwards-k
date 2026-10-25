@@ -281,6 +281,8 @@ step('a pinch runner, and then the starter back in from Lineups: the same player
   assert.equal(await p.textContent('.sheet [data-back]'), 'Morris #21');
   await p.click('.sheet [data-back="0"]');
   assert.equal(await p.textContent('.ticker p'), 'Morris comes back in for Diaz.');
+  assert.match(await p.textContent('.sheet [data-slot="0"]'), /Earlier: Diaz/, 'back on the Lineups sheet');
+  await p.keyboard.press('Escape');
   const subs = async () => { const g = await stored(p, id); return [g.teams[0].lineup[0].map(x => x.name).join(), g.ev.filter(e => e.t === 'sub').map(e => e.i).join()]; };
   assert.deepEqual(await subs(), ['Morris,Diaz', '1,0']);
   await p.click('.bar .undo');
@@ -293,6 +295,51 @@ step('a pinch runner, and then the starter back in from Lineups: the same player
   await p.click('[data-v=card]');
   await p.click('[data-cs="0"]');
   assert.match(await p.textContent('.card tbody tr:first-child .names'), /^MorrisPR 1st Diazback 1st Morris$/);
+  await p.context().close();
+}
+
+step('a reliever picked from the batting order, and the pitcher’s day in plain words');
+{
+  const p = await phone();
+  await p.goto(base + '#/new');
+  await p.click('[data-side="1"] [data-paste]');
+  await p.fill('.sheet textarea', 'Emma 7, Liam 12, Noah, Olivia 22');
+  await p.click('[data-x=use]');
+  // The starting pitcher, picked from the order on the new game screen.
+  await p.click('[data-side="1"] .from-order [data-pick="3"]');
+  assert.deepEqual([await p.inputValue('[data-side="1"] [data-pf="num"]'), await p.inputValue('[data-side="1"] [data-pf="name"]')], ['22', 'Olivia']);
+  await p.click('[data-go]');
+  await p.waitForSelector('.live .field');
+  const id = await p.evaluate(() => location.hash.slice(4));
+  await p.click('[data-p=b]');
+  await p.click('[data-r=K]');
+  await p.click('[data-a=pitcher]');
+  assert.equal(await p.textContent('.sheet p.quiet'), '2 pitches (1 strike), 1 out, 1 batter faced, 0 hits, 0 runs, 0 walks, 1 strikeout.');
+  await p.click('.sheet [data-y=new]');
+  // Olivia is pitching already; everyone else in the order is a tap away.
+  assert.deepEqual(await p.$$eval('.sheet [data-pick]', b => b.map(x => x.textContent)), ['Emma #7', 'Liam #12', 'Noah']);
+  await p.click('.sheet [data-pick="1"]');
+  assert.deepEqual([await p.inputValue('.sheet [data-f=num]'), await p.inputValue('.sheet [data-f=name]')], ['12', 'Liam']);
+  await p.click('[data-x=go]');
+  assert.match(await p.textContent('.pitcher'), /Liam\s*0\s*pitches/);
+  assert.deepEqual((await stored(p, id)).teams[1].pitchers, [{ name: 'Olivia', num: '22' }, { name: 'Liam', num: '12' }]);
+  for (let i = 0; i < 4; i++) await p.click('[data-p=b]');
+  await p.click('[data-r=K]');
+  await p.click('[data-a=pitcher]');
+  assert.equal(await p.textContent('.sheet p.quiet'), '5 pitches (1 strike), 1 out, 2 batters faced, 0 hits, 0 runs, 1 walk, 1 strikeout.');
+  await p.keyboard.press('Escape');
+
+  step('two substitutions in a row from the Lineups sheet');
+  await p.click('[data-a=menu]');
+  await p.click('.sheet [data-y=lineup]');
+  for (const [slot, name] of [[1, 'Kim'], [2, 'Lee']]) {
+    await p.click(`.sheet [data-sub="${slot}"]`);
+    await p.fill('.sheet [data-f=name]', name);
+    await p.click('[data-x=go]');
+    assert.match(await p.textContent('.sheet h2'), /Lineups/, 'back on the Lineups sheet');
+    assert.equal(await p.getAttribute('.sheet [data-ls="0"]', 'aria-pressed'), 'true', 'on the same team');
+  }
+  assert.deepEqual((await stored(p, id)).ev.filter(e => e.t === 'sub').map(e => `${e.slot}:${e.i}`), ['1:1', '2:1']);
   await p.context().close();
 }
 

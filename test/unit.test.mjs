@@ -1,7 +1,7 @@
 // The rules of scoring, without a browser:  node --test test/unit.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { replay, suggest, check, runsCount, scoredAs, mark, now, columns, halfLabel, RESULTS } from '../js/engine.js';
+import { replay, suggest, check, runsCount, scoredAs, mark, now, columns, halfLabel, RESULTS, pitchDay, pitchStat } from '../js/engine.js';
 import { newGame, cleanGame, cleanDoc, parseLineup, parsePaste, takeBack, putBack, carryLineup } from '../js/model.js';
 import { sampleGame } from '../js/sample.js';
 // The card is drawn with ui.js, which looks for the page's sheet as it loads: here there's no page, so no sheet.
@@ -895,4 +895,15 @@ test('undoing someone brought back in keeps the player an earlier change still p
   assert.equal(g.teams[0].lineup[0].length, 2);
   putBack(g, r2);
   assert.deepEqual(g.teams[0].lineup[0].map(p => p.name), ['Morris', 'Diaz', 'Kim']);
+});
+
+test('a pitcher’s day in words: plurals, and outs below an inning said as outs', () => {
+  const st = { np: 1, str: 1, bf: 1, outs: 0, h: 1, r: 1, bb: 1, k: 1 };
+  assert.equal(pitchDay(st), '1 pitch (1 strike), no outs yet, 1 batter faced, 1 hit, 1 run, 1 walk, 1 strikeout.');
+  assert.equal(pitchDay({ ...st, outs: 2 }, false), '2 outs, 1 batter faced, 1 hit, 1 run, 1 walk, 1 strikeout.');
+  assert.equal(pitchDay({ ...st, np: 0, str: 0, outs: 3, h: 0, r: 2 }), '0 pitches (0 strikes), 1 inning, 1 batter faced, 0 hits, 2 runs, 1 walk, 1 strikeout.');
+  const S = replay(sampleGame(7)), w = pitchStat(S, 0, 0);
+  assert.equal(pitchDay(w), '106 pitches (69 strikes), 6 innings, 27 batters faced, 5 hits, 4 runs, 2 walks, 8 strikeouts.');
+  assert.match(pitchDay({ ...w, outs: 13 }), / 4 innings and 1 out, /);
+  assert.match(pitchDay({ ...w, outs: 5 }), / 1 inning and 2 outs, /);
 });

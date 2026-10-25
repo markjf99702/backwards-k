@@ -552,3 +552,11 @@ export function columns(S, side) {
 export const batKey = key;
 export const pitchStat = (S, side, i) => S.pitching[side][i] || { np: 0, balls: 0, str: 0, bf: 0, outs: 0, h: 0, r: 0, bb: 0, k: 0, hr: 0, hbp: 0, wp: 0, bk: 0 };
 export const ip = outs => Math.floor(outs / 3) + (outs % 3 ? '.' + (outs % 3) : '');
+// A pitcher's day so far, in words, from pitchStat: "43 pitches (33 strikes), 4 innings and 1 out, 13 batters faced,
+// 1 hit, 0 runs, 0 walks, 4 strikeouts." (The box score keeps the scorer's 4.1.) pitches: whether they're counted.
+export function pitchDay(st, pitches = true) {
+  const n = (k, one, many = one + 's') => `${k} ${k === 1 ? one : many}`;
+  const inn = Math.floor(st.outs / 3), outs = st.outs % 3;
+  const work = !st.outs ? 'no outs yet' : [inn ? n(inn, 'inning') : '', outs ? n(outs, 'out') : ''].filter(Boolean).join(' and ');
+  return `${pitches ? `${n(st.np, 'pitch', 'pitches')} (${n(st.str, 'strike')}), ` : ''}${work}, ${n(st.bf, 'batter')} faced, ${n(st.h, 'hit')}, ${n(st.r, 'run')}, ${n(st.bb, 'walk')}, ${n(st.k, 'strikeout')}.`;
+}
