@@ -1,5 +1,5 @@
 // The box score (batting and pitching lines for both teams) and the play-by-play.
-import { batKey, pitchStat, pitcherLabel, ip, teamName, label, player, ord, pitchWords, POS, RESULTS } from './engine.js';
+import { batKey, pitchStat, pitcherLabel, ip, teamName, label, player, ord, pitchWords, POS_NAME, RESULTS } from './engine.js';
 import { esc, KL } from './ui.js';
 import { abbr } from './card.js';
 
@@ -82,7 +82,8 @@ function notes(S, side) {
   });
   const arms = [...new Set([0, ...g.ev.filter(e => e.t === 'pch' && e.s === side).map(e => e.i)])].map(i => [pitcherLabel(g, side, i), pitchStat(S, side, i)]);
   const hit = S.cells.filter(c => c.side !== side && c.r === 'HBP');
-  const errs = names(S.errs[side].map(f => [f === 'CI' ? 'catcher’s interference' : POS[f] || 'fielder not given', 1]));
+  // By position, in words: "3B" beside the triples would read as one.
+  const errs = names(S.errs[side].map(f => [f === 'CI' ? 'catcher’s interference' : POS_NAME[f] || 'fielder not given', 1]));
   const [ph, pr] = pinch(S, side);
   const lines = [
     ['Pinch hitters', ph], ['Pinch runners', pr], ['Doubles', of('2B')], ['Triples', of('3B')], ['Home runs', of('HR')], ['Sacrifice flies', of('SF')], ['Sacrifice bunts', of('SAC')],

@@ -584,7 +584,7 @@ test('the notes under each team’s box score', () => {
     'Stolen bases: Brennan.', 'Caught stealing: Han.', 'Left on base: 0.',
   ]);
   assert.deepEqual(notes(1), [
-    'Triples: Batter 1.', 'Sacrifice bunts: Batter 2.', 'Left on base: 1.', 'Errors: catcher’s interference, 3B.',
+    'Triples: Batter 1.', 'Sacrifice bunts: Batter 2.', 'Left on base: 1.', 'Errors: catcher’s interference, third baseman.',
     'Wild pitches: Halvorsen.', 'Hit batters: Halvorsen (Brennan).', 'Balks: Bishop.',
   ]);
   // Batters faced, home runs, and pitches and strikes are columns of the pitching lines: IP H R BB K HR BF P-S.
