@@ -2,7 +2,7 @@
 // be changed once the game is going.
 import { newGame, blank, starters, today, parsePaste, carried, setField } from './model.js';
 import { store } from './store.js';
-import { $, $$, esc, openSheet, closeSheet, go, nextName, posField } from './ui.js';
+import { $, $$, esc, openSheet, closeSheet, go, nextName, posField, toast } from './ui.js';
 import { ord } from './engine.js';
 import { drive } from './sync.js';
 import { rulesRow, limitRow } from './rules.js';
@@ -184,12 +184,15 @@ export function showSetup(el) {
       g.teams[s].lineup = t.lineup.map(p => [{ ...p }]);
       g.teams[s].pitchers = [{ ...t.pitcher }];
     });
-    // Picked up partway through: the first event says from where, the runs so far and who's up.
-    const [inn, half] = form.from.value.split('.').map(Number);
-    if (inn > 1 || half) {
-      const runs = x => Math.min(99, Math.max(0, parseInt(x, 10) || 0));
-      g.ev.push({ t: 'join', inn, half, r: [runs(form.r0.value), runs(form.r1.value)], up: +form.lead.value || 0 });
+    // Picked up partway through: the first event says from where, the runs so far and who's up. (Not the bottom of the
+    // last inning with the home team ahead: that game was over.)
+    const [inn, half] = form.from.value.split('.').map(Number), runs = x => Math.min(99, Math.max(0, parseInt(x, 10) || 0));
+    const r = [runs(form.r0.value), runs(form.r1.value)];
+    if (half && inn >= opt.innings && r[1] > r[0]) {
+      toast('With the home team ahead in the bottom of the last inning, that game was over. Check the inning and the runs.', { ms: 6000 });
+      return;
     }
+    if (inn > 1 || half) g.ev.push({ t: 'join', inn, half, r, up: +form.lead.value || 0 });
     store.save(g);
     drive.changed();
     // Ask the browser to keep this site's games when it clears space (it decides; nothing to do with the answer).

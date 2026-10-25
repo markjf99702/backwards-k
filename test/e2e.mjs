@@ -2453,6 +2453,14 @@ step('starting partway through: from the bottom of the 3rd, with the runs so far
   await p.selectOption('[name=from]', '3.1');
   assert.equal(await p.textContent('[name=lead] option'), '1. Batter 1');
   assert.match(await p.textContent('details.partway'), /Who’s up for the Comets/);
+  // The bottom of the last inning with the home team ahead: that game was over.
+  await p.selectOption('[name=from]', '6.1');
+  await p.fill('[name=r0]', '2');
+  await p.fill('[name=r1]', '4');
+  await p.click('[data-go]');
+  assert.match(await shown(p), /that game was over/);
+  assert.equal(await p.evaluate(() => location.hash), '#/new');
+  await p.selectOption('[name=from]', '3.1');
   await p.fill('[name=r0]', '4');
   await p.fill('[name=r1]', '2');
   await p.selectOption('[name=lead]', '5');

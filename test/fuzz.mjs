@@ -544,7 +544,9 @@ for (let n = 0; n < GAMES; n++) {
   // A pitch limit in some (the box score's days of rest, and who can't catch).
   setup.limit = weighed(rnd, [[6, 0], [1, { by: 'll', age: '9-10', max: 75 }], [1, { by: 'ps', age: '15-16', max: 95 }], [1, { by: '', age: '', max: 40 }]]);
   // Picked up partway through in some, now and then in its last inning or in the home team's half.
+  // (Not in the bottom of the last inning with the home team ahead: that game was over, and New game says so.)
   if (rnd() < 0.15) setup.join = { inn: 1 + Math.floor(rnd() * setup.innings), half: rnd() < 0.5 ? 1 : 0, r: [Math.floor(rnd() * 8), Math.floor(rnd() * 8)], up: Math.floor(rnd() * setup.size[0]) % Math.min(...setup.size) };
+  if (setup.join && setup.join.half && setup.join.inn >= setup.innings && setup.join.r[1] > setup.join.r[0]) setup.join.r.reverse();
   // Make up the game a step at a time, keeping the steps the screen would take.
   const C = { setup, g: makeGame(setup), redo: [], kept: null, tapped: { e: null, r: '' } };
   save(C);
