@@ -2870,6 +2870,45 @@ step('season stats: a name in the box score, a box’s sheet, the batter’s and
   await p.context().close();
 }
 
+step('season stats: Pinch hitter and New pitcher offer the team’s players from its other games this season');
+{
+  const ST = await import('../js/stats.js');
+  const games = seasonOf();
+  // A new game: the Comets with three in the order, at the Foxes, who have Whitlock pitching.
+  const g = { ...sampleGame(1), id: 'gseason6', date: '2026-08-02', updated: 2000, ev: [], start: 0 };
+  g.teams = [{ name: 'Comets', lineup: ['Abernathy', 'Nakamura', 'Velez'].map(name => [{ name, num: '' }]), pitchers: [{ name: 'Halvorsen', num: '21' }] },
+    { name: 'Foxes', lineup: [[{ name: 'Ruiz', num: '2' }]], pitchers: [{ name: 'Whitlock', num: '33' }] }];
+  games.push(g);
+  const p = await seasonPhone(games);
+  await p.goto(base + '#/g/gseason6');
+  await p.waitForSelector('.live .field');
+  const chips = () => p.$$eval('.sheet [data-before]', l => l.map(c => c.textContent));
+  const label = x => x.name + (x.num ? ' #' + x.num : '');
+  // Pinch hitter: the Comets who played this season and aren't in this game, the most games first.
+  await p.click('[data-a=batter]');
+  await p.click('.sheet [data-y=ph]');
+  const bench = ST.earlier(games, g, 0);
+  assert.deepEqual(await chips(), bench.map(label));
+  assert.ok(bench.length >= 5 && !bench.some(x => ['Abernathy', 'Nakamura', 'Velez'].includes(x.name)));
+  await p.click('.sheet [data-before] >> text=Quinn');
+  assert.deepEqual([await p.inputValue('.sheet [data-f=name]'), await p.inputValue('.sheet [data-f=num]')], ['Quinn', '44']);
+  assert.equal(await p.getAttribute('.sheet [data-before] >> text=Quinn', 'aria-pressed'), 'true');
+  await p.click('.sheet [data-x=go]');
+  await p.waitForFunction(() => /Quinn/.test(document.querySelector('.batter')?.textContent || ''));
+  assert.deepEqual((await stored(p, g.id)).teams[0].lineup[0].map(x => x.name), ['Abernathy', 'Quinn']);
+  // New pitcher: the Foxes' pitchers from their other games, not Whitlock, who's pitching.
+  await p.click('[data-a=pitcher]');
+  await p.click('.sheet [data-y=new]');
+  const arms = ST.earlier(games, g, 1, { pitchers: true });
+  assert.ok(arms.length && !arms.some(x => x.name === 'Whitlock'));
+  assert.deepEqual(await chips(), arms.map(label));
+  await p.click(`.sheet [data-before="0"]`);
+  assert.equal(await p.inputValue('.sheet [data-f=name]'), arms[0].name);
+  await p.click('.sheet [data-x=go]');
+  await p.waitForFunction(name => (document.querySelector('.pitcher')?.textContent || '').includes(name), arms[0].name);
+  await p.context().close();
+}
+
 step('the offline copy lists every file the app needs, and each one is there');
 {
   const sw = await readFile(join(root, 'sw.js'), 'utf8');

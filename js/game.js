@@ -16,7 +16,7 @@ import { drive } from './sync.js';
 import { shareSheet, saveFile } from './share.js';
 import { helpSheet } from './help.js';
 import { rulesRow, limitRow } from './rules.js';
-import { teamHref } from './stats.js';
+import { teamHref, earlier as thisSeason } from './stats.js';
 
 // redo: what Undo took back, latest last. kept: what it took back before a new play went in, to put back after it
 // (see moved()).
@@ -1098,13 +1098,14 @@ function goneItem(side, slot, was) {
 // this spot before coming back in (a starter re-entering, or the runner who ran for him), as the same player.
 // done: what comes next (the Lineups sheet again, for several changes in a row); otherwise back to the game.
 function subForm(side, slot, ty, done) {
-  const p = blank(), was = label(player(G, side, slot, S.pl[side][slot]), slot), back = earlier(side, slot);
+  const p = blank(), was = label(player(G, side, slot, S.pl[side][slot]), slot), back = earlier(side, slot), before = fromBefore(side);
   const words = { ph: 'Pinch hitter', pr: 'Pinch runner', def: 'Substitute' };
   // Whoever comes in for a player who's on base runs for him there.
   const on = side === S.half ? [1, 2, 3].find(b => S.bases[b] && S.bases[b].slot === slot && S.bases[b].p === S.pl[side][slot]) : undefined;
   if (on) ty = 'pr';
   const body = openSheet(`<h2 id="sheetTitle">${words[ty]} <small>for ${esc(was)}</small></h2>
     ${back.length ? `<p class="pick-row"><span>Back in:</span>${back.map(([i, x]) => `<button type="button" class="chip" data-back="${i}">${esc(named(x, slot))}</button>`).join('')}</p>` : ''}
+    ${pickChips('Earlier this season', before, p, 'before')}
     ${nameFields(p, '', '', { pos: true })}
     <div class="chips wide" role="group" aria-label="What kind of substitution">${Object.entries(words).map(([k, w]) => `<button type="button" data-ty="${k}" aria-pressed="${k === ty}">${w}</button>`).join('')}</div>
     <p class="hint">${on ? `They run for ${esc(was)} on ${BASE[on]}, and take that spot in the batting order from now on.` : `They take ${esc(was)}’s place in the batting order from now on.`}</p>
@@ -1112,7 +1113,9 @@ function subForm(side, slot, ty, done) {
     <div class="row"><button type="button" class="btn quiet" data-close>Cancel</button><button type="button" class="btn primary" data-x="go">Put them in</button></div>`);
   $$('[data-f]', body).forEach(i => i.addEventListener('input', () => { setField(p, i.dataset.f, i.value); }));
   body.addEventListener('click', e => {
-    const t = e.target.closest('[data-ty]'), b = e.target.closest('[data-back]');
+    const t = e.target.closest('[data-ty]'), b = e.target.closest('[data-back]'), k = e.target.closest('[data-before]');
+    // Someone from an earlier game this season: his number and name go in.
+    if (k) { pickOne(body, k, before[+k.dataset.before][1], p); return; }
     if (e.target.closest('[data-y=gone]')) { closeSheet(); act({ t: 'gone', s: side, slot }); if (done) done(); return; }
     if (t) { ty = t.dataset.ty; $$('[data-ty]', body).forEach(x => x.setAttribute('aria-pressed', String(x.dataset.ty === ty))); body.querySelector('h2').firstChild.textContent = words[ty] + ' '; }
     if (b) {
@@ -1160,8 +1163,17 @@ function pitcherSheet(side) {
 }
 // The same person, by name, or by number when there's no name to go by.
 const samePerson = (a, b) => (a.name && b.name ? a.name.toLowerCase() === b.name.toLowerCase() : !!a.num && a.num === b.num);
-// Chips that fill a player's number and name from a list: [[key, player]], with the one now filled in pressed.
-const pickChips = (words, list, now) => (list.length ? `<p class="pick-row" role="group" aria-label="${esc(words)}"><span>${esc(words)}:</span>${list.map(([k, x]) => `<button type="button" class="chip" data-pick="${k}" aria-pressed="${samePerson(x, now)}">${esc(label(x, 0) + (x.name && x.num ? ' #' + x.num : ''))}</button>`).join('')}</p>` : '');
+// Chips that fill a player's number and name from a list: [[key, player]], with the one now filled in pressed. attr:
+// the chips' data- name, when a sheet has two rows of them.
+const pickChips = (words, list, now, attr = 'pick') => (list.length ? `<p class="pick-row" role="group" aria-label="${esc(words)}"><span>${esc(words)}:</span>${list.map(([k, x]) => `<button type="button" class="chip" data-${attr}="${k}" aria-pressed="${samePerson(x, now)}">${esc(label(x, 0) + (x.name && x.num ? ' #' + x.num : ''))}</button>`).join('')}</p>` : '');
+// The team's players from its other games this season who aren't in this one (stats.js), as chips' list: [[k, player]].
+// pitchers: those who pitched for it.
+const fromBefore = (side, pitchers = false) => thisSeason(store.all(), G, side, { pitchers, max: pitchers ? 8 : 12 }).map((x, k) => [k, x]);
+// A chip picked: its player's number and name go in the fields (and in p), and it's the one pressed.
+function pickOne(body, chip, x, p) {
+  for (const f of ['num', 'name']) { p[f] = x[f]; $(`[data-f=${f}]`, body).value = x[f]; }
+  $$('[data-pick], [data-before]', body).forEach(c => c.setAttribute('aria-pressed', String(c === chip)));
+}
 
 function newPitcher(side) {
   const p = blank(), t = G.teams[side];
@@ -1176,19 +1188,20 @@ function newPitcher(side) {
   // and the substitution in one go (Undo takes them back one at a time). Not for someone already in the order.
   const out = t.pitchers[S.pit[side]] || blank(), spot = out.name || out.num ? now.findIndex(x => x && samePerson(x, out)) : -1;
   const inOrder = () => now.some(x => x && samePerson(x, p));
+  // And who pitched for the team in its other games this season, and isn't in this one.
+  const before = fromBefore(side, true);
   const body = openSheet(`<h2 id="sheetTitle">New pitcher <small>for ${esc(teamName(G, side))}</small></h2>
     ${pickChips('From the order', order, p)}
+    ${pickChips('Pitched earlier this season', before, p, 'before')}
     ${nameFields(p)}
     ${spot < 0 ? '' : `<label class="switch double"><input type="checkbox" data-also><span>Also bats ${ord(spot + 1)} in place of ${esc(label(now[spot], spot))}<small>For a game without a DH: the batting order changes with the pitcher.</small></span></label>`}
     <div class="row"><button type="button" class="btn quiet" data-close>Cancel</button><button type="button" class="btn primary" data-x="go">Bring them in</button></div>`);
   const also = $('.double', body), shown = () => { if (also) also.hidden = inOrder(); };
   $$('[data-f]', body).forEach(i => i.addEventListener('input', () => { p[i.dataset.f] = i.value.trim(); shown(); }));
   body.addEventListener('click', e => {
-    const k = e.target.closest('[data-pick]');
-    if (k) {
-      const x = order.find(([slot]) => slot === +k.dataset.pick)[1];
-      for (const f of ['num', 'name']) { p[f] = x[f]; $(`[data-f=${f}]`, body).value = x[f]; }
-      $$('[data-pick]', body).forEach(c => c.setAttribute('aria-pressed', String(c === k)));
+    const k = e.target.closest('[data-pick]'), b = e.target.closest('[data-before]');
+    if (k || b) {
+      pickOne(body, k || b, k ? order.find(([slot]) => slot === +k.dataset.pick)[1] : before[+b.dataset.before][1], p);
       shown();
       return;
     }

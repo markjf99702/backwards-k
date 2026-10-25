@@ -103,14 +103,15 @@ written out in plain words.
 - **Lineups when you want them.** Start with two team names, and name batters as they come up, paste a lineup (from a
   group text or a game preview, starting pitcher included), or reuse a team from an earlier game (its starters, in the
   same spots). Pinch hitters and pitching changes are a tap on the batter or the pitcher (a reliever already in the
-  batting order is one more tap, with no typing, and with no DH a new one can take the batting spot of the pitcher
-  going out in the same go), and a pinch runner is a tap on the runner. A starter who comes back in (or the runner who
-  ran for him) goes back in as the same player, with one line in the box score. For a team that bats everyone, a
-  kid who goes home **left the game** (from the batter, or Sub in Lineups): her spot is skipped from then on, with no
-  out (Little League 4.04), and **Back in** puts it back. A **courtesy runner** is a tap on the runner too: only the
-  name on the base changes, and the player she ran for keeps her spot in the order, and the run and any steals.
-  Missed a trip to the plate, or batted out of turn? **Someone else is batting** (tap the batter) picks who's up, and
-  the order goes on from there, with the box passed over left empty.
+  batting order is one more tap, with no typing, and with no DH a new one can take the batting spot of the pitcher going
+  out in the same go), and a pinch runner is a tap on the runner. Each of these offers the team's players from its other
+  games this season who aren't in this one, so a kid on the bench is a tap too, not a name to type. A starter who comes
+  back in (or the runner who ran for him) goes back in as the same player, with one line in the box score. For a team
+  that bats everyone, a kid who goes home **left the game** (from the batter, or Sub in Lineups): her spot is skipped
+  from then on, with no out (Little League 4.04), and **Back in** puts it back. A **courtesy runner** is a tap on the
+  runner too: only the name on the base changes, and the player she ran for keeps her spot in the order, and the run and
+  any steals. Missed a trip to the plate, or batted out of turn? **Someone else is batting** (tap the batter) picks
+  who's up, and the order goes on from there, with the box passed over left empty.
 - **Got there late?** New game's **Starting partway through?** takes the half-inning you're picking it up in, each
   team's runs so far and who's up. The innings before are dashes on the line score and shaded on the card, the runs
   so far are in the score, and the box score says it was scored from, say, the bottom of the 3rd.
