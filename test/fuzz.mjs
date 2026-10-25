@@ -2,7 +2,8 @@
 // every tap:  node test/fuzz.mjs   (FUZZ_GAMES=1500 for a long run, FUZZ_SEED=n to start from another seed)
 //
 // Each game is seeded, so a run is the same every time. A step is what a tap on the game screen does (js/game.js):
-// a pitch, a result with its fielders and the runners sheet (check(), scoredAs() and "did the run count", where a
+// a pitch or an automatic ball or strike (the pitch clock), a result with its fielders (or where a hit went) and the
+// runners sheet (check(), scoredAs() and "did the run count", where a
 // runner was put out and how one took an extra base), Fix runners, a runner's steal, pickoff, wild pitch, defensive
 // indifference, balk or courtesy runner, a substitution or someone back in, a player who left the game and came back
 // (a continuous order), someone else batting than the order says, a pitching change, a
