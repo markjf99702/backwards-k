@@ -119,11 +119,12 @@ written out in plain words.
   #2", the box score "Ruiz SS", and the fielders to tap after a ground out have their names under their numbers, for
   anyone who knows the kids but not the numbers.
 - **Each team's season, and a page for each player.** Under **Teams** on the first screen, a team's page adds up
-  every game of its on this device (and those Google Drive brings): batting (G, PA, AB, R, H, 2B, 3B, HR, RBI, BB, K,
-  HBP, SB, CS, and AVG, OBP, SLG and OPS, worked out as OBR 9.21 has them) and pitching (G, W, L, S, IP, BF, H, R, ER,
-  ERA, BB, K, HR, pitches and strike %), with a heading to tap to sort by it, its games, and a season to pick (a team
-  is its name in one year, whatever the capitals; Every year puts its seasons together). With a pitch limit by league
-  age, **Pitching this week** has who pitched in the last 7 days, how many pitches, and the day each can pitch again.
+  every game of its on this device (and those Google Drive brings), once its first play is in: batting (G, PA, AB, R,
+  H, 2B, 3B, HR, RBI, BB, K, HBP, SB, CS, and AVG, OBP, SLG and OPS, worked out as OBR 9.21 has them) and pitching (G,
+  W, L, S, IP, BF, H, R, ER, ERA, BB, K, HR, pitches and strike %), with a heading to tap to sort by it, its games, and
+  a season to pick (a team is its name in one year, whatever the capitals; Every year puts its seasons together). With
+  a pitch limit by league age, **Pitching this week** has who pitched in the last 7 days, how many pitches, and the day
+  each can pitch again.
   Tap a player (on the team's page, in a game's box score, or on his box's, the batter's or the pitcher's sheet) for
   his season: his line, each game with his boxes from the card, where his hits went, his pitching
   by date (with the win, loss or save, and the days of rest), **Copy the season as text** for a group chat or the

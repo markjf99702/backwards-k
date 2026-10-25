@@ -14,6 +14,9 @@ export function personKey(p) {
   return n || (num ? '#' + num : '');
 }
 const year = g => String(g.date).slice(0, 4);
+// The games a season is made of: those with a play in them. One set up ahead (its lineups typed in the night before)
+// isn't a game played yet, and its players haven't played in it.
+const played = games => games.filter(g => g.ev.length);
 
 // A team's page, a season of it ('all' for every year), and one of its players, as an address: #/team/Tigers/2026/Emma.
 // The player goes by his name, or #4.
@@ -80,12 +83,12 @@ export function gameLines(g) {
 }
 
 // ---------- the teams ----------
-// Every team in the games here with a name, for the home screen, without playing a game back: its name as it was
+// Every team in the games played here with a name, for the home screen, without playing a game back: its name as it was
 // written most often, how many games it has in each year, and its latest game's date. Latest season first, then the
 // team with the most games in it.
 export function teamList(games) {
   const by = new Map();
-  for (const g of games.slice().sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))) for (const t of g.teams) {
+  for (const g of played(games).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))) for (const t of g.teams) {
     const k = teamKey(t.name);
     if (!k) continue;
     const x = by.get(k) || { key: k, spelt: new Map(), years: {}, last: '' }, as = t.name.trim().replace(/\s+/g, ' ');
@@ -101,14 +104,14 @@ export function teamList(games) {
     .sort((a, b) => (a.year < b.year ? 1 : a.year > b.year ? -1 : b.n - a.n || (a.last < b.last ? 1 : a.last > b.last ? -1 : 0)));
 }
 
-// A team's season (yr: '2026', or 'all' for every year; none: its latest), from every game it played here:
+// A team's season (yr: '2026', or 'all' for every year; none: its latest), from every game it played here (played()):
 // { name, key, years: every year it has games, newest first, yr, games: the game log, newest first,
 //   record: { w, l, t }, bat: [player], pit: [player], tot: { bat, pit } }
 // A player: { key, name, num, pos: { SS: 3 } (the positions he was put at, and how often), order (where he usually
 // bats), bat: the season's line, pit: the pitching line, days: [{ game, line, cells }] and arms: [{ game, line, rest,
 // ready }] game by game }. Players with no name or number are added up in one row of their own (key '').
 export function season(games, name, yr) {
-  const key = teamKey(name), mine = games.filter(g => g.teams.some(t => teamKey(t.name) === key));
+  const key = teamKey(name), mine = played(games).filter(g => g.teams.some(t => teamKey(t.name) === key));
   const years = [...new Set(mine.map(year))].sort().reverse();
   const latest = years[0] || String(new Date().getFullYear());
   if (yr !== 'all' && !years.includes(yr)) yr = latest;

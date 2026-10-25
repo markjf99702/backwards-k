@@ -2528,6 +2528,19 @@ test('a season: players with no name are added up in one row; each game is playe
   assert.notEqual(ST.gameLines(g), a, 'played back again once it changed');
 });
 
+test('a season: a game set up ahead, with nothing scored yet, isn’t in it, though its lineup is there to pick from', () => {
+  // Next Saturday's game, its lineups typed in tonight: no game played, no game for Ruiz, and not the last one.
+  const ahead = seasonGame({ date: '2026-05-16', bats: [[...FOX, 'Quinn'], []], arms: [['Whitlock'], []] });
+  const games = [...seasonGames(), ahead], T = ST.season(games, 'Foxes'), r = T.bat.find(x => x.key === 'ruiz');
+  assert.deepEqual([T.games.length, T.tot.bat.g, r.bat.g, r.days.at(-1).game.date], [2, 2, 2, '2026-05-09']);
+  assert.match(ST.seasonText(T, r), /\nLast game, .+ vs Bears: 1 for 1, a triple, a run\.$/);
+  assert.equal(T.bat.some(x => x.key === 'quinn'), false);
+  assert.deepEqual(ST.teamList([ahead]), [], 'nor a team on the home screen');
+  // (A pinch hitter later this season can still be picked from it.)
+  const later = seasonGame({ date: '2026-05-23', bats: [FOX, []] });
+  assert.ok(ST.earlier(games, later, 0).some(x => x.name === 'Quinn'));
+});
+
 test('the teams on the home screen, and players from earlier games for the substitution sheets', () => {
   const games = seasonGames();
   games.push(seasonGame({ date: '2026-05-30', away: '', home: 'Comets' }, ...threeK));
