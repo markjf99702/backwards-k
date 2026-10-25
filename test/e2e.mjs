@@ -980,6 +980,20 @@ step('the keyboard stays where it was after each tap, and comes back when a shee
   await p.keyboard.press('Enter');
   assert.equal(await on('[data-cs="1"]'), true, 'still on Whose card');
   await p.context().close();
+  // Without pitch buttons (pitches not counted), a runner who's gone hands the keyboard to the first result.
+  const q = await phone();
+  await q.goto(base + '#/new');
+  await q.fill('[data-side="0"] [data-name]', 'Owls');
+  await q.uncheck('input[name=pitches]');
+  await q.click('[data-go]');
+  await q.waitForSelector('.live .field');
+  await q.click('[data-r="1B"]');
+  await q.focus('[data-runner="1"]');
+  await q.keyboard.press('Enter');
+  await q.focus('.sheet [data-k=SB]');
+  await q.keyboard.press('Enter');
+  assert.equal(await q.evaluate(() => document.activeElement.matches('.live [data-r="1B"]')), true, 'no pitch buttons: on to the first result');
+  await q.context().close();
 }
 
 step('each screen says what it is, and the keyboard lands on its heading');

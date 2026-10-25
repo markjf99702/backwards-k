@@ -225,7 +225,7 @@ function keepFocus(paint) {
   const sel = k ? `[data-${k}="${a.dataset[k]}"]` : null;
   paint();
   if (!had || (a.isConnected && document.activeElement === a)) return;
-  const el = [sel && $(sel, root), $('[data-p]', root), $('.live [data-r]:not(:disabled)', root), $('.final [data-a]', root)].find(x => x && !x.disabled);
+  const el = [sel && $(sel, root), $('.live [data-p]', root), $('.live [data-r]:not(:disabled)', root), $('.final [data-a]', root)].find(x => x && !x.disabled);
   if (el) el.focus({ preventScroll: true });
 }
 
