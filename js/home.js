@@ -3,8 +3,9 @@ import { replay, teamName, halfLabel } from './engine.js';
 import { store } from './store.js';
 import { $, esc, fmtDate, toast, download, pickFile, inFrame, ICON, whyNot } from './ui.js';
 import { today, cleanGame } from './model.js';
+import { cellSvg } from './card.js';
 import { drive } from './sync.js';
-import { helpSheet } from './help.js';
+import { helpSheet, FIRST } from './help.js';
 
 // The 20 games changed last are listed, and the rest after a tap on Show all (remembered until the page is reloaded).
 const FEW = 20;
@@ -38,6 +39,10 @@ export function showHome(el) {
         <p>Tap what happened. Backwards K moves the runners, keeps the count, the outs and the score, and fills in a real scorecard as you go.</p>
         <a class="btn primary big" href="#/new">Score a new game</a>
       </section>
+      ${games.length ? '' : `<figure class="first-look">
+        <div>${FIRST.map(([c, t]) => `<div><div class="cell-pic">${cellSvg(c, { count: false })}</div><span>${t}</span></div>`).join('')}</div>
+        <figcaption>Every box on the card is one trip to the plate, drawn the way it’s done on paper.</figcaption>
+      </figure>`}
       <section class="games">
         <h2>Your games</h2>
         ${games.length ? `<ul class="game-list">${listed.map(item).join('')}</ul>`

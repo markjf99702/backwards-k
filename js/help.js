@@ -16,6 +16,8 @@ const EXAMPLES = [
   [box({ r: 'E', mark: 'E6', reach: 1 }), 'Reached first on an error by the shortstop.'],
   [box({ r: 'DP', mark: '6-4-3 DP', outN: 2 }), 'Grounded into a double play, short to second to first.'],
 ];
+// Four of them, each in a few words, for the first screen before there are any games: what the card looks like.
+export const FIRST = [[EXAMPLES[0][0], 'Singled and scored'], [EXAMPLES[1][0], 'Walked'], [EXAMPLES[4][0], 'Struck out looking'], [EXAMPLES[5][0], 'Short to first']];
 
 export function helpSheet() {
   openSheet(`<h2 id="sheetTitle">How to read the card</h2>

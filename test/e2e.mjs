@@ -2085,6 +2085,21 @@ step('the sheets’ chips, the card’s team switch and the steppers are each 44
   await p.context().close();
 }
 
+step('a first visit: four boxes from a card under Score a new game, each with what it says');
+{
+  const p = await phone();
+  await p.goto(base);
+  await p.waitForSelector('.hero');
+  const look = await p.$$eval('.first-look > div > div', l => l.map(x => `${x.querySelectorAll('.cell-pic svg.cs').length}:${x.querySelector('span').textContent}`));
+  assert.deepEqual(look, ['1:Singled and scored', '1:Walked', '1:Struck out looking', '1:Short to first']);
+  assert.match(await p.textContent('.first-look svg text.big.k'), /K/, 'the backwards K is drawn');
+  await startGame(p);
+  await p.goto(base);
+  await p.waitForSelector('.gi');
+  assert.equal(await p.locator('.first-look').count(), 0, 'gone once there’s a game');
+  await p.context().close();
+}
+
 step('tablet sizes: side by side, nothing sideways');
 for (const [w, h] of [[820, 1180], [1180, 820]]) {
   await page.setViewportSize({ width: w, height: h });

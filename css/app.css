@@ -215,6 +215,12 @@ h1[tabindex="-1"]:focus { outline: none; } /* a screen's heading, given the keyb
 .hero h1 { font: 900 44px/.95 var(--board-font); letter-spacing: .01em; text-transform: uppercase; margin-bottom: 12px; }
 .hero p { font-size: 18px; color: var(--ink-2); max-width: 34em; margin-bottom: 18px; }
 .home section + section { margin-top: 26px; }
+/* No games yet: four boxes from a card, each with what it says. */
+.first-look { margin: 6px 2px 26px; }
+.first-look > div { display: grid; grid-template-columns: repeat(4, minmax(0, 76px)); gap: 12px; }
+.first-look > div > div { display: grid; gap: 6px; align-content: start; }
+.first-look span { font-size: 14px; line-height: 1.2; color: var(--ink-2); }
+.first-look figcaption { margin-top: 10px; color: var(--muted); font-size: 15px; }
 .home h2 { font: 800 22px/1.1 var(--board-font); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 10px; }
 .game-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .games .more { margin-top: 10px; }
