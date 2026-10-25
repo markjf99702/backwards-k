@@ -726,6 +726,27 @@ test('a game survives being tidied (from a file or a link) unchanged', () => {
   assert.deepEqual(Object.keys(cleanDoc({ games: { x: g } }).games), [g.id]);
 });
 
+// Games from elsewhere (a file someone edited, another app): odd ones read back sensibly, and the same every time.
+test('a game from a file with a long number, someone listed twice in a play, or four outs on one play', () => {
+  // A number written as a number is cut to its field like one written as text, so tidying it again changes nothing.
+  const g = game();
+  g.teams[0].lineup[0][0] = { name: 12345, num: 1000000000 };
+  const c = cleanGame(JSON.parse(JSON.stringify(g)));
+  assert.deepEqual(c.teams[0].lineup[0][0], { name: '12345', num: '1000' });
+  assert.deepEqual(cleanGame(c), c);
+  // The batter listed twice: he goes to first, once, and the runs and the boxes agree.
+  let S = play(game(), '3B', { t: 'pa', r: '1B', m: [[0, 1], [3, 4], [0, 2]] });
+  assert.deepEqual([S.R[0], S.cells.filter(c => c.scored).length, S.bases.map(Boolean)], [1, 1, [false, true, false, false]]);
+  assert.equal(S.text.at(-1), 'Batter 2 singles. Batter 1 scores.');
+  // A runner listed twice in a steal moves once; and nothing happens on a play after its third out.
+  S = play(game(), '1B', { t: 'r', m: [[1, 2, 'SB'], [1, 2, 'SB']] });
+  assert.deepEqual([S.bat['0.0.0'].sb, S.bases.map(Boolean)], [1, [false, false, true, false]]);
+  S = play(game(), '3B', 'BB', 'K', 'K', { t: 'r', m: [[3, 0, 'CS', [2, 5]], [1, 0, 'PO', [1, 3]]] });
+  assert.deepEqual([S.half, S.outs, S.lob[0][0]], [1, 0, 1], 'one out, the third; the runner on first is left on');
+  assert.equal(S.plays.findLast(p => p.kind === 'end').text, 'End of the top of the 1st: Foxes 0, Comets 0.');
+  assert.deepEqual(proof(S, 0, 1), [4, 4]);
+});
+
 // A game with every kind of event the game screen makes, each the way it makes it: pitches, plays (with and without
 // fielders, and a run that doesn't count), runners moving (a steal, several on one wild pitch, a balk, an error by a
 // fielder, caught stealing with the throw, a pickoff, a passed ball, moved up, out on the bases), a pinch runner, a

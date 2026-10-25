@@ -23,7 +23,7 @@ export function newGame({ away = '', home = '', innings = 9, size = 9, pitches =
   return { id: 'g' + uid(), created: t, updated: t, date, place, innings, pitches, teams: [newTeam(away, size), newTeam(home, size)], ev: [] };
 }
 
-const str = (v, max = 60) => (typeof v === 'string' ? v.slice(0, max) : typeof v === 'number' ? String(v) : '');
+const str = (v, max = 60) => (typeof v === 'string' || typeof v === 'number' ? String(v).slice(0, max) : '');
 const int = (v, lo, hi, d) => (Number.isFinite(+v) ? Math.min(hi, Math.max(lo, Math.round(+v))) : d);
 const cleanPlayer = p => ({ name: str(p && p.name), num: str(p && p.num, 4) });
 const cleanList = (a, f) => (Array.isArray(a) ? a.map(f) : []);

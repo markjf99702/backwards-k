@@ -284,9 +284,12 @@ function pa(S, e) {
   const bits = [], scored = [], waved = [];
   const together = (names, one, more) => { if (!names.length) bits.push(() => `${list(names)} ${names.length > 1 ? more : one}`); };
   let runs = 0, bOut = false, bTo = R.go, handed = null;
+  // (A play from a file that lists someone twice moves them once: the first time.)
+  const moved = new Set();
   for (const [from, to] of moves) {
     const r = from === 0 ? batter : S.bases[from];
-    if (!r) continue;
+    if (!r || moved.has(from)) continue;
+    moved.add(from);
     if (from) S.bases[from] = null;
     // A batter who reaches without a hit while a runner another pitcher let on is put out takes that runner's place:
     // he's that pitcher's (OBR 9.16(g)). The runners go first, so the batter comes last.
@@ -364,9 +367,12 @@ function runners(S, e) {
   const bits = [], scored = {};
   let runs = 0, err = null;
   const balk = moves.length && moves.every(m => m[2] === 'BK');
+  // (From a file: a runner listed twice moves once, and nothing happens after the third out.)
+  const moved = new Set();
   for (const [from, to, how, f] of moves) {
     const r = S.bases[from];
-    if (!r) continue;
+    if (!r || moved.has(from) || S.outs >= 3) continue;
+    moved.add(from);
     // Someone who didn't move is still on that base (the runners ahead go first): this runner stays put.
     if (to >= 1 && to <= 3 && to !== from && S.bases[to]) continue;
     S.bases[from] = null;
