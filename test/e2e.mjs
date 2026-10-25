@@ -326,6 +326,40 @@ step('naming a lineup: Enter goes to the next batter’s name, past the number')
   await p.context().close();
 }
 
+step('names are typed as they are: no autocorrect or spell check on a name, a team or a place');
+{
+  const p = await phone();
+  // Every one of these fields on screen (or in the sheet), and each one's autocorrect, spell check and capitals.
+  const fields = sel => p.$$eval(sel, l => l.map(i => `${i.spellcheck}/${i.getAttribute('autocorrect')}/${i.getAttribute('autocapitalize')}`));
+  const plain = async (what, sel, caps = 'words') => {
+    const got = await fields(sel);
+    assert.ok(got.length, `${what}: there are some`);
+    assert.deepEqual([...new Set(got)], [`false/off/${caps}`], what);
+  };
+  await p.goto(base + '#/new');
+  await plain('new game', '[data-name], .lineup-edit [data-f=name], [data-pf=name], [name=place]');
+  await p.click('[data-side="0"] [data-paste]');
+  await plain('a pasted lineup', '.sheet textarea', null);
+  await p.click('.sheet [data-close]');
+  await p.fill('[data-side="0"] [data-name]', 'Owls');
+  await p.click('[data-go]');
+  await p.waitForSelector('.live .field');
+  await p.click('[data-a=batter]');
+  await plain('the batter', '.sheet [data-f=name]');
+  await p.click('.sheet [data-close]');
+  await p.click('[data-a=pitcher]');
+  await plain('the pitcher', '.sheet [data-f=name]');
+  await p.click('.sheet [data-close]');
+  await p.click('[data-a=menu]');
+  await p.click('.sheet [data-y=lineup]');
+  await plain('Lineups', '.sheet [data-f=name], .sheet [data-team]');
+  await p.click('.sheet [data-close]');
+  await p.click('[data-a=menu]');
+  await p.click('.sheet [data-y=settings]');
+  await plain('Game settings', '.sheet [data-t], .sheet [data-g=place]');
+  await p.context().close();
+}
+
 step('the next new game starts with the last game’s innings and pitch counting');
 {
   const p = await phone();

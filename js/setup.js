@@ -46,7 +46,7 @@ export function showSetup(el) {
           <label class="switch"><input type="checkbox" name="pitches"${opt.pitches ? ' checked' : ''}><span>Count balls and strikes<small>Keeps the count and each pitcher’s pitch count. Turn it off to only tap what each batter did.</small></span></label>
           <div class="two-sm">
             <label><span>Date</span><input type="date" name="date" value="${opt.date}"></label>
-            <label><span>Where</span><input name="place" maxlength="80" placeholder="Optional"></label>
+            <label><span>Where</span><input name="place" maxlength="80" placeholder="Optional" autocapitalize="words" autocorrect="off" spellcheck="false"></label>
           </div>
         </fieldset>
         <button class="btn primary big" type="button" data-go>Play ball</button>
@@ -57,7 +57,7 @@ export function showSetup(el) {
   function teamHtml(side) {
     return `<fieldset class="team-set card-box" data-side="${side}">
       <legend><b>${side ? 'Home team' : 'Visitors'}</b> <small>${side ? 'bats second' : 'bats first'}</small></legend>
-      <input class="team-name-in" data-name maxlength="40" placeholder="${side ? 'Home' : 'Visitors'}" aria-label="${side ? 'Home team' : 'Visitors'} name" autocapitalize="words">
+      <input class="team-name-in" data-name maxlength="40" placeholder="${side ? 'Home' : 'Visitors'}" aria-label="${side ? 'Home team' : 'Visitors'} name" autocapitalize="words" autocorrect="off" spellcheck="false">
       ${past.length ? `<p class="past-teams"><span>Teams from before:</span>${past.map((t, i) => `<button type="button" class="chip" data-past="${i}">${esc(t.name)}</button>`).join('')}</p>` : ''}
       <div class="stepper"><span class="st">Batters in the order<button type="button" class="link-btn" data-paste aria-label="Paste a lineup for the ${side ? 'home team' : 'visitors'}">Paste a lineup</button></span><button type="button" data-step="-1" aria-label="One fewer batter">−</button><b data-size role="status">9</b><button type="button" data-step="1" aria-label="One more batter">+</button></div>
       <details class="lineup">
@@ -65,7 +65,7 @@ export function showSetup(el) {
         <ol class="lineup-edit"></ol>
         <div class="name-row pitcher-row"><span class="lbl">Starting pitcher</span>
           <label class="num"><span>No.</span><input data-pf="num" inputmode="numeric" maxlength="4" aria-label="Starting pitcher number"></label>
-          <label class="nm"><span>Name</span><input data-pf="name" maxlength="40" placeholder="Optional" autocapitalize="words" aria-label="Starting pitcher name"></label>
+          <label class="nm"><span>Name</span><input data-pf="name" maxlength="40" placeholder="Optional" autocapitalize="words" autocorrect="off" spellcheck="false" aria-label="Starting pitcher name"></label>
         </div>
         <div class="from-order"></div>
       </details>
@@ -76,7 +76,7 @@ export function showSetup(el) {
     const t = T[side], ol = $('.lineup-edit', fs(side));
     ol.innerHTML = t.lineup.map((p, i) => `<li><span class="ord">${i + 1}</span><div class="name-row">
         <label class="num"><span>No.</span><input data-i="${i}" data-f="num" inputmode="numeric" maxlength="4" value="${esc(p.num)}" aria-label="Batter ${i + 1} number"></label>
-        <label class="nm"><span>Name</span><input data-i="${i}" data-f="name" maxlength="40" value="${esc(p.name)}" placeholder="Batter ${i + 1}" autocapitalize="words" enterkeyhint="${i < t.lineup.length - 1 ? 'next' : 'done'}" aria-label="Batter ${i + 1} name"></label>
+        <label class="nm"><span>Name</span><input data-i="${i}" data-f="name" maxlength="40" value="${esc(p.name)}" placeholder="Batter ${i + 1}" autocapitalize="words" autocorrect="off" spellcheck="false" enterkeyhint="${i < t.lineup.length - 1 ? 'next' : 'done'}" aria-label="Batter ${i + 1} name"></label>
       </div></li>`).join('');
     $('[data-size]', fs(side)).innerHTML = `${t.lineup.length}<span class="sr"> batter${t.lineup.length === 1 ? '' : 's'}</span>`;
     $('[data-name]', fs(side)).value = t.name;
@@ -147,7 +147,7 @@ export function showSetup(el) {
   function pasteSheet(side) {
     const body = openSheet(`<h2 id="sheetTitle">Paste a lineup</h2>
       <p class="hint">One player per line, in batting order. Names separated by commas work too. Jersey numbers are picked up: “12 Ruiz” or “Ruiz #12”. A lineup copied from a game preview works as it is: the 1 to 9 down the side, positions and (L) or (R) are left out, and the pitcher (SP, or “Pitcher: Okafor”) goes in as the starting pitcher.</p>
-      <textarea rows="10" data-focus placeholder="Ruiz #2&#10;Okafor #11&#10;Brennan #24"></textarea>
+      <textarea rows="10" data-focus autocorrect="off" spellcheck="false" placeholder="Ruiz #2&#10;Okafor #11&#10;Brennan #24"></textarea>
       <div class="row"><button type="button" class="btn quiet" data-close>Cancel</button><button type="button" class="btn primary" data-x="use">Use these</button></div>`);
     body.addEventListener('click', ev => {
       if (!ev.target.closest('[data-x=use]')) return;

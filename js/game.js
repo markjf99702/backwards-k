@@ -708,12 +708,14 @@ function jam(moves) {
 }
 
 // ---------- who's batting and pitching ----------
+// A name's field is left alone by a phone's keyboard: no autocorrect (which turns Jaxon into Jason as the space after
+// it is typed) and no red underline, just a capital at the start of each word. Team and place names too.
 // who: whose fields these are, when a list has many ("Batter 3"), so each says so ("Batter 3 name").
 function nameFields(p, prefix = '', who = '') {
   const named = w => (who ? ` aria-label="${esc(`${who} ${w}`)}"` : '');
   return `<div class="name-row">
     <label class="num"><span>No.</span><input ${prefix}data-f="num" inputmode="numeric" maxlength="4" value="${esc(p.num)}" autocomplete="off"${named('number')}></label>
-    <label class="nm"><span>Name</span><input ${prefix}data-f="name" maxlength="40" value="${esc(p.name)}" autocomplete="off" autocapitalize="words" placeholder="Optional"${named('name')}></label>
+    <label class="nm"><span>Name</span><input ${prefix}data-f="name" maxlength="40" value="${esc(p.name)}" autocomplete="off" autocapitalize="words" autocorrect="off" spellcheck="false" placeholder="Optional"${named('name')}></label>
   </div>`;
 }
 function bindName(body, p, sel = '') {
@@ -856,7 +858,7 @@ function lineupSheet(side = S.half, { focus, top } = {}) {
   if (top == null) top = was && was.querySelector('[data-ls]') ? was.scrollTop : 0;
   const body = openSheet(`<h2 id="sheetTitle">Lineups</h2>
     <div class="seg" role="group" aria-label="Team">${[0, 1].map(s => `<button type="button" data-ls="${s}" aria-pressed="${s === side}">${esc(teamName(G, s))}</button>`).join('')}</div>
-    <label class="team-name"><span>Team name</span><input data-team maxlength="40" value="${esc(t.name)}" placeholder="${side ? 'Home' : 'Visitors'}"></label>
+    <label class="team-name"><span>Team name</span><input data-team maxlength="40" value="${esc(t.name)}" placeholder="${side ? 'Home' : 'Visitors'}" autocapitalize="words" autocorrect="off" spellcheck="false"></label>
     <ol class="lineup-edit">${Array.from({ length: S.size[side] }, (_, slot) => {
       const list = t.lineup[slot], cur = S.pl[side][slot] ?? 0, p = list[cur];
       const before = earlier(side, slot).map(([, x]) => label(x, slot));
@@ -931,11 +933,11 @@ function settingsSheet() {
   ].filter(Boolean).join(' ');
   const body = openSheet(`<h2 id="sheetTitle">Game settings</h2>
     <div class="form">
-      <label><span>Visitors</span><input data-t="0" maxlength="40" value="${esc(G.teams[0].name)}" placeholder="Visitors"></label>
-      <label><span>Home team</span><input data-t="1" maxlength="40" value="${esc(G.teams[1].name)}" placeholder="Home"></label>
+      <label><span>Visitors</span><input data-t="0" maxlength="40" value="${esc(G.teams[0].name)}" placeholder="Visitors" autocapitalize="words" autocorrect="off" spellcheck="false"></label>
+      <label><span>Home team</span><input data-t="1" maxlength="40" value="${esc(G.teams[1].name)}" placeholder="Home" autocapitalize="words" autocorrect="off" spellcheck="false"></label>
       <label><span>Innings</span><select data-g="innings">${[3, 4, 5, 6, 7, 8, 9, 10, 12].map(n => `<option${n === G.innings ? ' selected' : n < S.inn || (n === S.inn && led) ? ' disabled' : ''}>${n}</option>`).join('')}</select>${notes ? `<small>${esc(notes)}</small>` : ''}</label>
       <label><span>Date</span><input type="date" data-g="date" value="${esc(G.date)}"></label>
-      <label><span>Where</span><input data-g="place" maxlength="80" value="${esc(G.place)}" placeholder="Optional"></label>
+      <label><span>Where</span><input data-g="place" maxlength="80" value="${esc(G.place)}" placeholder="Optional" autocapitalize="words" autocorrect="off" spellcheck="false"></label>
       <label class="switch"><input type="checkbox" data-g="pitches"${G.pitches ? ' checked' : ''}><span>Count balls and strikes<small>Keeps the count and each pitcher’s pitch count.</small></span></label>
     </div>
     <div class="row"><button type="button" class="btn primary" data-close>Done</button></div>`);
