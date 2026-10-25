@@ -25,6 +25,9 @@ written out in plain words.
   the same wild pitch or throw goes in as one play.
 - **Tap the field for the fielders.** For a ground out, tap the shortstop and then the first baseman, and the card
   says 6-3. Or skip it. On a keyboard, type their numbers and press Enter.
+- **Or score from a keyboard,** at a laptop or watching on TV: B ball, C called strike, S swinging strike, F foul; 1
+  to 4 for a single to a home run; W walk, H hit by pitch, E error; K strikeout (Shift+K looking), G ground out, Y fly
+  out, L line out, P pop out; M for More, and U or Ctrl+Z (⌘Z) to undo. G, 6, 3, Enter is a 6-3.
 - **The scorecard fills itself in.** Each box has the path around the bases, the out number, the count and the RBIs,
   and a strikeout looking gets its backwards K. Tap any box to read what happened. A box can also be switched to
   another kind of out or another way of reaching base, and have its fielders changed; anything else is a job for

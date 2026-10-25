@@ -247,7 +247,7 @@ function frame() {
         <a class="back" href="#/" aria-label="All games"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
         <div class="title"></div>
         <button type="button" class="cloud bar-btn" hidden></button>
-        ${readOnly ? '' : `<button type="button" class="bar-btn undo" data-a="undo" aria-label="Undo"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M9 14L4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Undo</span></button>`}
+        ${readOnly ? '' : `<button type="button" class="bar-btn undo" data-a="undo" aria-label="Undo" aria-keyshortcuts="U Control+Z Meta+Z"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M9 14L4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Undo</span></button>`}
         ${readOnly ? '' : `<button type="button" class="bar-btn" data-a="menu" aria-label="Game menu"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><circle cx="5" cy="12" r="2.2" fill="currentColor"/><circle cx="12" cy="12" r="2.2" fill="currentColor"/><circle cx="19" cy="12" r="2.2" fill="currentColor"/></svg></button>`}
       </div>
     </header>
@@ -447,12 +447,13 @@ function liveHtml() {
     SF: S.bases[3] && S.outs < 2, SAC: runnersOn(S).length && S.outs < 2, DP: runnersOn(S).length && S.outs < 2,
     FC: runnersOn(S).length,
   };
-  const res = (code, big, small) => `<button type="button" class="res r-${RESULTS[code].kind}" data-r="${code}"${code in can && !can[code] ? ' disabled' : ''}><b>${big}</b><span>${small}</span></button>`;
+  const key = k => (k ? ` aria-keyshortcuts="${k}"` : '');
+  const res = (code, big, small) => `<button type="button" class="res r-${RESULTS[code].kind}" data-r="${code}"${key(KEY_OF[code])}${code in can && !can[code] ? ' disabled' : ''}><b>${big}</b><span>${small}</span></button>`;
   const pitches = g.pitches ? `<div class="pad pitches" role="group" aria-label="Pitches">
-      <button type="button" class="pt ball" data-p="b"><b>Ball</b></button>
-      <button type="button" class="pt" data-p="c"><b>Strike</b><span>looking</span></button>
-      <button type="button" class="pt" data-p="s"><b>Strike</b><span>swinging</span></button>
-      <button type="button" class="pt" data-p="f"><b>Foul</b></button>
+      <button type="button" class="pt ball" data-p="b"${key('B')}><b>Ball</b></button>
+      <button type="button" class="pt" data-p="c"${key('C')}><b>Strike</b><span>looking</span></button>
+      <button type="button" class="pt" data-p="s"${key('S')}><b>Strike</b><span>swinging</span></button>
+      <button type="button" class="pt" data-p="f"${key('F')}><b>Foul</b></button>
     </div>` : '';
   return `${bug}<div class="field-col">${field}${ticker}</div>
     <div class="pads">
@@ -462,7 +463,7 @@ function liveHtml() {
       <div class="row4 g-on" role="group" aria-label="On base without a hit">${res('BB', 'BB', 'Walk')}${res('HBP', 'HBP', 'Hit by pitch')}${res('E', 'E', 'Error')}${res('FC', 'FC', 'Fielder’s choice')}</div>
       <div class="row4 g-out" role="group" aria-label="Outs">${res('K', 'K', 'Strikeout')}${res('KL', KL, 'Strikeout looking')}${res('GO', 'G', 'Ground out')}${res('FO', 'F', 'Fly out')}
         ${res('LO', 'L', 'Line out')}${res('PU', 'P', 'Pop out')}${res('SF', 'SF', 'Sac fly')}${res('SAC', 'SAC', 'Sac bunt')}
-        ${res('DP', 'DP', 'Double play')}<button type="button" class="res r-more" data-a="more"><b>More</b><span>Intentional walk, dropped third strike, end the inning</span></button></div>
+        ${res('DP', 'DP', 'Double play')}<button type="button" class="res r-more" data-a="more"${key('M')}><b>More</b><span>Intentional walk, dropped third strike, end the inning</span></button></div>
     </div>
     </div>
     <div class="recent"><h3>Latest plays</h3>${playsHtml(S, { limit: 5 })}</div>`;
@@ -501,6 +502,31 @@ function onClick(e) {
     case 'on': return act({ t: 'on' });
   }
 }
+
+// ---------- scoring from a keyboard ----------
+// For a scorer at a laptop, or following on TV: a key for each pitch and the everyday results, More, and Undo. Only
+// with no sheet open and nothing being typed in; a sheet that opens (the fielders, say) takes its own keys, so G 6 3
+// Enter scores a 6-3.
+const KEYS_TO = { b: ['p', 'b'], c: ['p', 'c'], s: ['p', 's'], f: ['p', 'f'], 1: ['r', '1B'], 2: ['r', '2B'], 3: ['r', '3B'], 4: ['r', 'HR'],
+  w: ['r', 'BB'], h: ['r', 'HBP'], e: ['r', 'E'], k: ['r', 'K'], K: ['r', 'KL'], g: ['r', 'GO'], y: ['r', 'FO'], l: ['r', 'LO'], p: ['r', 'PU'], m: ['a', 'more'], u: ['a', 'undo'] };
+const KEY_OF = { '1B': '1', '2B': '2', '3B': '3', HR: '4', BB: 'W', HBP: 'H', E: 'E', K: 'K', KL: 'Shift+K', GO: 'G', FO: 'Y', LO: 'L', PU: 'P' };
+document.addEventListener('keydown', e => {
+  if (!root || readOnly || e.defaultPrevented || e.altKey || e.isComposing || sheetOpen()) return;
+  if (e.target.closest && e.target.closest('input, textarea, select, [contenteditable]')) return;
+  const k = e.key.length === 1 ? e.key.toLowerCase() : '';
+  const [what, v] = (e.ctrlKey || e.metaKey ? (k === 'z' && !e.shiftKey ? KEYS_TO.u : null) : KEYS_TO[k === 'k' && e.shiftKey ? 'K' : k]) || [];
+  if (!what) return;
+  // (Pitches, results and More only while their buttons are on screen and the game is going.)
+  if (what !== 'a' || v !== 'undo') {
+    const b = $(`.live ${what === 'p' ? `[data-p="${v}"]` : what === 'r' ? `[data-r="${v}"]` : '[data-a=more]'}`, root);
+    if (!b || b.disabled) return;
+  }
+  e.preventDefault();
+  if (what === 'p') act({ t: 'p', k: v });
+  else if (what === 'r') choose(v);
+  else if (v === 'more') moreSheet();
+  else undo();
+});
 
 // ---------- a plate appearance: result, then fielders, then where the runners went ----------
 function choose(code, f) {

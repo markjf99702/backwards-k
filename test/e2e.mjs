@@ -1173,6 +1173,45 @@ step('a ground out 6-3 from a keyboard alone: Enter and Space pick the fielders'
   await p.context().close();
 }
 
+step('scoring from a keyboard: a key for each pitch and the everyday results, and G 6 3 Enter for a 6-3');
+{
+  const p = await phone();
+  const id = await startGame(p);
+  const keys = async (...k) => { for (const x of k) await p.keyboard.press(x); };
+  await keys('b', 'c', 's', 'f');
+  assert.equal(await tickerOf(p), 'Foul (1-2)');
+  await keys('1');
+  assert.equal(await tickerOf(p), 'Batter 1 singles.');
+  await keys('k', 'Shift+K');
+  assert.equal(await tickerOf(p), 'Batter 3 strikes out looking.');
+  // With two out the batter's out is all there is: the fielders by number, then Enter.
+  await keys('g');
+  await p.waitForSelector('.sheet .pick');
+  await keys('6', '3', 'Enter');
+  assert.equal(await tickerOf(p), 'Batter 4 grounds out, short to first (6-3).');
+  assert.equal(await plays(p, id), 'p p p p pa1B paK paKL paGO');
+  await keys('u');
+  await keys('Control+z');
+  assert.equal(await plays(p, id), 'p p p p pa1B paK');
+  // A fielder's number that finishes a pop out isn't a hit as well (3 is a triple on the game screen).
+  await keys('k', 'p', '3');
+  assert.equal(await tickerOf(p), 'Batter 4 pops out to first (P3).');
+  assert.equal(await plays(p, id), 'p p p p pa1B paK paK paPU');
+  // Nothing happens while a sheet is open or a name is being typed; M opens More.
+  await p.click('.batter');
+  await p.focus('.sheet [data-f=name]');
+  await p.keyboard.type('Bk');
+  await p.click('.sheet [data-close]');
+  assert.equal(await p.textContent('.batter span'), 'Bk');
+  await keys('m');
+  assert.equal(await p.textContent('.sheet h2'), 'Something else');
+  await keys('b', 'Escape');
+  assert.equal(await plays(p, id), 'p p p p pa1B paK paK paPU');
+  // The buttons say their keys, for a screen reader.
+  assert.deepEqual(await p.$$eval('[data-p=b], [data-r=KL], [data-r=FO], .bar .undo', b => b.map(x => x.getAttribute('aria-keyshortcuts'))), ['U Control+Z Meta+Z', 'B', 'Shift+K', 'Y']);
+  await p.context().close();
+}
+
 step('fewer taps: a double play with one runner on, and a triple play with two, save with no runners sheet');
 {
   const p = await phone(), id = await startGame(p);
