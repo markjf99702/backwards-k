@@ -1741,6 +1741,26 @@ for (const [n, e] of [[1, { t: 'pa', r: 'ZZ', m: [[0, 1]] }], [2, { t: 'xr', b: 
   await p.context().close();
 }
 
+step('a team from a game a newer Backwards K saved starts a game this one can score');
+{
+  // Its players have something this version doesn't know (where they play, say): the new game gets their names and
+  // numbers, and nothing that would make it look-only.
+  const g = sampleUntil(7, S => S.inn === 2);
+  g.id = 'gnewerteam';
+  for (const t of g.teams) for (const x of [...t.lineup.flat(), ...t.pitchers]) x.pos = 'SS';
+  const p = await playing(g, undefined, '.shared-bar');
+  await p.goto(base + '#/new');
+  await p.click('[data-side="0"] [data-past="0"]');
+  await p.click('[data-go]');
+  await p.waitForSelector('.live .field');
+  assert.equal(await p.locator('.shared-bar').count(), 0, 'not look-only');
+  assert.equal(await p.locator('[data-r="1B"]').isVisible(), true, 'and scoring goes on');
+  const id = await p.evaluate(() => location.hash.slice(4)), mine = await stored(p, id);
+  assert.equal(mine.teams[0].lineup[0][0].name, g.teams[0].lineup[0][0].name);
+  assert.deepEqual([...new Set([...mine.teams[0].lineup.flat(), ...mine.teams[0].pitchers].map(x => Object.keys(x).join()))], ['name,num']);
+  await p.context().close();
+}
+
 step('tablet sizes: side by side, nothing sideways');
 for (const [w, h] of [[820, 1180], [1180, 820]]) {
   await page.setViewportSize({ width: w, height: h });
