@@ -2510,6 +2510,14 @@ test('a season: a loss, a game still going, earned runs, the loss and the save, 
   assert.deepEqual(ST.thisWeek(T, '2026-05-30'), [], 'nobody pitched in the last 7 days');
 });
 
+test('a season: a tie that counts is in the record; a game called before it counted isn’t', () => {
+  // 0-0 after two innings, over on the time limit; and one rained out in the 1st of six.
+  const tie = seasonGame({ date: '2026-05-23', innings: 2 }, ...threeK, ...threeK, ...threeK, ...threeK, { t: 'end', why: 'time' });
+  const rain = seasonGame({ date: '2026-05-24', innings: 6 }, ...threeK, { t: 'end' });
+  const T = ST.season([tie, rain], 'Foxes');
+  assert.deepEqual([T.record, T.games.map(x => x.result || x.status)], [{ w: 0, l: 0, t: 1 }, ['Called', 'T']]);
+});
+
 test('a season: a courtesy runner’s run and steal are the player’s she ran for, and she has no line of her own', () => {
   const g = seasonGame({ date: '2026-05-23', bats: [FOX, []] }, '1B', { t: 'cr', s: 0, b: 1, name: 'Speedy', num: '' }, { t: 'r', m: [[1, 2, 'SB']] }, '2B', 'K', 'K', 'K', ...threeK);
   const T = ST.season([g], 'Foxes'), r = T.bat.find(x => x.key === 'ruiz');
