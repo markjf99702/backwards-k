@@ -534,6 +534,10 @@ details.lineup summary small { color: var(--muted); font-weight: 400; }
 .stats tfoot th, .stats tfoot td { font-weight: 800; border-bottom: 0; }
 .stats small { color: var(--muted); font-size: 12px; display: block; }
 .extras p { font-size: 15px; color: var(--ink-2); margin-bottom: 4px; }
+/* The batter sheet's Today: each trip, then what it adds up to. */
+.today { margin-top: 14px; display: grid; gap: 4px; }
+.today p { margin: 0; }
+.today span { white-space: nowrap; }
 
 .plays .half { margin-bottom: 14px; }
 .plays h3, .recent .half h3 { font: 800 17px/1.1 var(--board-font); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }

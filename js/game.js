@@ -7,7 +7,7 @@ import {
 import { store } from './store.js';
 import { blank, takeBack, putBack } from './model.js';
 import { cardHtml, lineHtml, cellSvg } from './card.js';
-import { boxHtml, playsHtml } from './box.js';
+import { boxHtml, playsHtml, dayOf } from './box.js';
 import { infieldSvg, fieldSvg, BASE_AT } from './field.js';
 import { $, $$, esc, openSheet, closeSheet, toast, KL, markHtml, fmtDate, go, inFrame, nextName } from './ui.js';
 import { drive } from './sync.js';
@@ -678,10 +678,11 @@ function bindName(body, p, sel = '') {
 
 function batterSheet() {
   const n = now(S), p = G.teams[n.side].lineup[n.slot][n.p];
-  const st = S.bat[`${n.side}.${n.slot}.${n.p}`];
+  // Their day so far, for the parent whose kid just walked up: every trip in order, then what it adds up to.
+  const day = dayOf(S, n.side, n.slot, n.p);
   const body = openSheet(`<h2 id="sheetTitle">At bat <small>${ord(n.slot + 1)} in the order for ${esc(teamName(G, n.side))}</small></h2>
     ${nameFields(p)}
-    ${st ? `<p class="quiet">Today: ${st.h} for ${st.ab}${st.bb ? `, ${st.bb} walk${st.bb > 1 ? 's' : ''}` : ''}${st.rbi ? `, ${st.rbi} RBI` : ''}.</p>` : ''}
+    ${day.line ? `<div class="today"><p><b>Today</b> ${day.trips.map(t => `<span>${ord(t.inn)}: ${markHtml(t.r, t.mark)}, ${esc(t.words)}</span>`).join(' · ')}</p><p class="quiet">${esc(day.line)}.</p></div>` : ''}
     <div class="list">
       <button type="button" class="li" data-y="ph"><b>Pinch hitter</b><span>Someone else bats in this spot.</span></button>
       <button type="button" class="li" data-y="lineup"><b>The whole lineup</b><span>Names, numbers and substitutions for both teams.</span></button>

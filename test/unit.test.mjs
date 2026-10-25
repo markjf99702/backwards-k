@@ -7,7 +7,7 @@ import { sampleGame } from '../js/sample.js';
 // The card is drawn with ui.js, which looks for the page's sheet as it loads: here there's no page, so no sheet.
 globalThis.document ??= { readyState: 'complete', getElementById: () => null };
 const { lineHtml, cellSvg, cardHtml } = await import('../js/card.js');
-const { playsHtml, boxHtml } = await import('../js/box.js');
+const { playsHtml, boxHtml, dayOf } = await import('../js/box.js');
 
 const game = (opts = {}) => newGame({ away: 'Foxes', home: 'Comets', ...opts });
 // Plays one event after another, filling in the suggested runner moves the way the app does.
@@ -906,4 +906,17 @@ test('a pitcher’s day in words: plurals, and outs below an inning said as outs
   assert.equal(pitchDay(w), '106 pitches (69 strikes), 6 innings, 27 batters faced, 5 hits, 4 runs, 2 walks, 8 strikeouts.');
   assert.match(pitchDay({ ...w, outs: 13 }), / 4 innings and 1 out, /);
   assert.match(pitchDay({ ...w, outs: 5 }), / 1 inning and 2 outs, /);
+});
+
+test('a batter’s day: each trip in order, and only what isn’t zero', () => {
+  const g = game();
+  // Batter 1 walks, steals second and third, and scores on a single; then strikes out looking his next time up.
+  play(g, 'BB', { t: 'r', m: [[1, 2, 'SB']] }, { t: 'r', m: [[2, 3, 'SB']] }, '1B', 'K', 'K', 'GO 6 3', ...threeK, '2B', 'K', 'K', '1B', 'KL');
+  const S = replay(g);
+  assert.deepEqual(dayOf(S, 0, 0, 0), {
+    trips: [{ inn: 1, r: 'BB', mark: 'BB', words: 'walk' }, { inn: 2, r: 'KL', mark: 'KL', words: 'strikeout looking' }],
+    line: '0 for 1, a run, a walk, 2 stolen bases, a strikeout',
+  });
+  assert.equal(dayOf(S, 0, 1, 0).line, '1 for 1, an RBI');
+  assert.deepEqual(dayOf(S, 1, 5, 0), { trips: [], line: '' }, 'not up yet');
 });

@@ -1,5 +1,5 @@
 // The box score (batting and pitching lines for both teams) and the play-by-play.
-import { batKey, pitchStat, pitcherLabel, ip, teamName, label, player, ord, pitchWords, POS } from './engine.js';
+import { batKey, pitchStat, pitcherLabel, ip, teamName, label, player, ord, pitchWords, POS, RESULTS } from './engine.js';
 import { esc, KL } from './ui.js';
 import { abbr } from './card.js';
 
@@ -65,6 +65,19 @@ function notes(S, side) {
     ['Balks', names(arms.map(([n, p]) => [n, p.bk]))], ['Batters faced', arms.filter(([, p]) => p.bf).map(([n, p]) => `${n} ${p.bf}`).join(', ')],
   ];
   return lines.filter(([, t]) => t).map(([w, t]) => `<p><b>${w}:</b> ${esc(t)}.</p>`).join('');
+}
+
+// How one player's day is going, for the batter sheet: each trip to the plate in order (its inning, mark and words),
+// and a line that adds up, naming only what isn't zero: "1 for 2, a walk, a run, 2 stolen bases".
+export function dayOf(S, side, slot, p) {
+  const trips = S.cells.filter(c => c.side === side && c.slot === slot && c.p === p)
+    .map(c => ({ inn: c.inn, r: c.r, mark: c.mark, words: (RESULTS[c.r] || { label: '' }).label.toLowerCase() }));
+  const b = S.bat[batKey(side, slot, p)];
+  if (!b) return { trips, line: '' };
+  const n = (k, one, many) => k && (k === 1 ? one : `${k} ${many}`);
+  const line = [`${b.h} for ${b.ab}`, n(b.r, 'a run', 'runs'), n(b.rbi, 'an RBI', 'RBI'), n(b.bb, 'a walk', 'walks'),
+    n(b.hbp, 'hit by a pitch', 'times hit by a pitch'), n(b.sb, 'a stolen base', 'stolen bases'), n(b.k, 'a strikeout', 'strikeouts')];
+  return { trips, line: line.filter(Boolean).join(', ') };
 }
 
 export function boxHtml(S) {
