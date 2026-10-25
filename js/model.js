@@ -1,7 +1,7 @@
 // What a game looks like when it's saved, and how to tidy one that came from a file, a link or Google Drive.
 //
-// A game: { id, created, updated, date, place, innings, pitches, rules, tie, limit, start, tz, teams: [visitors, home],
-// ev: [events] }
+// A game: { id, created, updated, date, place, innings, pitches, rules, tie, limit, spray, start, tz,
+// teams: [visitors, home], ev: [events] }
 // (A game scored from partway through starts with { t: 'join', inn, half, r: [runs, runs], up }: see engine.js.)
 // tie: the first inning that starts with a runner on second (extra innings, OBR 7.01(b)), or 0 for none.
 // limit: a pitch limit, or 0 for none: { by: 'll' (Little League), 'ps' (Pitch Smart) or '' (a number), age: the
@@ -9,6 +9,8 @@
 // rules: the league's rules, or null: { set: 'll', 'minors' or 'custom' (which ones, for Game settings), runs: the
 // most runs a half-inning (0 for no limit), last: that limit holds in the last inning too, all: every run on the play
 // that reaches it counts, mercy: [[innings, runs ahead], ...] } (engine.js plays them)
+// spray: each hit asks where it went (the fielder it went to, in the play's f), for "singles to left" and the line on
+// the card; off, a hit asks nothing more, as before.
 // start: when the first pitch was scored (milliseconds, 0 before it), and tz: the time zone it was scored in (minutes
 // ahead of UTC), so the box score reads the ballpark's clock wherever it's opened. Each event from the first pitch on
 // has at: when it was scored, in seconds since then.
@@ -33,9 +35,9 @@ export function newTeam(name = '', size = 9) {
   return { name, lineup: Array.from({ length: size }, () => [blank()]), pitchers: [blank()] };
 }
 
-export function newGame({ away = '', home = '', innings = 9, size = 9, pitches = true, rules = null, tie = 0, limit = 0, date = today(), place = '' } = {}) {
+export function newGame({ away = '', home = '', innings = 9, size = 9, pitches = true, rules = null, tie = 0, limit = 0, spray = false, date = today(), place = '' } = {}) {
   const t = Date.now();
-  return { id: 'g' + uid(), created: t, updated: t, date, place, innings, pitches, rules, tie, limit, start: 0, tz: 0, teams: [newTeam(away, size), newTeam(home, size)], ev: [] };
+  return { id: 'g' + uid(), created: t, updated: t, date, place, innings, pitches, rules, tie, limit, spray, start: 0, tz: 0, teams: [newTeam(away, size), newTeam(home, size)], ev: [] };
 }
 
 const str = (v, max = 60) => (typeof v === 'string' || typeof v === 'number' ? String(v).slice(0, max) : '');
@@ -44,7 +46,7 @@ const int = (v, lo, hi, d) => (Number.isFinite(+v) ? Math.min(hi, Math.max(lo, M
 // What this version knows: the values on a game, a team, a player and each kind of event, and the kinds of pitch and
 // substitution.
 const KNOWN = new Map(Object.entries({
-  game: ['id', 'created', 'updated', 'date', 'place', 'innings', 'pitches', 'rules', 'tie', 'limit', 'start', 'tz', 'teams', 'ev'],
+  game: ['id', 'created', 'updated', 'date', 'place', 'innings', 'pitches', 'rules', 'tie', 'limit', 'spray', 'start', 'tz', 'teams', 'ev'],
   team: ['name', 'lineup', 'pitchers'], player: ['name', 'num', 'pos'], rules: ['set', 'runs', 'last', 'all', 'mercy'], limit: ['by', 'age', 'max'],
   // (Every kind of event has at, when it was scored.)
   p: ['t', 'k', 'v', 'at'], pa: ['t', 'r', 'f', 'm', 'x', 'at'], r: ['t', 'm', 'at'], sub: ['t', 's', 'slot', 'i', 'ty', 'at'], pch: ['t', 's', 'i', 'at'],
@@ -193,7 +195,7 @@ export function cleanGame(g) {
     created: int(g.created, 0, 9e15, t), updated: int(g.updated, 0, 9e15, t),
     date: /^\d{4}-\d{2}-\d{2}$/.test(g.date) ? g.date : today(),
     place: str(g.place, 80), innings: int(g.innings, 1, 30, 9), pitches: g.pitches !== false, rules: cleanRules(g.rules), tie: int(g.tie, 0, 30, 0), limit: cleanLimit(g.limit),
-    start: int(g.start, 0, 9e15, 0), tz: int(g.tz, -840, 840, 0), teams, ev: ok, ...more(g, KNOWN.get('game'), 2000),
+    spray: g.spray === true, start: int(g.start, 0, 9e15, 0), tz: int(g.tz, -840, 840, 0), teams, ev: ok, ...more(g, KNOWN.get('game'), 2000),
   };
 }
 
@@ -354,7 +356,7 @@ export function merge(a, b, seen = null) {
     pitchers: t.pitchers.map((p, j) => (n.pitchers[j] ? same(p, n.pitchers[j]) : p)),
   });
   const game = {
-    ...from, date: newer.date, place: newer.place, innings: newer.innings, pitches: newer.pitches, rules: newer.rules, tie: newer.tie, limit: newer.limit,
+    ...from, date: newer.date, place: newer.place, innings: newer.innings, pitches: newer.pitches, rules: newer.rules, tie: newer.tie, limit: newer.limit, spray: newer.spray,
     teams: from.teams.map((t, s) => named(t, newer.teams[s])), updated: now,
   };
   return { game: canon({ ...game, updated: 0 }) === canon({ ...newer, updated: 0 }) ? newer : game, second: null };

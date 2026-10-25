@@ -2868,6 +2868,63 @@ step('a page the older sw.js put together from two versions reloads itself, once
   }
 }
 
+step('Ask where hits went: a hit asks, one tap or Skip, and the plays say where');
+{
+  const p = await phone();
+  await p.goto(base + '#/new');
+  // Off to start with, so a hit is still one tap.
+  assert.equal(await p.isChecked('[name=spray]'), false);
+  await p.check('[name=spray]');
+  await p.fill('[data-side="0"] [data-name]', 'Owls');
+  await p.click('[data-go]');
+  await p.waitForSelector('.live .field');
+  const id = await p.evaluate(() => location.hash.slice(4));
+  await p.click('[data-r="1B"]');
+  assert.equal(await p.textContent('.sheet h2'), 'Single: where did it go?');
+  assert.equal(await p.locator('.sheet [data-x=done]').count(), 0, 'one tap, no Done');
+  await p.click('.sheet [data-pos="7"]');
+  // Nobody on: it goes straight in.
+  assert.match(await tickerOf(p), /^Batter 1 singles to left\./);
+  assert.deepEqual((await stored(p, id)).ev.at(-1).f, [7]);
+  // From a keyboard: 2 for a double, then 8 for center. A runner on: the runners sheet says where it went.
+  await p.keyboard.press('2');
+  await p.waitForSelector('.sheet .pick');
+  await p.keyboard.press('8');
+  await p.waitForSelector('.sheet .moves');
+  assert.equal(await p.textContent('.sheet h2'), 'Double to center');
+  await p.click('[data-x=save]');
+  assert.match(await tickerOf(p), /^Batter 2 doubles to center\./);
+  // Skip: nothing more said than before.
+  await p.click('[data-r="HR"]');
+  await p.click('.sheet [data-x=skip]');
+  assert.equal(await p.textContent('.sheet h2'), 'Home run');
+  await p.click('[data-x=save]');
+  assert.match(await tickerOf(p), /^Batter 3 hits a home run\./);
+  // A box: where it went can be changed, and the change has its own Undo.
+  await p.click('[data-v=card]');
+  await p.click('[data-cell="0"]');
+  assert.equal(await p.textContent('.sheet [data-y=w]'), 'Change where it went (left)');
+  await p.click('.sheet [data-y=w]');
+  await p.click('.sheet [data-pos="9"]');
+  assert.match(await seen(p), /^Changed to single to right\./);
+  assert.match(await p.textContent('.sheet'), /Batter 1 singles to right\./);
+  await p.click('.sheet [data-close]');
+  // The next new game starts with it on, as the last one had it.
+  await p.goto(base + '#/new');
+  assert.equal(await p.isChecked('[name=spray]'), true);
+  // Turned off in Game settings: a hit goes in with one tap again.
+  await p.goto(base + '#/g/' + id);
+  await p.click('[data-a=menu]');
+  await p.click('[data-y=settings]');
+  await p.uncheck('.sheet [data-g=spray]');
+  await p.click('.sheet [data-close]');
+  await p.click('[data-r="1B"]');
+  assert.equal(await p.locator('.sheet .pick').count(), 0);
+  assert.match(await tickerOf(p), /^Batter 4 singles\./);
+  assert.equal((await stored(p, id)).spray, false);
+  await p.context().close();
+}
+
 assert.deepEqual(problems.filter(p => !p.startsWith('failed:')), [], 'problems while using it');
 await browser.close();
 server.close();

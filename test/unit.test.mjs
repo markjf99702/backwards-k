@@ -1351,6 +1351,37 @@ test('the fielder picker has each fielder where he stands: the third baseman by 
   assert.ok(at(5)[0] < home[0] && at(7)[0] < home[0] && at(3)[0] > home[0] && at(9)[0] > home[0], 'the left side on the left');
 });
 
+test('a hit says where it went, when the scorer said: singles to left, and the card’s mark is still 1B', () => {
+  const g = game();
+  const S = play(g, '1B 7', '2B 8', 'HR 9', '1B 6', '1B 1', '3B');
+  assert.deepEqual(S.cells.map(c => c.text.split('.')[0]), ['Batter 1 singles to left', 'Batter 2 doubles to center', 'Batter 3 hits a home run to right',
+    'Batter 4 singles to short', 'Batter 5 singles to the pitcher', 'Batter 6 triples']);
+  assert.deepEqual(S.cells.map(c => c.mark), ['1B', '2B', 'HR', '1B', '1B', '3B']);
+  assert.deepEqual(dayOf(S, 0, 0, 0).trips.map(t => t.words), ['single to left']);
+  assert.deepEqual(dayOf(S, 0, 5, 0).trips.map(t => t.words), ['triple']);
+  // A walk-off double that counts as a single still went where it went.
+  const w = game({ innings: 1 });
+  play(w, 'K', 'K', 'K', '3B');
+  const W = play(w, { t: 'pa', r: '2B', f: [9], m: [[0, 2], [3, 4]] });
+  assert.match(W.cells.at(-1).text, /^Batter 2 singles to right\. .*It went for a double, but counts as a single/);
+});
+
+test('Ask where hits went is a setting of the game: off to start with, kept, and taken from the copy changed last', () => {
+  assert.equal(newGame().spray, false);
+  const g = game({ spray: true });
+  play(g, '1B 7');
+  const c = cleanGame(JSON.parse(JSON.stringify(g)));
+  assert.deepEqual(c, g);
+  assert.equal(c.spray, true);
+  assert.deepEqual(c.ev[0].f, [7]);
+  assert.equal(newer(c), false);
+  assert.equal(cleanGame({ ...JSON.parse(JSON.stringify(g)), spray: 'yes' }).spray, false, 'only true turns it on');
+  // Two copies made one: the settings of the one changed last, this one among them.
+  const later = { ...structuredClone(g), spray: false, updated: g.updated + 5 };
+  later.ev.push({ t: 'pa', r: 'K', m: [[0, 0], [1, 1]] });
+  assert.equal(merge(g, later).game.spray, false);
+});
+
 test('a link changed on its way, or cut short, doesn’t open as another game', async () => {
   const { pack, unpack } = await import('../js/share.js');
   const g = sampleGame(7), json = JSON.stringify(g), link = await pack(g);

@@ -235,7 +235,7 @@ function run(C, a) {
       const group = e.t === 'pa' ? SAME.find(gr => gr.includes(e.r)) : e.t === 'p' && !e.v && (c.r === 'K' || c.r === 'KL') ? ['K', 'KL'] : null;
       if (!group || !group.includes(a.to) || a.to === c.r || (e.t === 'pa' && cantBe(C, c, e)[a.to])) return false;
       if (e.t === 'p') e.k = a.to === 'KL' ? 'c' : 's';
-      else { e.r = a.to; if (!RESULTS[e.r].f) delete e.f; else if (a.f) e.f = a.f; }
+      else { const hit = RESULTS[e.r].kind === 'hit'; e.r = a.to; if (!RESULTS[e.r].f || hit !== (RESULTS[e.r].kind === 'hit')) delete e.f; if (RESULTS[e.r].f && a.f) e.f = a.f; }
       if (C.tapped.e === e) C.tapped.r = e.r;
       save(C);
       return { fixed: c.ev, ev: structuredClone(e) };
@@ -250,6 +250,8 @@ const LIKELY = [[21, '1B'], [6, '2B'], [1, '3B'], [3.5, 'HR'], [9, 'BB'], [1, 'I
 const opts = from => [0, ...[1, 2, 3, 4].filter(b => b >= Math.max(from, 1))];
 function fielders(rnd, code) {
   const R = RESULTS[code];
+  // (A hit, in a game that asks where hits went: the fielder it went to.)
+  if (R.kind === 'hit') return rnd() < 0.5 ? [1 + Math.floor(rnd() * 9)] : null;
   if (!R.f || rnd() < 0.25) return null;
   return Array.from({ length: R.f === 1 ? 1 : 1 + Math.floor(rnd() * 3) }, () => 1 + Math.floor(rnd() * 9));
 }

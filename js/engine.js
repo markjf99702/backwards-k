@@ -10,8 +10,9 @@
 
 export const POS = ['', 'P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF'];
 export const POS_NAME = ['', 'pitcher', 'catcher', 'first baseman', 'second baseman', 'third baseman', 'shortstop', 'left fielder', 'center fielder', 'right fielder'];
-// Where a ball went (to WHERE) and who threw it (FROM): flies out to center; short to first.
+// Where a ball went (to WHERE) and who threw it (FROM): flies out to center; short to first; singles to left.
 const WHERE = ['', 'the pitcher', 'the catcher', 'first', 'second', 'third', 'short', 'left', 'center', 'right'];
+export const toWhere = n => WHERE[n] || '';
 const FROM = ['', 'pitcher', 'catcher', 'first', 'second', 'third', 'short', 'left', 'center', 'right'];
 export const BASE = ['home', 'first', 'second', 'third', 'home'];
 
@@ -631,6 +632,8 @@ function scorers(names, win, why = '') {
 
 function fielderWords(code, f) {
   if (!f || !f.length) return '';
+  // A hit: where it went, when the scorer said (Ask where hits went): "singles to left".
+  if (RESULTS[code].kind === 'hit') return f[0] >= 1 && f[0] <= 9 ? ` to ${WHERE[f[0]]}` : '';
   const m = mark(code, f);
   if (code === 'GO') return f.length === 1 ? ` to ${WHERE[f[0]]}, unassisted (${m})` : `, ${FROM[f[0]]} to ${FROM[f[f.length - 1]]} (${m})`;
   if (code === 'FO' || code === 'LO' || code === 'PU' || code === 'SF') return ` to ${WHERE[f[0]]} (${m})`;

@@ -1,5 +1,5 @@
 // The box score (batting and pitching lines for both teams) and the play-by-play.
-import { batKey, pitchStat, pitcherLabel, ip, teamName, label, player, ord, pitchWords, POS_NAME, RESULTS, AUTO, restDays, noCatch, LIMIT_BY, decisions, decisionWords, clockOf, pitchesIn } from './engine.js';
+import { batKey, pitchStat, pitcherLabel, ip, teamName, label, player, ord, pitchWords, POS_NAME, RESULTS, AUTO, restDays, noCatch, LIMIT_BY, decisions, decisionWords, clockOf, pitchesIn, toWhere } from './engine.js';
 import { esc, KL, clockAt, hm } from './ui.js';
 import { abbr } from './card.js';
 
@@ -122,7 +122,7 @@ function rest(S, arms) {
 // and a line that adds up, naming only what isn't zero: "1 for 2, a walk, a run, 2 stolen bases".
 export function dayOf(S, side, slot, p) {
   const trips = S.cells.filter(c => c.side === side && c.slot === slot && c.p === p)
-    .map(c => ({ inn: c.inn, r: c.r, mark: c.mark, words: (RESULTS[c.r] || (c.auto ? AUTO : { label: '' })).label.toLowerCase() }));
+    .map(c => ({ inn: c.inn, r: c.r, mark: c.mark, words: (RESULTS[c.r] || (c.auto ? AUTO : { label: '' })).label.toLowerCase() + (c.f && RESULTS[c.r]?.kind === 'hit' ? ` to ${toWhere(c.f[0])}` : '') }));
   const b = S.bat[batKey(side, slot, p)];
   if (!b) return { trips, line: '' };
   const n = (k, one, many) => k && (k === 1 ? one : `${k} ${many}`);

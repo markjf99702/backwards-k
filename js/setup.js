@@ -27,13 +27,13 @@ function pastTeams() {
 export function showSetup(el) {
   const past = pastTeams();
   const T = [0, 1].map(() => ({ name: '', lineup: Array.from({ length: 9 }, blank), pitcher: blank() }));
-  // The innings, the pitch counting and limit, the league rules and the runner on second in extra innings start as
-  // they were for the last game on this device: a league that plays six innings without counting pitches, under
-  // Little League's rules, doesn't have to say so every week.
+  // The innings, the pitch counting and limit, the league rules, the runner on second in extra innings and whether hits
+  // ask where they went start as they were for the last game on this device: a league that plays six innings without
+  // counting pitches, under Little League's rules, doesn't have to say so every week.
   const last = store.all()[0], INN = [9, 7, 6, 5, 4, 3];
   const opt = {
     innings: last && INN.includes(last.innings) ? last.innings : 9, pitches: last ? last.pitches !== false : true,
-    ...carried(last), tie: !!(last && last.tie), date: today(), place: '',
+    ...carried(last), tie: !!(last && last.tie), spray: !!(last && last.spray), date: today(), place: '',
   };
 
   el.innerHTML = `<header class="bar">
@@ -53,6 +53,7 @@ export function showSetup(el) {
           <label class="switch"><input type="checkbox" name="tie"${opt.tie ? ' checked' : ''}><span>Extra innings start with a runner on second<small>The batter before the leadoff man, as the majors have done since 2020.</small></span></label>
           <label class="switch"><input type="checkbox" name="pitches"${opt.pitches ? ' checked' : ''}><span>Count balls and strikes<small>Keeps the count and each pitcher’s pitch count. Turn it off to only tap what each batter did.</small></span></label>
           <div class="limit-row"${opt.pitches ? '' : ' hidden'}></div>
+          <label class="switch"><input type="checkbox" name="spray"${opt.spray ? ' checked' : ''}><span>Ask where hits went<small>One more tap for each hit (or Skip), for “singles to left” in the plays.</small></span></label>
           <div class="two-sm">
             <label><span>Date</span><input type="date" name="date" value="${opt.date}"></label>
             <label><span>Where</span><input name="place" maxlength="80" placeholder="Optional" autocapitalize="words" autocorrect="off" spellcheck="false"></label>
@@ -179,7 +180,7 @@ export function showSetup(el) {
   form.addEventListener('submit', e => { e.preventDefault(); start(); });
   el.querySelector('[data-go]').addEventListener('click', start);
   function start() {
-    const g = newGame({ away: T[0].name, home: T[1].name, innings: opt.innings, pitches: form.pitches.checked, rules: opt.rules, tie: form.tie.checked ? opt.innings + 1 : 0, limit: form.pitches.checked ? opt.limit : 0, date: form.date.value || today(), place: form.place.value.trim() });
+    const g = newGame({ away: T[0].name, home: T[1].name, innings: opt.innings, pitches: form.pitches.checked, rules: opt.rules, tie: form.tie.checked ? opt.innings + 1 : 0, limit: form.pitches.checked ? opt.limit : 0, spray: form.spray.checked, date: form.date.value || today(), place: form.place.value.trim() });
     T.forEach((t, s) => {
       g.teams[s].lineup = t.lineup.map(p => [{ ...p }]);
       g.teams[s].pitchers = [{ ...t.pitcher }];

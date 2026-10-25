@@ -4,7 +4,7 @@ import {
   replay, suggest, check, runsCount, scoredAs, now, RESULTS, BASE, POS, POS_NAME, halfLabel, label, player, teamName,
   pitcherLabel, ord, runnersOn, mark, pitchStat, pitchWords, pitchDay, pitchWork, pitchCount, winningRun, creditedHit, credit, fits,
   ENDS, regulation, official, winner, AUTO, limitState, restDays, restBand, noCatch, LIMIT_BY, sameSoFar, outAt, outBases, usualBase,
-  runnerName, PLAY,
+  runnerName, PLAY, toWhere,
 } from './engine.js';
 import { store } from './store.js';
 import { blank, takeBack, putBack, newer, plays, setField } from './model.js';
@@ -594,7 +594,8 @@ document.addEventListener('keydown', e => {
 // ---------- a plate appearance: result, then fielders, then where the runners went ----------
 function choose(code, f) {
   const R = RESULTS[code];
-  if (R.f && f === undefined) return pickFielders(code, null, got => choose(code, got));
+  // (A hit asks where it went when the game asks that: Ask where hits went, in Game settings.)
+  if ((R.f || (R.kind === 'hit' && G.spray)) && f === undefined) return pickFielders(code, null, got => choose(code, got));
   const m = suggest(S, code);
   // With two out, a runner on second is off with the pitch and usually scores on a single: Home is picked for him.
   if (code === '1B' && S.outs === 2 && S.bases[2]) m.find(x => x[0] === 2)[1] = 4;
@@ -618,6 +619,7 @@ function quiet(code) {
 }
 
 const HINT = {
+  hit: 'Tap the fielder it went to, or nearest: a single to left is 7, up the middle 8.',
   GO: 'Tap the fielder who got the ball, then whoever made the out. Short to first is 6, then 3.',
   FC: 'Tap who fielded it, then who made the out on the runner. Short to second is 6, then 4.',
   DP: 'Tap each fielder in order. Short to second to first is 6, 4, 3.',
@@ -628,12 +630,13 @@ const HINT = {
 // Who fielded it. One tap for a catch or an error; a sequence for throws. Skipping is fine. From a keyboard, the
 // fielders' numbers pick them too, Backspace takes the last one back, and Enter is Done.
 // st: how things stood when the ball was hit, for who was where (see fielderNames()).
+// A hit: where it went, in one tap.
 function pickFielders(code, start, done, { title, st = S } = {}) {
-  const R = RESULTS[code] || { f: 1, label: title };
+  const R = RESULTS[code] || { f: 1, label: title }, hit = R.kind === 'hit';
   let seq = start ? start.slice() : [];
-  const one = R.f === 1, names = fielderNames(st);
-  const body = openSheet(`<h2 id="sheetTitle">${esc(title || R.label)}: who fielded it?</h2>
-    <p class="hint">${esc(HINT[code] || 'Tap the fielder who caught it.')}</p>
+  const one = R.f === 1 || hit, names = fielderNames(st);
+  const body = openSheet(`<h2 id="sheetTitle">${esc(title || R.label)}: ${hit ? 'where did it go?' : 'who fielded it?'}</h2>
+    <p class="hint">${esc(HINT[hit ? 'hit' : code] || 'Tap the fielder who caught it.')}</p>
     <p class="seq" aria-live="polite"></p>
     <div class="pick">${fieldSvg({ names })}</div>
     <div class="row">
@@ -698,7 +701,8 @@ function runnersSheet(code, f, moves, { st = S, editing = false, done = act } = 
   const counts = { v: runsCount(st, code, m) };
   let userSaid = null, asked = null;
   const who = b => (b === 0 ? n.name : runnerName(G, st.bases[b]));
-  const body = openSheet(`<h2 id="sheetTitle">${R.kind === 'out' && code !== 'KL' && code !== 'K' ? esc(R.label) : code === 'KL' ? 'Strikeout looking' : esc(R.label)}${f && f.length ? ` <span class="mk">${esc(mark(code, f))}</span>` : ''}</h2>
+  // (A hit says where it went: "Single to left".)
+  const body = openSheet(`<h2 id="sheetTitle">${R.kind === 'out' && code !== 'KL' && code !== 'K' ? esc(R.label) : code === 'KL' ? 'Strikeout looking' : esc(R.label)}${f && f.length ? (R.kind === 'hit' ? ` <small>to ${esc(toWhere(f[0]))}</small>` : ` <span class="mk">${esc(mark(code, f))}</span>`) : ''}</h2>
     <p class="hint">Here’s where everyone usually ends up. Change anything that went differently.</p>
     <div class="moves"></div>
     <p class="tally" aria-live="polite"></p>
@@ -1235,7 +1239,7 @@ function menuSheet() {
     <div class="list">
       <button type="button" class="li" data-y="lineup"><b>Lineups and substitutions</b><span>Names, numbers, pinch hitters, new pitchers.</span></button>
       <button type="button" class="li" data-y="share"><b>Share this game</b><span>A link to the scorecard, the score as text, or a printout.</span></button>
-      <button type="button" class="li" data-y="settings"><b>Game settings</b><span>Teams, innings, league rules, counting pitches, date and place.</span></button>
+      <button type="button" class="li" data-y="settings"><b>Game settings</b><span>Teams, innings, league rules, counting pitches, where hits went, date and place.</span></button>
       <button type="button" class="li" data-y="help"><b>How to read the card</b><span>What 6-3, F8 and the backwards K mean.</span></button>
       ${S.over ? '<button type="button" class="li" data-y="on"><b>Keep playing</b><span>Carry on scoring past the end.</span></button>'
         : S.delayed ? '<button type="button" class="li" data-y="on"><b>Resume play</b><span>Pick the game up where it stopped.</span></button><button type="button" class="li" data-y="end"><b>End the game here</b><span>A run rule, the time limit, or called for rain or darkness.</span></button>'
@@ -1310,6 +1314,7 @@ function settingsSheet() {
       <label><span>Runner on second</span><select data-g="tie">${ties}</select><small>Each half-inning from then on starts with the batter before its leadoff man on second, as the majors do in extra innings. His run is unearned.${ties.includes(' disabled') ? ' Innings already played stay as they were scored.' : ''}</small></label>
       <label class="switch"><input type="checkbox" data-g="pitches"${G.pitches ? ' checked' : ''}><span>Count balls and strikes<small>Keeps the count and each pitcher’s pitch count.</small></span></label>
       <div class="limit-row"${G.pitches ? '' : ' hidden'}></div>
+      <label class="switch"><input type="checkbox" data-g="spray"${G.spray ? ' checked' : ''}><span>Ask where hits went<small>One more tap for each hit, for “singles to left” in the plays. Skip is always there.</small></span></label>
     </div>
     <div class="row"><button type="button" class="btn primary" data-close>Done</button></div>`);
   $$('[data-t]', body).forEach(i => i.addEventListener('input', () => { G.teams[+i.dataset.t].name = i.value.trim(); saveSoon(); draw(); }));
@@ -1322,7 +1327,7 @@ function settingsSheet() {
     // (Extra innings that started with a runner on second still do, after the new last inning, unless that would
     // change an inning already played.)
     if (k === 'innings' && G.tie === G.innings + 1 && sameSoFar({ ...G, innings: +i.value }, { ...G, innings: +i.value, tie: +i.value + 1 })) G.tie = +i.value + 1;
-    G[k] = k === 'pitches' ? i.checked : k === 'innings' || k === 'tie' ? +i.value : i.value.trim();
+    G[k] = k === 'pitches' || k === 'spray' ? i.checked : k === 'innings' || k === 'tie' ? +i.value : i.value.trim();
     if (k === 'innings') $('[data-g=tie]', body).innerHTML = tieOptions();
     if (k === 'pitches') $('.limit-row', body).hidden = !G.pitches;
     if (k === 'innings' || k === 'pitches' || k === 'tie') save(); else { saveSoon(); draw(); }
@@ -1366,6 +1371,8 @@ function cellSheet(c) {
   const fromPitch = e && e.t === 'p' && !e.v && (c.r === 'K' || c.r === 'KL');
   // (By what was tapped: a double that won the game and counts as a single is still a double, and can't be a walk.)
   const group = readOnly || !e ? null : e.t === 'pa' ? SAME.find(gr => gr.includes(e.r)) : fromPitch ? ['K', 'KL'] : null;
+  // A hit can say where it went, or change it (in a game that asks where hits went, or one that said).
+  const hit = !readOnly && !!e && e.t === 'pa' && R.kind === 'hit' && (G.spray || !!c.f);
   const why = group && e.t === 'pa' ? cantBe(c, e) : {};
   // (With when the at-bat began, from its first pitch.)
   const at = clockAt(G, c.at);
@@ -1374,8 +1381,9 @@ function cellSheet(c) {
       <div><p><b>${markHtml(c.r, c.mark)}</b> ${esc(R.label)}</p><p>${esc(c.text)}</p>${c.story.length ? `<p>${esc(c.story.join(' '))}</p>` : ''}
       ${seq ? `<p class="quiet">Pitches: ${esc(seq)}.</p>` : ''}</div></div>
     ${group ? `<h3>Change what it was</h3><div class="chips wide" role="group" aria-label="What it was">${group.map(k => `<button type="button" data-sw="${k}" aria-pressed="${k === c.r}"${why[k] && k !== c.r ? ` disabled title="${esc(why[k])}"` : ''}>${esc(RESULTS[k].label)}</button>`).join('')}</div>` : ''}
-    ${group && e.t === 'pa' && (R.f || c.f) ? `<div class="row"><button type="button" class="btn quiet" data-y="f">Change the fielders${c.f ? ` (${esc(c.f.join('-'))})` : ''}</button></div>` : ''}
-    ${!readOnly && e && !group ? '<p class="hint">This one can’t be changed here. Undo takes plays back, latest first, and until the next batter’s turn is over, Fix runners changes where everyone ended up on the play before.</p>' : ''}
+    ${group && e.t === 'pa' && (R.f || (c.f && R.kind !== 'hit')) ? `<div class="row"><button type="button" class="btn quiet" data-y="f">Change the fielders${c.f ? ` (${esc(c.f.join('-'))})` : ''}</button></div>` : ''}
+    ${hit ? `<div class="row"><button type="button" class="btn quiet" data-y="w">${c.f ? `Change where it went (${esc(toWhere(c.f[0]))})` : 'Say where it went'}</button></div>` : ''}
+    ${!readOnly && e && !group ? `<p class="hint">${hit ? 'The rest of it' : 'This one'} can’t be changed here. Undo takes plays back, latest first, and until the next batter’s turn is over, Fix runners changes where everyone ended up on the play before.</p>` : ''}
     ${c.auto ? `<p class="hint">Extra innings start with a runner on second: the batter before the leadoff man (OBR 7.01(b)). He didn’t bat, and his run is unearned. Game settings has when it starts.</p>` : ''}
     <div class="row"><button type="button" class="btn primary" data-close>Done</button></div>`);
   // Undo takes back plays, not a change made here, so each change has its own Undo, in a message right after it.
@@ -1385,7 +1393,7 @@ function cellSheet(c) {
     cellSheet(cell);
     if (!cell || (e.r === old.r && e.k === old.k && String(e.f) === String(old.f))) return;
     const what = RESULTS[cell.r].label.toLowerCase();
-    toast(`Changed to ${cell.f ? `${what} (${cell.mark})` : what}.`, {
+    toast(`Changed to ${!cell.f ? what : RESULTS[cell.r].kind === 'hit' ? `${what} to ${toWhere(cell.f[0])}` : `${what} (${cell.mark})`}.`, {
       action: 'Undo',
       run: () => {
         if (!G || G.ev[c.ev] !== e) return; // the game changed somewhere else meanwhile
@@ -1402,12 +1410,18 @@ function cellSheet(c) {
     if (sw && !sw.disabled) {
       const was = e.r;
       if (e.t === 'p') e.k = sw.dataset.sw === 'KL' ? 'c' : 's';
-      else { e.r = sw.dataset.sw; if (!RESULTS[e.r].f) delete e.f; }
+      else {
+        // (Where a hit went isn't who fielded an out or an error: from one to the other, it's asked again.)
+        const wasHit = RESULTS[e.r].kind === 'hit';
+        e.r = sw.dataset.sw;
+        if (!RESULTS[e.r].f || wasHit !== (RESULTS[e.r].kind === 'hit')) delete e.f;
+      }
       // Fix runners starts from what the box says now.
       if (tapped.e === e) tapped.r = e.r;
       save();
-      // Now an error or a ground out, say, with nobody named: who fielded it? (Skip leaves it blank.)
-      if (e.t === 'pa' && e.r !== was && RESULTS[e.r].f && !e.f) return pickFielders(e.r, null, f => { if (f && f.length) { e.f = f; save(); } changed(); }, { st: replay(G, c.ev) });
+      // Now an error or a ground out, say, with nobody named: who fielded it? Or a single, in a game that asks where
+      // hits went. (Skip leaves it blank.)
+      if (e.t === 'pa' && e.r !== was && (RESULTS[e.r].f || (RESULTS[e.r].kind === 'hit' && G.spray)) && !e.f) return pickFielders(e.r, null, f => { if (f && f.length) { e.f = f; save(); } changed(); }, { st: replay(G, c.ev) });
       changed();
     }
     if (y) pickFielders(e.r, e.f, f => { if (f && f.length) e.f = f; else delete e.f; save(); changed(); }, { st: replay(G, c.ev) });

@@ -30,6 +30,10 @@ written out in plain words.
   the same wild pitch or throw goes in as one play.
 - **Tap the field for the fielders.** For a ground out, tap the shortstop and then the first baseman, and the card
   says 6-3. Or skip it. On a keyboard, type their numbers and press Enter.
+- **Where hits went, if you like.** Turn on **Ask where hits went** (in New game, or Game settings) and each hit asks
+  where it went: one tap on the fielder it went to (or Skip), and the plays say "Ruiz singles to left". It's off to
+  start with, so a hit stays one tap, and the next new game starts as the last one was. A box on the card can say or
+  change where its hit went.
 - **Or score from a keyboard,** at a laptop or watching on TV: B ball, C called strike, S swinging strike, F foul; 1
   to 4 for a single to a home run; W walk, H hit by pitch, E error; K strikeout (Shift+K looking), G ground out, Y fly
   out, L line out, P pop out; M for More, and U or Ctrl+Z (⌘Z) to undo. G, 6, 3, Enter is a 6-3.
