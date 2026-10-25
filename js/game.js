@@ -1117,7 +1117,8 @@ function cellSheet(c) {
   const seq = pitchWords(c.seq);
   // A strikeout that came from counting pitches can still be switched between swinging and looking.
   const fromPitch = e && e.t === 'p' && (c.r === 'K' || c.r === 'KL');
-  const group = readOnly || !e ? null : e.t === 'pa' ? SAME.find(gr => gr.includes(c.r)) : fromPitch ? ['K', 'KL'] : null;
+  // (By what was tapped: a double that won the game and counts as a single is still a double, and can't be a walk.)
+  const group = readOnly || !e ? null : e.t === 'pa' ? SAME.find(gr => gr.includes(e.r)) : fromPitch ? ['K', 'KL'] : null;
   const why = group && e.t === 'pa' ? cantBe(c, e) : {};
   const body = openSheet(`<h2 id="sheetTitle">${esc(name)} <small>${c.side ? 'Bottom' : 'Top'} of the ${ord(c.inn)}</small></h2>
     <div class="cell-big"><div class="cell-pic">${cellSvg(c, { count: G.pitches })}</div>

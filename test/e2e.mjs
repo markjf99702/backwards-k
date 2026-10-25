@@ -743,6 +743,29 @@ step('after a walk-off, the runner left on is still drawn, and can’t be moved'
   await p.context().close();
 }
 
+step('a double that wins it with the bases loaded is a single on the card, and its box can’t be switched to a walk');
+{
+  const p = await phone();
+  await startGame(p);
+  await p.click('[data-a=menu]');
+  await p.click('[data-y=settings]');
+  await p.selectOption('.sheet [data-g=innings]', '3');
+  await p.click('.sheet [data-close]');
+  for (let i = 0; i < 15; i++) await p.click('[data-r=K]');
+  for (let i = 0; i < 3; i++) await p.click('[data-r=BB]');
+  await p.click('[data-r="2B"]');
+  await p.click('.sheet [data-x=save]');
+  assert.match(await p.textContent('.final h2'), /Home win, 1–0/);
+  assert.equal(await p.textContent('.ticker p'), 'Batter 1 doubles, but it counts as a single: the winning run needed only one base. Batter 7 scores the winning run. Batter 8 to third. Batter 9 to second.');
+  await p.click('[data-v=card]');
+  await p.click('[data-cs="1"]');
+  await p.click('[data-cell="18"]');
+  assert.match(await p.textContent('.sheet .cell-big'), /1B Single/);
+  assert.equal(await p.locator('.sheet [data-sw]').count(), 0);
+  assert.match(await p.textContent('.sheet'), /This one can’t be changed here/);
+  await p.context().close();
+}
+
 step('Game settings won’t make the inning being played the last when the home team already led after the top of it');
 {
   const p = await phone();
