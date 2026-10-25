@@ -746,6 +746,25 @@ step('Fix runners only after a play with runners, or the batter safe');
   await p.click('.sheet [data-g=pitches]');
   await p.click('.sheet [data-close]');
   assert.equal(await p.locator('.pitches').count(), 0, 'no Ball and Strike buttons');
+
+  step('clearing the date in Game settings keeps the game’s date, after a reload too');
+  const id = await p.evaluate(() => location.hash.slice(4));
+  await p.click('[data-a=menu]');
+  await p.click('[data-y=settings]');
+  await p.fill('.sheet [data-g=date]', '2026-05-02');
+  await p.waitForTimeout(600); // (names and dates are saved after a pause)
+  assert.equal((await stored(p, id)).date, '2026-05-02');
+  await p.fill('.sheet [data-g=date]', '');
+  await p.keyboard.press('Tab');
+  assert.equal(await p.inputValue('.sheet [data-g=date]'), '2026-05-02', 'the date comes back');
+  assert.match(await p.textContent('.sheet .form'), /A game always has a date\./);
+  await p.keyboard.press('Escape');
+  await p.waitForTimeout(600);
+  assert.equal((await stored(p, id)).date, '2026-05-02');
+  await p.reload();
+  await p.waitForSelector('.live .field');
+  assert.equal((await stored(p, id)).date, '2026-05-02');
+  assert.match(await p.textContent('.bar .title small'), /May 2/);
   await p.context().close();
 }
 

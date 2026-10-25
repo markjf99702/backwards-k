@@ -896,9 +896,20 @@ function settingsSheet() {
   $$('[data-t]', body).forEach(i => i.addEventListener('input', () => { G.teams[+i.dataset.t].name = i.value.trim(); saveSoon(); draw(); }));
   $$('[data-g]', body).forEach(i => i.addEventListener(i.type === 'checkbox' || i.tagName === 'SELECT' ? 'change' : 'input', () => {
     const k = i.dataset.g;
+    if (k === 'date' && !i.value) return; // (see below)
     G[k] = k === 'pitches' ? i.checked : k === 'innings' ? +i.value : i.value.trim();
     if (k === 'innings' || k === 'pitches') save(); else { saveSoon(); draw(); }
   }));
+  // A game always has a date (one saved blank would read back as whatever day it was next opened), so clearing the
+  // field changes nothing, and the date comes back.
+  const date = $('[data-g=date]', body);
+  const back = () => {
+    if (date.value) return;
+    date.value = G.date;
+    if (!$('small', date.parentNode)) date.insertAdjacentHTML('afterend', '<small>A game always has a date.</small>');
+  };
+  date.addEventListener('change', back);
+  date.addEventListener('blur', back);
 }
 
 // ---------- one box on the card ----------
