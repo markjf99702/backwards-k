@@ -53,7 +53,7 @@ export function showSetup(el) {
           <label class="switch"><input type="checkbox" name="tie"${opt.tie ? ' checked' : ''}><span>Extra innings start with a runner on second<small>The batter before the leadoff man, as the majors have done since 2020.</small></span></label>
           <label class="switch"><input type="checkbox" name="pitches"${opt.pitches ? ' checked' : ''}><span>Count balls and strikes<small>Keeps the count and each pitcher’s pitch count. Turn it off to only tap what each batter did.</small></span></label>
           <div class="limit-row"${opt.pitches ? '' : ' hidden'}></div>
-          <label class="switch"><input type="checkbox" name="spray"${opt.spray ? ' checked' : ''}><span>Ask where hits went<small>One more tap for each hit (or Skip), for “singles to left” in the plays.</small></span></label>
+          <label class="switch"><input type="checkbox" name="spray"${opt.spray ? ' checked' : ''}><span>Ask where hits went<small>One more tap for each hit (or Skip), for “singles to left” in the plays and a line on the card.</small></span></label>
           <div class="two-sm">
             <label><span>Date</span><input type="date" name="date" value="${opt.date}"></label>
             <label><span>Where</span><input name="place" maxlength="80" placeholder="Optional" autocapitalize="words" autocorrect="off" spellcheck="false"></label>

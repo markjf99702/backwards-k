@@ -1366,6 +1366,19 @@ test('a hit says where it went, when the scorer said: singles to left, and the c
   assert.match(W.cells.at(-1).text, /^Batter 2 singles to right\. .*It went for a double, but counts as a single/);
 });
 
+test('a hit that says where it went has a pencil line in its box, from home toward the fielder', () => {
+  const g = game();
+  const S = play(g, '1B 7', '2B 9', 'HR 8', '1B 6', '1B', 'FO 7');
+  const line = c => { const m = /<line class="hit" x1="30" y1="51" x2="([\d.]+)" y2="([\d.]+)"/.exec(cellSvg(c)); return m && [+m[1], +m[2]]; };
+  const [lf, rf, cf, ss, none, out] = S.cells.map(line);
+  assert.ok(lf[0] < 30 && rf[0] > 30 && cf[0] === 30, 'left to the left, right to the right, center straight out');
+  assert.ok(cf[1] < 13 && lf[1] < 30, 'an outfielder past the bases');
+  assert.ok(Math.hypot(ss[0] - 30, ss[1] - 51) < Math.hypot(lf[0] - 30, lf[1] - 51), 'the shortstop nearer than left field');
+  assert.equal(none, null, 'a hit nobody said where');
+  assert.equal(out, null, 'a fly out has its F7, not a line');
+  assert.match(cardHtml(S, 0), /class="hit"/);
+});
+
 test('Ask where hits went is a setting of the game: off to start with, kept, and taken from the copy changed last', () => {
   assert.equal(newGame().spray, false);
   const g = game({ spray: true });

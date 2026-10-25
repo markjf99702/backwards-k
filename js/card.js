@@ -11,6 +11,10 @@ const NOTE = [null, [46, 50, 'start'], [58, 17, 'end'], [2, 22, 'start'], [2, 50
 // Picked off a base: inside the diamond by that base, so it's clear of the note for how they got there.
 const INSIDE = [null, [41, 34, 'end'], [30, 26, 'middle'], [19, 34, 'start']];
 const pts = (n, from = 0) => PT.slice(from, n + 1).map(p => p.join(',')).join(' ');
+// Where a hit went (Ask where hits went), as a thin pencil line from home toward the fielder it went to: each at his
+// angle from home, an infielder's short, inside the diamond or just past it, an outfielder's out past the bases, clear
+// of the out number and the count in the corners.
+const HIT = [null, [30, 35], [30, 44], [46.1, 33.2], [39.8, 22.6], [13.9, 33.2], [20.2, 22.6], [11.7, 16.6], [30, 6], [48.3, 16.6]];
 const mid = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
 
 // c is a box from engine.js (or a made-up one for the guide). count: show the final count in the corner.
@@ -19,6 +23,8 @@ export function cellSvg(c, { count = true } = {}) {
   let s = '<svg viewBox="0 0 60 60" class="cs" aria-hidden="true">';
   s += `<path class="dia" d="M${pts(3)}Z"/>`;
   if (c.scored) s += `<path class="run" d="M${pts(3)}Z"/>`;
+  const to = R.kind === 'hit' && c.f && HIT[c.f[0]];
+  if (to) s += `<line class="hit" x1="${PT[0][0]}" y1="${PT[0][1]}" x2="${to[0]}" y2="${to[1]}"/>`;
   // (A runner put on second to start an extra inning starts there: a dot on the bag, and his way on from it.)
   const from = c.from || 0;
   if (c.reach > from) s += `<polyline class="path" points="${pts(Math.min(c.reach, 4), from)}"/>`;

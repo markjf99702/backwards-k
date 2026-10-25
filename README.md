@@ -12,7 +12,7 @@ written out in plain words.
   &nbsp;
   <img src="docs/phone-runners.png" alt="After a single with two on: a sheet showing where each runner and the batter ended up, with the usual moves already picked" width="250">
   &nbsp;
-  <img src="docs/phone-card.png" alt="The Comets' scorecard from a finished game, under the line score with R, H and E: a grid of batters and innings, each box with a small diamond, the path around the bases, and marks like F8, 4-3 and K" width="250">
+  <img src="docs/phone-card.png" alt="The Comets' scorecard from a finished game, under the line score with R, H and E: a grid of batters and innings, each box with a small diamond, the path around the bases, a thin line toward where a hit went, and marks like F8, 4-3 and K" width="250">
 </p>
 
 ## How it works
@@ -31,17 +31,19 @@ written out in plain words.
 - **Tap the field for the fielders.** For a ground out, tap the shortstop and then the first baseman, and the card
   says 6-3. Or skip it. On a keyboard, type their numbers and press Enter.
 - **Where hits went, if you like.** Turn on **Ask where hits went** (in New game, or Game settings) and each hit asks
-  where it went: one tap on the fielder it went to (or Skip), and the plays say "Ruiz singles to left". It's off to
+  where it went: one tap on the fielder it went to (or Skip), the plays say "Ruiz singles to left", and the box on
+  the card has a thin pencil line from home toward where it went. It's off to
   start with, so a hit stays one tap, and the next new game starts as the last one was. A box on the card can say or
   change where its hit went.
 - **Or score from a keyboard,** at a laptop or watching on TV: B ball, C called strike, S swinging strike, F foul; 1
   to 4 for a single to a home run; W walk, H hit by pitch, E error; K strikeout (Shift+K looking), G ground out, Y fly
   out, L line out, P pop out; M for More, and U or Ctrl+Z (⌘Z) to undo. G, 6, 3, Enter is a 6-3.
 - **The scorecard fills itself in.** Each box has the path around the bases, the out number, the count and the RBIs,
-  and a strikeout looking gets its backwards K. Tap any box to read what happened. In the play-by-play each play is
-  led by its mark from the card (6-3, F8, SB, CS 2-6), so the shorthand comes with the words. A box can also be
-  switched to another kind of out or another way of reaching base, and have its fielders changed; anything else is a
-  job for Undo, or for Fix runners, which stays until the next batter's turn is over.
+  a strikeout looking gets its backwards K, and a hit can have a line toward where it went. Tap any box to read what
+  happened. In the play-by-play each play is led by its mark from the card (6-3, F8, SB, CS 2-6), so the shorthand
+  comes with the words. A box can also be switched to another kind of out or another way of reaching base, and have
+  its fielders changed; anything else is a job for Undo, or for Fix runners, which stays until the next batter's turn
+  is over.
 - **Earned runs, as a scorer works them out.** Each pitcher's line in the box score has his earned runs: the
   half-inning played again without its errors and passed balls (a batter safe on an error is out instead, and a runner
   doesn't take the base an error gave him), and a run is earned if it would still have scored before the third out

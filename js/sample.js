@@ -13,7 +13,8 @@ const COMETS = [['Abernathy', 3], ['Nakamura', 22], ['Velez', 8], ['Quinn', 44],
 const ARMS = [[['Whitlock', 33], ['Moreno', 41], ['Yates', 50]], [['Halvorsen', 21], ['Bishop', 37], ['Achebe', 45]]];
 
 export function sampleGame(seed = 7, { innings = 9 } = {}) {
-  const rnd = dice(seed), pick = a => a[Math.floor(rnd() * a.length)];
+  // (Where each hit went comes from dice of its own, so the game is the same game it was before hits said.)
+  const rnd = dice(seed), pick = a => a[Math.floor(rnd() * a.length)], aim = dice(seed * 31 + 7);
   const g = newGame({ away: 'Foxes', home: 'Comets', innings });
   g.id = 'gsample' + seed;
   g.place = 'Riverside Park';
@@ -54,12 +55,14 @@ export function sampleGame(seed = 7, { innings = 9 } = {}) {
     if (x < 0.63) { add({ t: 'p', k: 's' }); continue; }
     if (x < 0.8) { add({ t: 'p', k: 'f' }); continue; }
     if (x < 0.805) { add({ t: 'pa', r: 'HBP', m: suggest(S, 'HBP') }); continue; }
-    add(inPlay(S, rnd, pick));
+    add(inPlay(S, rnd, pick, aim));
   }
   return g;
 }
 
-function inPlay(S, rnd, pick) {
+// Where hits go: singles all over, the rest to the outfield.
+const WENT = { '1B': [7, 7, 8, 8, 9, 9, 6, 4, 5], '2B': [7, 8, 9, 7, 9], '3B': [8, 9, 7], HR: [7, 8, 9, 7] };
+function inPlay(S, rnd, pick, aim) {
   const on = runnersOn(S), y = rnd();
   const two = S.outs < 2;
   let r, f;
@@ -81,6 +84,7 @@ function inPlay(S, rnd, pick) {
   // A runner on second usually scores on a single.
   if (r === '1B' && on.includes(2) && !on.includes(3) && rnd() < 0.6) for (const mv of m) if (mv[0] === 2) mv[1] = 4;
   const e = { t: 'pa', r, m };
+  if (WENT[r]) f = [WENT[r][Math.floor(aim() * WENT[r].length)]];
   if (f) e.f = f;
   return e;
 }

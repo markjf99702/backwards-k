@@ -1314,7 +1314,7 @@ function settingsSheet() {
       <label><span>Runner on second</span><select data-g="tie">${ties}</select><small>Each half-inning from then on starts with the batter before its leadoff man on second, as the majors do in extra innings. His run is unearned.${ties.includes(' disabled') ? ' Innings already played stay as they were scored.' : ''}</small></label>
       <label class="switch"><input type="checkbox" data-g="pitches"${G.pitches ? ' checked' : ''}><span>Count balls and strikes<small>Keeps the count and each pitcher’s pitch count.</small></span></label>
       <div class="limit-row"${G.pitches ? '' : ' hidden'}></div>
-      <label class="switch"><input type="checkbox" data-g="spray"${G.spray ? ' checked' : ''}><span>Ask where hits went<small>One more tap for each hit, for “singles to left” in the plays. Skip is always there.</small></span></label>
+      <label class="switch"><input type="checkbox" data-g="spray"${G.spray ? ' checked' : ''}><span>Ask where hits went<small>One more tap for each hit, for “singles to left” in the plays and a line on the card. Skip is always there.</small></span></label>
     </div>
     <div class="row"><button type="button" class="btn primary" data-close>Done</button></div>`);
   $$('[data-t]', body).forEach(i => i.addEventListener('input', () => { G.teams[+i.dataset.t].name = i.value.trim(); saveSoon(); draw(); }));
