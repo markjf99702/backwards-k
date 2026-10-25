@@ -307,6 +307,16 @@ test('Keep playing after the final finishes that half-inning, and then the game 
   assert.equal(S.R[1], 3);
 });
 
+test('Keep playing after a walk-off, then End the game here and Keep playing again: the half is still played out', () => {
+  const g = game({ innings: 1 });
+  let S = play(g, ...threeK, '1B', 'HR', { t: 'on' }, { t: 'end', why: 'time' }, { t: 'on' });
+  assert.deepEqual([S.over, S.R], [false, [0, 2]]);
+  S = play(g, 'HR');
+  assert.deepEqual([S.over, S.R[1]], [false, 3], 'the home team ahead doesn’t end it again mid-half');
+  S = play(g, 'K', 'K', 'K');
+  assert.deepEqual([S.over, halfLabel(S)], [true, 'Final']);
+});
+
 test('a called game that picks up again ends the usual way', () => {
   const g = game({ innings: 1 });
   let S = play(g, ...threeK, { t: 'end' });

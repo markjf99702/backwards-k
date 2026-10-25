@@ -222,9 +222,10 @@ export const ENDS = {
 };
 
 // Keep playing, after the game was over or called. After a final, the half-inning is played out (the home team
-// going ahead doesn't end it again) and the game ends when it's over; a game ended by hand goes on as usual.
+// going ahead doesn't end it again) and the game ends when it's over; a game ended by hand goes on as usual, and one
+// ended by hand while a half after the final was being played out goes on playing it out.
 function resume(S) {
-  S.hold = S.over && !S.ended;
+  S.hold = S.hold || (S.over && !S.ended);
   S.over = false; S.ended = false; S.why = ''; S.mercy = null;
   if (S.between) nextHalf(S);
 }
