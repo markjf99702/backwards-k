@@ -5,7 +5,7 @@ import {
   pitcherLabel, ord, runnersOn, mark, pitchStat, pitchWords, pitchDay, pitchWork, pitchCount,
 } from './engine.js';
 import { store } from './store.js';
-import { blank, takeBack, putBack, newer } from './model.js';
+import { blank, takeBack, putBack, newer, plays } from './model.js';
 import { cardHtml, lineHtml, cellSvg } from './card.js';
 import { boxHtml, playsHtml, dayOf } from './box.js';
 import { infieldSvg, fieldSvg, BASE_AT } from './field.js';
@@ -622,9 +622,6 @@ function fixLast() {
     },
   });
 }
-// The plays written out the same way whatever order their fields were set in (a copy read back from storage has
-// them in another order), to tell whether they changed.
-const plays = ev => JSON.stringify(ev, (k, v) => (v && v.constructor === Object ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => (a < b ? -1 : 1))) : v));
 
 function moreSheet() {
   // With first base taken and fewer than two out, a dropped third strike is still an out (OBR 5.09(a)(3)).

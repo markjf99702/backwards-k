@@ -145,6 +145,9 @@ export function cleanDoc(d) {
 
 // The same thing written the same way every time, to tell whether anything changed.
 export const canon = d => JSON.stringify(d);
+// The plays written out the same way whatever order their values were set in (a play made here has them in another
+// order than the same play read back from storage, Drive or a link), to tell whether two lists of plays are the same.
+export const plays = ev => JSON.stringify(ev, (k, v) => (v && v.constructor === Object ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => (a < b ? -1 : 1))) : v));
 
 // A pasted lineup: one player per line, "Ruiz", "12 Ruiz", "Ruiz #12", "- Emma 4" or "Ohtani - DH"; names on one line
 // with commas between them, as in a group text; or a lineup copied from a game preview, "1. Shohei Ohtani DH" or
@@ -253,7 +256,6 @@ export function putBack(g, r) {
 // after both.
 export function merge(a, b, seen = null) {
   const now = Math.max(Date.now(), a.updated + 1, b.updated + 1), newer = b.updated > a.updated ? b : a;
-  const plays = ev => JSON.stringify(ev);
   if (plays(a.ev) === plays(b.ev)) return { game: newer, second: null };
   const [short, long] = a.ev.length <= b.ev.length ? [a, b] : [b, a];
   if (plays(long.ev.slice(0, short.ev.length)) !== plays(short.ev)) {
@@ -273,7 +275,7 @@ export function merge(a, b, seen = null) {
   return { game: canon({ ...game, updated: 0 }) === canon({ ...newer, updated: 0 }) ? newer : game, second: null };
 }
 // What Drive remembers of a game's plays after comparing it (see merge()): how many, and a fingerprint of them.
-export const seenOf = g => ({ n: g.ev.length, h: hash(JSON.stringify(g.ev)) });
+export const seenOf = g => ({ n: g.ev.length, h: hash(plays(g.ev)) });
 // A short fingerprint of some text (FNV-1a).
 function hash(s) {
   let h = 0x811c9dc5;

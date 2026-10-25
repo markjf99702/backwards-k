@@ -954,6 +954,35 @@ test('two copies that each have plays the other lacks are both kept, the second 
   assert.equal(merge(a, b).game, a);
 });
 
+test('a play made here and the same play read back from Drive or a link are the same play, whatever order its values are in', () => {
+  // A ground out 6-3 the way the game screen makes it ({ t, r, m }, then f), here; Drive's copy has it as cleanGame
+  // reads it back ({ t, r, f, m }), renamed on another device since.
+  const here = () => { const g = game(); play(g, 'GO 6 3', P('b')); return later(g, 1000); };
+  const a = here(), seen = seenOf(a), drive = later(cleanGame(JSON.parse(JSON.stringify(a))), 3000);
+  drive.teams[0].name = 'Red Foxes';
+  assert.notEqual(JSON.stringify(drive.ev), JSON.stringify(a.ev));
+  assert.deepEqual(seenOf(drive), seen);
+  // The same plays: one game, not a second copy.
+  assert.equal(merge(drive, a, seen).game, drive);
+  assert.equal(merge(a, drive).second, null);
+  // A pitch here since: one game, with it.
+  a.ev.push({ t: 'p', k: 's' });
+  later(a, 2000);
+  for (const [x, y] of [[drive, a], [a, drive]]) {
+    const { game, second } = merge(x, y, seen);
+    assert.equal(second, null);
+    assert.equal(game.ev.length, 3);
+    assert.equal(game.teams[0].name, 'Red Foxes');
+  }
+  // Undo here instead: the play stays taken back.
+  const b = here();
+  takeBack(b);
+  later(b, 2000);
+  const { game: undone, second } = merge(drive, b, seen);
+  assert.equal(second, null);
+  assert.deepEqual(undone.ev.map(e => e.r || e.k), ['GO']);
+});
+
 // The browser's storage, pretend: localStorage and the window store.js listens to.
 function pretendStorage(start = {}) {
   const m = new Map(Object.entries(start));

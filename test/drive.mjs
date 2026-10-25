@@ -189,6 +189,33 @@ for (const p of [a, b]) {
   const [g] = await stored(p);
   assert.deepEqual([g.ev.length, g.teams[1].name], [had - 1, 'Comets II']);
 }
+
+step('a ground out 6-3 scored here and gone up, then a pitch with no signal while the other device renamed a team: still one game');
+// The ground out is made on this page, so its values are in the order the game screen sets them; Drive's copy has
+// them in the order a copy read back has. They're the same play.
+await open(a);
+await open(b);
+await a.click('[data-r=GO]');
+await a.click('.sheet [data-pos="6"]');
+await a.click('.sheet [data-pos="3"]');
+await a.click('.sheet [data-x=done]');
+await a.waitForTimeout(300);
+if (await a.locator('.sheet [data-x=save]').count()) await a.click('.sheet [data-x=save]');
+await syncNow(a);
+await syncNow(b);
+const go = (await stored(a))[0].ev.length;
+await apart();
+await a.click('[data-p="b"]');
+await rename(b, 0, 'Foxes');
+await back(b);
+await back(a);
+await syncNow(b);
+assert.doesNotMatch(await a.textContent('#toast'), /second copy/);
+for (const p of [a, b]) {
+  const [g] = await stored(p);
+  assert.deepEqual([g.ev.length, g.ev.at(-2).r, g.ev.at(-2).f, g.teams[0].name], [go + 1, 'GO', [6, 3], 'Foxes']);
+  assert.equal((await stored(p, x => /\(second copy\)$/.test(x.place))).length, 1, 'only the one from before');
+}
 await a.goto(base);
 
 step('a sign-in that ran out: the cloud asks for a tap, and one tap fixes it');
