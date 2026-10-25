@@ -181,8 +181,8 @@ assert.match(await page.textContent('.bug'), /Comets\s*1/i);
 await tap('[data-v=box]');
 assert.match(await page.textContent('.pane[data-p=box]'), /Moreno/);
 assert.match(await page.textContent('.pane[data-p=box]'), /Home runs: Kowalski/);
-// Moreno's line: one batter, a home run, on one pitch, a strike (P-S 1-1).
-assert.deepEqual(await page.$$eval('.pane[data-p=box] tr', trs => trs.filter(tr => /Moreno/.test(tr.querySelector('th')?.textContent)).map(tr => [...tr.querySelectorAll('td')].map(td => td.textContent).join(' '))), ['0 1 1 0 0 1 1 1-1']);
+// Moreno's line: one batter, a home run (an earned run), on one pitch, a strike (P-S 1-1).
+assert.deepEqual(await page.$$eval('.pane[data-p=box] tr', trs => trs.filter(tr => /Moreno/.test(tr.querySelector('th')?.textContent)).map(tr => [...tr.querySelectorAll('td')].map(td => td.textContent).join(' '))), ['0 1 1 1 0 0 1 1 1-1']);
 await tap('[data-v=plays]');
 assert.match(await page.textContent('.plays'), /Kowalski pinch-hits for Batter 1/);
 await fitsPhone('the plays');
