@@ -50,8 +50,9 @@ written out in plain words.
 - **Lineups when you want them.** Start with two team names, and name batters as they come up, paste a lineup (from a
   group text or a game preview, starting pitcher included), or reuse a team from an earlier game (its starters, in the
   same spots). Pinch hitters and pitching changes are a tap on the batter or the pitcher (a reliever already in the
-  batting order is one more tap, with no typing), and a pinch runner is a tap on the runner. A starter who comes back
-  in (or the runner who ran for him) goes back in as the same player, with one line in the box score.
+  batting order is one more tap, with no typing, and with no DH a new one can take the batting spot of the pitcher
+  going out in the same go), and a pinch runner is a tap on the runner. A starter who comes back in (or the runner who
+  ran for him) goes back in as the same player, with one line in the box score.
 - **Sharing.** Send a link that carries the whole game (nothing is uploaded to share it), copy the score as text for
   a group chat, print both cards and the box score (a page each, Letter or A4, upright or sideways), or save the
   game as a file.

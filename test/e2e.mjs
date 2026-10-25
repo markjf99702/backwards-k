@@ -1861,6 +1861,38 @@ step('a team from a game a newer Backwards K saved starts a game this one can sc
   await p.context().close();
 }
 
+step('a new pitcher can take the batting spot of the one going out, in one go, with no DH');
+{
+  // Halvorsen pitches for the Comets and bats 9th.
+  const g = sampleUntil(7, S => S.inn === 2 && S.half === 0);
+  g.id = 'gdouble';
+  g.teams[1].lineup[8] = [{ name: 'Halvorsen', num: '21' }];
+  const p = await playing(g);
+  const n = g.ev.length, arms = g.teams[1].pitchers.length;
+  await p.click('.pitcher');
+  await p.click('.sheet [data-y=new]');
+  assert.equal(await p.textContent('.sheet .double span'), 'Also bats 9th in place of HalvorsenFor a game without a DH: the batting order changes with the pitcher.');
+  assert.equal(await p.isChecked('.sheet [data-also]'), false, 'off unless asked for');
+  // Someone already in the order can't take the spot as well.
+  await p.click('.sheet [data-pick="0"]');
+  assert.equal(await p.isVisible('.sheet .double'), false);
+  await p.fill('.sheet [data-f=name]', 'Moss');
+  await p.fill('.sheet [data-f=num]', '50');
+  await p.check('.sheet [data-also]');
+  await p.click('.sheet [data-x=go]');
+  assert.equal(await seen(p), 'Two changes: Moss pitches, and bats 9th in place of Halvorsen.');
+  let G = await stored(p, g.id);
+  assert.deepEqual(G.ev.slice(n), [{ t: 'pch', s: 1, i: arms }, { t: 'sub', s: 1, slot: 8, i: 1, ty: 'def' }]);
+  assert.deepEqual(G.teams[1].lineup[8].map(x => x.name), ['Halvorsen', 'Moss']);
+  assert.match(await p.textContent('.pitcher'), /Moss/);
+  assert.equal(await tickerOf(p), 'Moss comes in for Halvorsen.');
+  // Undo takes them back one at a time.
+  await p.click('.ticker [data-a=undo]');
+  G = await stored(p, g.id);
+  assert.deepEqual([G.ev.length, G.teams[1].lineup[8].length, G.teams[1].pitchers.length], [n + 1, 1, arms + 1]);
+  await p.context().close();
+}
+
 step('a team from before brings its starters back in their spots, and leaves the starting pitcher to pick');
 {
   // The Foxes' leadoff hitter had a pinch hitter, and Whitlock started on the mound.

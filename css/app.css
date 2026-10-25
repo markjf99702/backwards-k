@@ -296,6 +296,7 @@ details.lineup summary small { color: var(--muted); font-weight: 400; }
 .switch input { flex: none; width: 24px; height: 24px; margin: 2px 0 0; accent-color: var(--red); }
 .switch span { font-weight: 700; }
 .switch small { display: block; font-weight: 400; color: var(--muted); font-size: 15px; }
+.sheet .double { margin: 16px 0 6px; }
 .two-sm { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .two-sm label, .form label { display: grid; gap: 4px; font-weight: 700; font-size: 15px; min-width: 0; }
 .two-sm input, .form input, .form select { width: 100%; min-height: 46px; padding: 8px 12px; border-radius: 10px; border: 1.5px solid var(--line-2); background: var(--paper); font-weight: 400; }

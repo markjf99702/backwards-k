@@ -943,28 +943,43 @@ const pickChips = (words, list, now) => (list.length ? `<p class="pick-row" role
 function newPitcher(side) {
   const p = blank(), t = G.teams[side];
   // In youth ball, high school and any game without a DH, a reliever is usually someone already in the order.
-  const order = [];
+  const order = [], now = [];
   for (let slot = 0; slot < S.size[side]; slot++) {
     const x = t.lineup[slot][S.pl[side][slot] ?? 0];
+    now.push(x);
     if (x && (x.name || x.num) && !t.pitchers.some(y => samePerson(x, y))) order.push([slot, x]);
   }
+  // And when the pitcher going out bats (no DH), the new one can take his spot in the order too: the pitching change
+  // and the substitution in one go (Undo takes them back one at a time). Not for someone already in the order.
+  const out = t.pitchers[S.pit[side]] || blank(), spot = out.name || out.num ? now.findIndex(x => x && samePerson(x, out)) : -1;
+  const inOrder = () => now.some(x => x && samePerson(x, p));
   const body = openSheet(`<h2 id="sheetTitle">New pitcher <small>for ${esc(teamName(G, side))}</small></h2>
     ${pickChips('From the order', order, p)}
     ${nameFields(p)}
+    ${spot < 0 ? '' : `<label class="switch double"><input type="checkbox" data-also><span>Also bats ${ord(spot + 1)} in place of ${esc(label(now[spot], spot))}<small>For a game without a DH: the batting order changes with the pitcher.</small></span></label>`}
     <div class="row"><button type="button" class="btn quiet" data-close>Cancel</button><button type="button" class="btn primary" data-x="go">Bring them in</button></div>`);
-  $$('[data-f]', body).forEach(i => i.addEventListener('input', () => { p[i.dataset.f] = i.value.trim(); }));
+  const also = $('.double', body), shown = () => { if (also) also.hidden = inOrder(); };
+  $$('[data-f]', body).forEach(i => i.addEventListener('input', () => { p[i.dataset.f] = i.value.trim(); shown(); }));
   body.addEventListener('click', e => {
     const k = e.target.closest('[data-pick]');
     if (k) {
       const x = order.find(([slot]) => slot === +k.dataset.pick)[1];
       for (const f of ['num', 'name']) { p[f] = x[f]; $(`[data-f=${f}]`, body).value = x[f]; }
       $$('[data-pick]', body).forEach(c => c.setAttribute('aria-pressed', String(c === k)));
+      shown();
       return;
     }
     if (!e.target.closest('[data-x=go]')) return;
+    const both = also && !also.hidden && $('[data-also]', body).checked;
     G.teams[side].pitchers.push(p);
     closeSheet();
-    act({ t: 'pch', s: side, i: G.teams[side].pitchers.length - 1 });
+    const i = G.teams[side].pitchers.length - 1;
+    act({ t: 'pch', s: side, i });
+    if (!both) return;
+    const list = G.teams[side].lineup[spot], was = label(now[spot], spot);
+    list.push({ ...p });
+    act({ t: 'sub', s: side, slot: spot, i: list.length - 1, ty: 'def' });
+    toast(`Two changes: ${pitcherLabel(G, side, i)} pitches, and bats ${ord(spot + 1)} in place of ${was}.`, { ms: 6000 });
   });
   body.querySelector('[data-f=name]').focus();
 }
