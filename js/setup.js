@@ -61,7 +61,7 @@ export function showSetup(el) {
       ${past.length ? `<p class="past-teams"><span>Teams from before:</span>${past.map((t, i) => `<button type="button" class="chip" data-past="${i}">${esc(t.name)}</button>`).join('')}</p>` : ''}
       <div class="stepper"><span class="st">Batters in the order<button type="button" class="link-btn" data-paste aria-label="Paste a lineup for the ${side ? 'home team' : 'visitors'}">Paste a lineup</button></span><button type="button" data-step="-1" aria-label="One fewer batter">−</button><b data-size role="status">9</b><button type="button" data-step="1" aria-label="One more batter">+</button></div>
       <details class="lineup">
-        <summary>Lineup and pitcher <small>optional, add names any time</small></summary>
+        <summary>Lineup and pitcher <small>optional</small></summary>
         <ol class="lineup-edit"></ol>
         <div class="name-row pitcher-row"><span class="lbl">Starting pitcher</span>
           <label class="num"><span>No.</span><input data-pf="num" inputmode="numeric" maxlength="4" aria-label="Starting pitcher number"></label>

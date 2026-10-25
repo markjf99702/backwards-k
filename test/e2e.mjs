@@ -303,6 +303,18 @@ step('pasting a lineup from a group text: names with commas, and the pitcher');
   await p.context().close();
 }
 
+step('Lineup and pitcher, folded away: one line, with the app’s own chevron');
+{
+  const p = await phone();
+  await p.goto(base + '#/new');
+  const sum = await p.$eval('[data-side="0"] summary', el => ({ text: el.textContent, marker: getComputedStyle(el).listStyleType, lines: Math.round(el.querySelector('small').getBoundingClientRect().height / parseFloat(getComputedStyle(el.querySelector('small')).lineHeight)), turn: getComputedStyle(el, '::before').transform }));
+  assert.deepEqual({ text: sum.text, marker: sum.marker, lines: sum.lines }, { text: 'Lineup and pitcher optional', marker: 'none', lines: 1 });
+  await p.click('[data-side="0"] summary');
+  await p.waitForTimeout(250);
+  assert.notEqual(await p.$eval('[data-side="0"] summary', el => getComputedStyle(el, '::before').transform), sum.turn, 'the chevron turns when it opens');
+  await p.context().close();
+}
+
 step('naming a lineup: Enter goes to the next batter’s name, past the number');
 {
   const p = await phone();
