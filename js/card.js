@@ -94,7 +94,7 @@ function boxWords(c, count) {
     count && !c.auto ? `Count: ${few(c.count[0], 'ball')}, ${few(c.count[1], 'strike')}.` : ''].filter(Boolean).join(' ');
 }
 // A heading's short form, with its words for a screen reader and a mouse pointer.
-const WORDS = { AB: 'At bats', R: 'Runs', H: 'Hits', RBI: 'Runs batted in', BB: 'Walks', K: 'Strikeouts', IP: 'Innings pitched', HR: 'Home runs', BF: 'Batters faced', 'P-S': 'Pitches and strikes' };
+const WORDS = { AB: 'At bats', R: 'Runs', ER: 'Earned runs', H: 'Hits', RBI: 'Runs batted in', BB: 'Walks', K: 'Strikeouts', IP: 'Innings pitched', HR: 'Home runs', BF: 'Batters faced', 'P-S': 'Pitches and strikes' };
 export const abbr = k => `<abbr title="${WORDS[k]}">${k}</abbr>`;
 
 // A name the card's narrow column can show: a long one becomes the first initial and the surname ("C. Ellsworth"),

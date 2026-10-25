@@ -33,10 +33,10 @@ function pitching(S, side) {
   for (const e of g.ev) if (e.t === 'pch' && e.s === side) used.add(e.i);
   const rows = [...used].map(i => {
     const p = pitchStat(S, side, i);
-    return `<tr><th scope="row">${esc(pitcherLabel(g, side, i))}</th><td>${ip(p.outs)}</td><td>${p.h}</td><td>${p.r}</td><td>${p.bb}</td><td>${p.k}</td><td>${p.hr}</td><td>${p.bf}</td>${g.pitches ? `<td>${p.np}-${p.str}</td>` : ''}</tr>`;
+    return `<tr><th scope="row">${esc(pitcherLabel(g, side, i))}</th><td>${ip(p.outs)}</td><td>${p.h}</td><td>${p.r}</td><td>${p.er}</td><td>${p.bb}</td><td>${p.k}</td><td>${p.hr}</td><td>${p.bf}</td>${g.pitches ? `<td>${p.np}-${p.str}</td>` : ''}</tr>`;
   });
   // Pitches and strikes as a newspaper prints them: 106-69.
-  return `<table class="stats"><thead><tr><th scope="col">${esc(teamName(g, side))} pitching</th>${['IP', 'H', 'R', 'BB', 'K', 'HR', 'BF', ...(g.pitches ? ['P-S'] : [])].map(k => `<th scope="col">${abbr(k)}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table>`;
+  return `<table class="stats"><thead><tr><th scope="col">${esc(teamName(g, side))} pitching</th>${['IP', 'H', 'R', 'ER', 'BB', 'K', 'HR', 'BF', ...(g.pitches ? ['P-S'] : [])].map(k => `<th scope="col">${abbr(k)}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table>`;
 }
 
 // Names in game order, each once, with how many times when it's more than one: "Velez 2, Brennan".

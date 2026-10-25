@@ -135,6 +135,7 @@ export function replay(g, upTo = g.ev.length) {
     left: [[], []], // each team's players who left the game, and came back: { slot, p, inn, back }
     crs: [[], []], // each team's courtesy runners: { name, for, inn }
     joined: null, // scored from partway through: { inn, half, r: the runs each team had then } (see 'join')
+    ghosts: [], // this half-inning played again without its errors and passed balls, for earned runs (see ghost())
     pit: [0, 0],
     line: [[0], []], hInn: [[0], []], eInn: [[0], []], lob: [[], []],
     R: [0, 0], H: [0, 0], E: [0, 0],
@@ -152,6 +153,7 @@ export function replay(g, upTo = g.ev.length) {
     waved: 0, // runners this half-inning who crossed the plate on the third out but didn't count: left on base
     upTo, // how many events are played: what comes after the one being played, for goesOn()
   };
+  ghost(S, S.pit[1]);
   for (let i = 0; i < upTo; i++) { S.i = i; step(S, g.ev[i]); }
   S.i = upTo;
   // Over in the middle of a half-inning (a walk-off, or called): it ends here, with the runners still on.
@@ -218,6 +220,8 @@ function step(S, e) {
       // are the pitcher's who left (OBR 9.16(h)).
       if (e.s === 1 - S.half) S.relief = S.b >= 2 && S.b > S.s ? S.relief ?? S.pit[e.s] : null;
       S.pit[e.s] = e.i;
+      // His earned runs are counted from where things stand now (OBR 9.16(i)).
+      if (e.s === 1 - S.half && !S.between && !S.ghosts.some(x => x.pi === e.i)) ghost(S, e.i);
       // A pitcher brought in before anything has happened in the half-inning starts it, so the runner put on second
       // to start an extra inning is his, not the one's who left (OBR 7.01(b), 9.16(g)).
       if (S.fresh && e.s === 1 - S.half) for (const r of S.bases) if (r && r.cell.auto) r.pi = r.cell.pi = e.i;
@@ -244,6 +248,7 @@ function step(S, e) {
       for (const k of ['line', 'hInn', 'eInn']) for (const x of [0, 1]) S[k][x] = Array(inn - 1).fill(null);
       for (const k of ['line', 'hInn', 'eInn']) { S[k][0][inn - 1] = h ? null : 0; if (h) S[k][1][inn - 1] = 0; }
       if (e.up < S.size[h]) S.up[h] = e.up;
+      S.ghosts = []; ghost(S, S.pit[1 - h]);
       const lead = r[0] === r[1] ? `tied ${r[0]}–${r[1]}` : `${teamName(g, r[1] > r[0] ? 1 : 0)} ${Math.max(...r)}, ${teamName(g, r[1] > r[0] ? 0 : 1)} ${Math.min(...r)}`;
       return note(S, `Scored from the ${h ? 'bottom' : 'top'} of the ${ord(inn)}: ${lead}.`, 'sub');
     }
@@ -338,9 +343,10 @@ const key = (side, slot, p) => side + '.' + slot + '.' + p;
 function bstat(S, side, slot, p) {
   return S.bat[key(side, slot, p)] ||= { pa: 0, ab: 0, r: 0, h: 0, d: 0, t: 0, hr: 0, rbi: 0, bb: 0, k: 0, hbp: 0, sb: 0, cs: 0 };
 }
-// (ur: the runs charged that are unearned because the runner was put on second to start an extra inning.)
+// (er: the runs charged that are earned, OBR 9.16; ur: those unearned because the runner was put on second to start an
+// extra inning.)
 function pstat(S, side = 1 - S.half, i = S.pit[side]) {
-  return S.pitching[side][i] ||= { np: 0, balls: 0, str: 0, bf: 0, outs: 0, h: 0, r: 0, ur: 0, bb: 0, k: 0, hr: 0, hbp: 0, wp: 0, bk: 0 };
+  return S.pitching[side][i] ||= { np: 0, balls: 0, str: 0, bf: 0, outs: 0, h: 0, r: 0, er: 0, ur: 0, bb: 0, k: 0, hr: 0, hbp: 0, wp: 0, bk: 0 };
 }
 
 function pitch(S, k) {
@@ -421,6 +427,9 @@ function pa(S, e) {
   // (A play from a file that lists someone twice moves them once: the first time.)
   const moved = new Set();
   let rbi = 0, lastWhy = null;
+  // What happened to each one, for the earned runs: { r, from, to, u: where the play would take him, err: past it on an
+  // error }.
+  const acts = [];
   for (const [from, was, how, hf] of moves) {
     const r = from === 0 ? batter : S.bases[from];
     if (!r || moved.has(from)) continue;
@@ -436,6 +445,7 @@ function pa(S, e) {
     const u = usual(from), extra = to > u && (how === 'T' || how === 'E'), ef = extra && how === 'E' ? (hf && hf[0]) || 0 : null;
     const why = !extra ? '' : how === 'T' ? ' on the throw' : ` on an error by the ${POS_NAME[ef] || 'fielder'}${ef ? ` (E${ef})` : ''}`;
     if (ef != null) errBy.add(ef);
+    acts.push({ r, from, to, u, err: ef != null });
     if (from === 0) { bTo = to; bWhy = why; }
     if (to === 0) {
       if (from === 0) {
@@ -489,6 +499,7 @@ function pa(S, e) {
   if (rbi && R.rbi !== 0) { cell.rbi = rbi; B.rbi += rbi; }
   const own = R.err ? (e.r === 'CI' ? 'CI' : (e.f && e.f[0]) || 0) : null;
   for (const f of errBy) if (f !== own) { S.E[fld]++; S.eInn[side][S.inn - 1]++; S.errs[fld].push(f); }
+  ghostPlay(S, acts, code);
 
   let text = `${batterName} ${R.say}${fielderWords(code, e.f)}`;
   if (R.kind !== 'out' && bOut) text += R.go === 4 ? ', but is called out on the bases' : `, but is out trying for ${BASE[bAt]}`;
@@ -595,6 +606,7 @@ function runners(S, e) {
   // bases it took (need), and it's said last, as the winning run (win).
   const live = !S.over && S.R[1] <= S.R[0];
   let need = 0, win = null, mk = '';
+  const acts = []; // what happened to each runner, for the earned runs (see ghostPlay())
   for (const [from, was, how, f] of moves) {
     const r = S.bases[from];
     if (!r || moved.has(from) || S.outs >= 3) continue;
@@ -603,6 +615,7 @@ function runners(S, e) {
     // Someone who didn't move is still on that base (the runners ahead go first): this runner stays put.
     if (to >= 1 && to <= 3 && to !== from && S.bases[to]) continue;
     S.bases[from] = null;
+    acts.push({ r, from, to, how });
     const who = runnerName(g, r), m = runMark(how, f);
     mk ||= m; // the play's mark in the play-by-play: the first of its moves' (SB, WP, CS 2-6)
     if (how === 'E' && !err) err = f && f[0] ? f : [0];
@@ -635,12 +648,100 @@ function runners(S, e) {
   if (err) { S.E[fld]++; S.eInn[side][S.inn - 1]++; S.errs[fld].push(err[0]); }
   if (moves.some(m => m[2] === 'WP')) pstat(S).wp++;
   if (balk) pstat(S).bk++;
+  ghostPlay(S, acts, null, balk);
   const full = (runs || past.length) && S.outs < 3 && limited(S);
   const text = (balk ? 'Balk. ' : '') + (bits.length ? sentences(bits) + '.' : '') + (full ? ' ' + limitWords(S) : '');
   S.text[S.i] = text;
   S.plays.push({ i: S.i, inn: S.inn, half: side, text, kind: 'run', runs, mark: mk });
   walkoff(S);
   if (S.outs >= 3 || (full && !S.over)) endHalf(S, S.outs >= 3 ? '' : 'limit');
+}
+
+// ---------- earned runs (OBR 9.16) ----------
+// Each half-inning is played again as a ghost of itself: without its errors and passed balls, so a batter who reached
+// on an error (or catcher's interference) is out instead, and a runner doesn't take the bases an error or a passed ball
+// gave him. A run is earned when its runner scores in the ghost before it has three outs. Each pitcher who pitches in
+// the half-inning has a ghost of his own from when he came in, with the outs as they really were then: a reliever
+// doesn't get the outs the fielders failed to make before him (9.16(i)), so the runs charged to him are earned or not
+// by his. A ghost's bases hold the real runners (the same objects as on S.bases), each where he'd be in the ghost; one
+// who isn't there would have been out, and nobody who isn't in the ghost scores an earned run. The runner put on second
+// to start an extra inning is never in it (7.01(b): he's as if he reached on an error). Where the ghost has to guess how
+// far someone would have gone, it gives him the bases he really took on the play, and a runner he'd have been forced
+// by; the benefit of the doubt goes to the pitcher.
+function ghost(S, pi) {
+  const bases = [null, null, null, null];
+  for (const b of [1, 2, 3]) if (S.bases[b] && !S.bases[b].cell.auto) bases[b] = S.bases[b];
+  S.ghosts.push({ pi, outs: S.outs, bases, done: false });
+}
+// Results that move runners only when they're forced.
+const FORCED = new Set(['BB', 'IBB', 'HBP', 'CI', 'KD']);
+// A play, in each ghost. acts: what really happened to each runner and the batter ({ r, from, to, u, err } on a plate
+// appearance, { r, from, to, how } on a runner's play); code: the plate appearance's result, or null for a runner's
+// play; balk: everyone moves up.
+function ghostPlay(S, acts, code, balk = false) {
+  const R = code && RESULTS[code], fld = 1 - S.half;
+  const a0 = code ? acts.find(a => a.from === 0) : null, batterSafe = !!a0 && a0.to > 0;
+  for (const G of S.ghosts) {
+    if (G.done) continue;
+    const was = G.bases, at = r => was.indexOf(r), moves = [];
+    let outs = 0, batterOut = !!a0 && !batterSafe, phantomOut = false;
+    // The batter reaches in the ghost too, and forces the runners on in it, unless he'd have been out.
+    const batterOn = batterSafe && !R.err;
+    const forcedAt = k => batterOn && [1, 2, 3].slice(0, k - 1).every(b => was[b]);
+    for (const a of acts) {
+      if (!a.from) continue;
+      const k = at(a.r);
+      if (a.to === 0) {
+        // Out for real: out in the ghost, or, when he wasn't there, the batter safe on a fielder's choice would have
+        // been the one put out.
+        if (k > 0) { outs++; continue; }
+        if (code && batterSafe && R.kind !== 'hit') phantomOut = true;
+        continue;
+      }
+      if (k <= 0) continue;
+      let t;
+      if (!code) t = a.how === 'PB' || a.how === 'E' ? k : k + (a.to - a.from);
+      else if (R.kind === 'hit' && R.go >= 3) t = 4;
+      else if (FORCED.has(code)) t = forcedAt(k) ? k + 1 : k;
+      else t = k + Math.max(0, (a.err ? a.u : a.to) - a.from);
+      moves.push([a.r, k, t]);
+    }
+    // Runners in the ghost who aren't on base for real any more (they scored, ahead of the ghost): where the play takes
+    // a runner from that base.
+    for (const b of [3, 2, 1]) {
+      const r = was[b];
+      if (!r || acts.some(a => a.r === r)) continue;
+      let t = b;
+      if (!code) t = balk ? b + 1 : b;
+      else if (R.kind === 'hit') t = b + R.go;
+      else if (FORCED.has(code) || ['GO', 'FC', 'DP', 'TP'].includes(code)) t = forcedAt(b) ? b + 1 : b;
+      else if (code === 'SF') t = b === 3 ? 4 : b;
+      else if (code === 'SAC') t = b + 1;
+      moves.push([r, b, t]);
+    }
+    // The batter: out, out in the ghost (reached on an error, or safe on a fielder's choice that got a runner who
+    // wasn't there), or where the play took him.
+    if (a0) {
+      if (!batterSafe) outs++;
+      else if (R.err || phantomOut) { outs++; batterOut = true; }
+      else moves.push([a0.r, 0, a0.err ? a0.u : a0.to]);
+    }
+    // Everyone to his base, lead runner first, none passing the one ahead.
+    const next = [null, null, null, null], home = [];
+    moves.sort((x, y) => y[1] - x[1]);
+    let ahead = 5;
+    for (const [r, k, t0] of moves) {
+      let t = Math.min(4, t0);
+      if (t < 4) { t = Math.max(k, Math.min(t, ahead - 1)); ahead = t; }
+      if (t >= 4) home.push(r); else if (t > 0) next[t] = r;
+    }
+    G.outs += outs;
+    // Runs on the play that made the ghost's third out count only when that out wasn't the batter's, nor a force.
+    const counts = G.outs < 3 || (!batterOut && !!code && !['FC', 'DP', 'TP', 'GO'].includes(code));
+    if (counts) for (const r of home) if (r.ran && !r.er && r.pi === G.pi) { r.er = true; pstat(S, fld, r.pi).er++; }
+    G.bases = next;
+    if (G.outs >= 3) { G.done = true; G.bases = [null, null, null, null]; }
+  }
 }
 
 // Where someone put out on a batted ball was put out: the base the scorer picked (a move's how, '@3' for third), or else
@@ -672,6 +773,7 @@ function score(S, r) {
   const side = S.half;
   S.R[side]++; S.line[side][S.inn - 1]++;
   r.cell.scored = true;
+  r.ran = true;
   bstat(S, side, r.slot, r.p).r++;
   const P = pstat(S, 1 - side, r.pi);
   P.r++;
@@ -750,6 +852,8 @@ function nextHalf(S) {
   S.col = { k: 0, used: new Set() };
   S.last = null;
   S.fresh = true;
+  S.ghosts = [];
+  ghost(S, S.pit[1 - h]);
   if (S.g.tie && S.inn >= S.g.tie) placeRunner(S);
 }
 // Extra innings that start with a runner on second (g.tie, the first inning they do; OBR 7.01(b), in MLB since 2020):
@@ -987,14 +1091,17 @@ export function columns(S, side) {
   return out;
 }
 export const batKey = key;
-export const pitchStat = (S, side, i) => S.pitching[side][i] || { np: 0, balls: 0, str: 0, bf: 0, outs: 0, h: 0, r: 0, ur: 0, bb: 0, k: 0, hr: 0, hbp: 0, wp: 0, bk: 0 };
+export const pitchStat = (S, side, i) => S.pitching[side][i] || { np: 0, balls: 0, str: 0, bf: 0, outs: 0, h: 0, r: 0, er: 0, ur: 0, bb: 0, k: 0, hr: 0, hbp: 0, wp: 0, bk: 0 };
 export const ip = outs => Math.floor(outs / 3) + (outs % 3 ? '.' + (outs % 3) : '');
 // A pitcher's day so far, in words, from pitchStat: "43 pitches (33 strikes), 4 innings and 1 out, 13 batters faced,
-// 1 hit, 0 runs, 0 walks, 4 strikeouts." (The box score keeps the scorer's 4.1.) pitches: whether they're counted.
+// 1 hit, 3 runs (1 earned), 0 walks, 4 strikeouts." (The box score keeps the scorer's 4.1.) pitches: whether they're
+// counted.
 const many = (k, one, more = one + 's') => `${k} ${k === 1 ? one : more}`;
 export function pitchDay(st, pitches = true) {
-  return `${pitches ? `${many(st.np, 'pitch', 'pitches')} (${many(st.str, 'strike')}), ` : ''}${pitchWork(st)}, ${many(st.h, 'hit')}, ${many(st.r, 'run')}${st.ur ? ` (${st.ur} unearned)` : ''}, ${many(st.bb, 'walk')}, ${many(st.k, 'strikeout')}.`;
+  return `${pitches ? `${many(st.np, 'pitch', 'pitches')} (${many(st.str, 'strike')}), ` : ''}${pitchWork(st)}, ${many(st.h, 'hit')}, ${many(st.r, 'run')}${earnedWords(st)}, ${many(st.bb, 'walk')}, ${many(st.k, 'strikeout')}.`;
 }
+// How many of a pitcher's runs were earned, after them: " (1 earned)", " (all earned)", " (unearned)"; nothing for none.
+const earnedWords = st => (!st.r ? '' : ` (${st.er === st.r ? (st.r === 1 ? 'earned' : 'all earned') : st.er ? `${st.er} earned` : st.r === 1 ? 'unearned' : 'none earned'})`);
 // The outs a pitcher got and the batters he faced, in words: "1 inning and 2 outs, 7 batters faced".
 export function pitchWork(st) {
   const inn = Math.floor(st.outs / 3), outs = st.outs % 3;

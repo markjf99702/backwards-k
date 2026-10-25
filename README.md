@@ -36,6 +36,11 @@ written out in plain words.
   led by its mark from the card (6-3, F8, SB, CS 2-6), so the shorthand comes with the words. A box can also be
   switched to another kind of out or another way of reaching base, and have its fielders changed; anything else is a
   job for Undo, or for Fix runners, which stays until the next batter's turn is over.
+- **Earned runs, as a scorer works them out.** Each pitcher's line in the box score has his earned runs: the
+  half-inning played again without its errors and passed balls (a batter safe on an error is out instead, and a runner
+  doesn't take the base an error gave him), and a run is earned if it would still have scored before the third out
+  (OBR 9.16). A reliever doesn't get the outs the fielders missed before he came in (9.16(i)), and the runner put on
+  second in extra innings is never earned.
 - **Undo anything.** A game is a list of what happened, so Undo takes plays back, latest first, as many as you like.
   It's at the top of the screen, and under the field beside the play it would take back, and it says which one it
   took (with Redo) when the line under the field is out of sight. Forgot a play a few back, a steal or a pitching

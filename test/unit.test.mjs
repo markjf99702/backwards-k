@@ -749,7 +749,8 @@ test('extra innings that start with a runner on second: the batter before the le
   S = play(g, '2B');
   assert.deepEqual([S.R, S.pitching[1][0].r, S.pitching[1][0].ur, S.cells.at(-1).rbi], [[1, 0], 1, 1, 1]);
   assert.deepEqual([S.bat['0.2.0'].r, S.bat['0.2.0'].pa, S.pitching[1][0].bf], [1, 1, 4]);
-  assert.match(pitchDay(S.pitching[1][0], false), /1 run \(1 unearned\)/);
+  assert.match(pitchDay(S.pitching[1][0], false), /1 run \(unearned\)/);
+  assert.equal(S.pitching[1][0].er, 0);
   assert.match(cellSvg(S.cells.at(-2)), /<polyline class="path" points="30,13 11,32 30,51"\/>/, 'from second, home');
   S = play(g, ...threeK);
   assert.equal(S.bases[2].slot, 2, 'the home team’s too');
@@ -1141,11 +1142,12 @@ test('the notes under each team’s box score', () => {
     'Triples: Batter 1.', 'Sacrifice bunts: Batter 2.', 'Left on base: 1.', 'Errors: catcher’s interference, third baseman.',
     'Wild pitches: Halvorsen.', 'Hit batters: Halvorsen (Brennan).', 'Balks: Bishop.',
   ]);
-  // Batters faced, home runs, and pitches and strikes are columns of the pitching lines: IP H R BB K HR BF P-S.
+  // Earned runs, batters faced, home runs, and pitches and strikes are columns of the pitching lines: IP H R ER BB K HR
+  // BF P-S.
   const line = who => boxHtml(S).match(new RegExp(`<th scope="row">${who}</th>((?:<td>[^<]*</td>)+)`))[1].match(/<td>([^<]*)<\/td>/g).map(x => x.slice(4, -5));
-  assert.deepEqual(line('Halvorsen').slice(5, 7), ['0', '4']);
-  assert.deepEqual(line('Bishop').slice(5, 7), ['1', '4']);
-  assert.match(line('Bishop')[7], /^\d+-\d+$/);
+  assert.deepEqual(line('Halvorsen').slice(6, 8), ['0', '4']);
+  assert.deepEqual(line('Bishop').slice(6, 8), ['1', '4']);
+  assert.match(line('Bishop')[8], /^\d+-\d+$/);
 });
 
 test('the plays: the count and pitches for each at-bat, a line for each half-inning, and a finished game in order', () => {
@@ -1908,12 +1910,15 @@ test('a player brought in by a play put back after other changes goes at the end
 });
 
 test('a pitcher’s day in words: plurals, and outs below an inning said as outs', () => {
-  const st = { np: 1, str: 1, bf: 1, outs: 0, h: 1, r: 1, bb: 1, k: 1 };
-  assert.equal(pitchDay(st), '1 pitch (1 strike), no outs yet, 1 batter faced, 1 hit, 1 run, 1 walk, 1 strikeout.');
-  assert.equal(pitchDay({ ...st, outs: 2 }, false), '2 outs, 1 batter faced, 1 hit, 1 run, 1 walk, 1 strikeout.');
-  assert.equal(pitchDay({ ...st, np: 0, str: 0, outs: 3, h: 0, r: 2 }), '0 pitches (0 strikes), 1 inning, 1 batter faced, 0 hits, 2 runs, 1 walk, 1 strikeout.');
+  const st = { np: 1, str: 1, bf: 1, outs: 0, h: 1, r: 1, er: 1, bb: 1, k: 1 };
+  assert.equal(pitchDay(st), '1 pitch (1 strike), no outs yet, 1 batter faced, 1 hit, 1 run (earned), 1 walk, 1 strikeout.');
+  assert.equal(pitchDay({ ...st, outs: 2, er: 0 }, false), '2 outs, 1 batter faced, 1 hit, 1 run (unearned), 1 walk, 1 strikeout.');
+  assert.equal(pitchDay({ ...st, np: 0, str: 0, outs: 3, h: 0, r: 2 }), '0 pitches (0 strikes), 1 inning, 1 batter faced, 0 hits, 2 runs (1 earned), 1 walk, 1 strikeout.');
+  assert.match(pitchDay({ ...st, r: 3, er: 3 }), / 3 runs \(all earned\), /);
+  assert.match(pitchDay({ ...st, r: 2, er: 0 }), / 2 runs \(none earned\), /);
+  assert.match(pitchDay({ ...st, r: 0, er: 0 }), / 0 runs, /);
   const S = replay(sampleGame(7)), w = pitchStat(S, 0, 0);
-  assert.equal(pitchDay(w), '106 pitches (69 strikes), 6 innings, 27 batters faced, 5 hits, 4 runs, 2 walks, 8 strikeouts.');
+  assert.equal(pitchDay(w), '106 pitches (69 strikes), 6 innings, 27 batters faced, 5 hits, 4 runs (all earned), 2 walks, 8 strikeouts.');
   assert.match(pitchDay({ ...w, outs: 13 }), / 4 innings and 1 out, /);
   assert.match(pitchDay({ ...w, outs: 5 }), / 1 inning and 2 outs, /);
   // The same words for the list of earlier pitchers.
@@ -2132,4 +2137,62 @@ test('starting partway through: the innings before are dashes and shaded, the ru
   play(one, { t: 'join', inn: 2, half: 0, r: [1, 0], up: 3 });
   takeBack(one);
   assert.deepEqual([replay(one).inn, replay(one).R], [1, [0, 0]]);
+});
+
+// The rules lens's hand-scored game (three innings of tricky plays): by hand, Halvorsen gave up 6 runs, 3 earned,
+// Bishop none, and Whitlock 7, 4 earned.
+function handScored() {
+  const g = game({ innings: 3 });
+  g.teams[1].pitchers = [{ name: 'Halvorsen', num: '21' }, { name: 'Bishop', num: '37' }];
+  g.teams[0].pitchers = [{ name: 'Whitlock', num: '33' }];
+  g.ev = [{"t":"p","k":"b"},{"t":"p","k":"b"},{"t":"p","k":"b"},{"t":"p","k":"b"},{"t":"pa","r":"1B","m":[[0,1],[1,3]]},{"t":"pa","r":"SF","m":[[0,0],[3,4],[1,1]],"f":[8]},{"t":"p","k":"b"},{"t":"r","m":[[1,2,"WP"]]},{"t":"pa","r":"GO","m":[[0,0],[2,3]],"f":[6,3]},{"t":"pa","r":"E","m":[[0,1],[3,4]],"f":[6]},{"t":"p","k":"s"},{"t":"p","k":"s"},{"t":"pa","r":"KD","m":[[0,1],[1,2]]},{"t":"pa","r":"2B","m":[[0,2],[2,4],[1,4]]},{"t":"pa","r":"LO","m":[[0,0],[2,2]],"f":[6]},{"t":"pa","r":"1B","m":[[0,1]]},{"t":"r","m":[[1,2,"SB"]]},{"t":"pa","r":"BB","m":[[0,1],[2,2]]},{"t":"r","m":[[2,3,"SB"]]},{"t":"r","m":[[1,2,"SB"]]},{"t":"pa","r":"GO","m":[[0,0],[3,3],[2,2]],"f":[6,3]},{"t":"pa","r":"IBB","m":[[0,1],[3,3],[2,2]]},{"t":"pa","r":"DP","f":[4,6,3],"m":[[0,0],[3,3],[2,2],[1,0]],"x":1},{"t":"pa","r":"HBP","m":[[0,1]]},{"t":"pa","r":"1B","m":[[0,1],[1,2]]},{"t":"pch","s":1,"i":1},{"t":"pa","r":"FC","m":[[0,1],[2,0],[1,2]],"f":[5]},{"t":"r","m":[[2,3,"BK"],[1,2,"BK"]]},{"t":"pa","r":"1B","m":[[0,1],[3,4],[2,4]]},{"t":"r","m":[[1,0,"PO",[1,3]]]},{"t":"p","k":"s"},{"t":"p","k":"s"},{"t":"p","k":"s"},{"t":"pa","r":"2B","m":[[0,2]]},{"t":"pa","r":"1B","m":[[0,2],[2,0,"@4"]]},{"t":"pa","r":"E","m":[[0,1],[2,3]],"f":[5]},{"t":"pa","r":"SF","m":[[0,0],[3,4],[1,1]],"f":[9]},{"t":"pa","r":"HR","m":[[0,4],[1,4]]},{"t":"pa","r":"PU","m":[[0,0]],"f":[4]},{"t":"pa","r":"K","m":[[0,0]]},{"t":"pa","r":"K","m":[[0,0]]},{"t":"pa","r":"KL","m":[[0,0]]},{"t":"pa","r":"BB","m":[[0,1]]},{"t":"pa","r":"1B","m":[[0,1],[1,3]]},{"t":"pa","r":"2B","m":[[0,2],[3,4],[1,3]]},{"t":"pa","r":"BB","m":[[0,1],[3,3],[2,2]]},{"t":"pa","r":"1B","m":[[0,1],[3,4],[2,4],[1,3]]},{"t":"pa","r":"3B","m":[[0,3],[3,4],[1,4]]}];
+  return g;
+}
+
+test('earned runs: the hand-scored game, each pitcher’s, as a scorer works them out (OBR 9.16)', () => {
+  const S = replay(handScored());
+  assert.deepEqual([S.R, halfLabel(S)], [[6, 7], 'Final']);
+  const line = (s, i) => [S.pitching[s][i].r, S.pitching[s][i].er];
+  assert.deepEqual([line(1, 0), line(1, 1), line(0, 0)], [[6, 3], [0, 0], [7, 4]]);
+  // In the box score, beside the runs; and in the pitcher's day.
+  assert.match(boxHtml(S), /<th scope="row">Halvorsen<\/th><td>1<\/td><td>3<\/td><td>6<\/td><td>3<\/td>/, 'IP H R ER');
+  assert.match(pitchDay(S.pitching[1][0]), / 6 runs \(3 earned\), /);
+});
+
+test('earned runs: an error that would have been the third out, a passed ball, an error on the bases, and a reliever (OBR 9.16)', () => {
+  const er = (g, s = 1, i = 0) => { const S = replay(g); return [S.pitching[s][i].r, S.pitching[s][i].er]; };
+  // Two out, an error that would have ended it, then a home run: neither run is earned.
+  let g = game();
+  play(g, 'K', 'K', 'E 6', 'HR', 'K');
+  assert.deepEqual(er(g), [2, 0]);
+  // Without the error (a single), both are.
+  g = game();
+  play(g, 'K', 'K', '1B', 'HR', 'K');
+  assert.deepEqual(er(g), [2, 2]);
+  // A single, a passed ball to second, a single that scores him, and three fly outs: from first, the single would have
+  // taken him to third, where he'd have been left. Unearned. With a wild pitch instead, earned.
+  for (const [how, want] of [['PB', [1, 0]], ['WP', [1, 1]]]) {
+    g = game();
+    play(g, '1B', { t: 'r', m: [[1, 2, how]] }, { t: 'pa', r: '1B', m: [[0, 1], [2, 4]] }, 'FO 8', 'FO 8', 'FO 8');
+    assert.deepEqual(er(g), want, how);
+  }
+  // On a single he went first to third on the right fielder's error, and scored on a sacrifice fly: he'd have been on
+  // second, and stayed there. On the throw instead: earned.
+  for (const [how, want] of [[['E', [9]], [1, 0]], [['T'], [1, 1]]]) {
+    g = game();
+    play(g, '1B', { t: 'pa', r: '1B', m: [[0, 1], [1, 3, ...how]] }, { t: 'pa', r: 'SF', f: [8], m: [[0, 0], [3, 4], [1, 1]] }, 'K', 'K');
+    assert.deepEqual(er(g), want, how[0]);
+  }
+  // A reliever doesn't get the outs the fielders missed before him (9.16(i)): one out, an error that would have been the
+  // second, a ground out (the third, without the error), and a new pitcher gives up a home run. The runner who reached
+  // on the error is the first pitcher's, unearned; the batter's run is the reliever's, earned, though for the team it
+  // isn't.
+  g = game();
+  g.teams[1].pitchers.push({ name: 'Relief', num: '' });
+  play(g, 'K', 'E 6', { t: 'pa', r: 'GO', f: [4, 3], m: [[0, 0], [1, 2]] }, { t: 'pch', s: 1, i: 1 }, 'HR', 'K');
+  assert.deepEqual([er(g, 1, 0), er(g, 1, 1)], [[1, 0], [1, 1]]);
+  // The runner put on second to start an extra inning scores: unearned.
+  g = game({ innings: 1, tie: 2 });
+  play(g, ...threeK, ...threeK, '2B');
+  assert.deepEqual(er(g), [1, 0]);
 });

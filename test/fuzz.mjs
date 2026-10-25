@@ -367,6 +367,8 @@ function rules(C, fresh) {
     add('ur', sum(arms.map(p => p.ur)), cells.filter(c => c.auto && c.scored).length, 'unearned runs by the runner put on second'); add('rbi', sum(bats.map(b => b.rbi)), sum(cells.map(c => c.rbi)), 'RBI');
     for (const k of ['k', 'bb', 'hbp']) add(k, sum(bats.map(b => b[k])), sum(arms.map(p => p[k])), `batters’ ${k} vs pitchers’`);
     for (const p of arms) if (p.np !== p.balls + p.str) bad('pitches', `${p.np} pitches aren’t ${p.balls} balls and ${p.str} strikes`);
+    // Earned runs: some of a pitcher's runs, none of the runner put on second's (OBR 9.16, 7.01(b)).
+    for (const p of arms) if (!(Number.isInteger(p.er) && p.er >= 0 && p.er <= p.r - p.ur)) bad('er', `${p.er} earned of ${p.r} runs (${p.ur} by the runner put on second)`);
     for (const c of cells) {
       if (c.scored && (c.reach !== 4 || c.outN)) bad('box', `box ${c.n} scored, but reached ${c.reach}, out ${c.outN}`);
       if (c.rbi && RESULTS[c.r]?.rbi === 0) bad('rule-rbi', `box ${c.n} (${c.r}) has an RBI (OBR 9.04(b))`);
