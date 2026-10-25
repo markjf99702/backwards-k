@@ -554,9 +554,15 @@ export const pitchStat = (S, side, i) => S.pitching[side][i] || { np: 0, balls: 
 export const ip = outs => Math.floor(outs / 3) + (outs % 3 ? '.' + (outs % 3) : '');
 // A pitcher's day so far, in words, from pitchStat: "43 pitches (33 strikes), 4 innings and 1 out, 13 batters faced,
 // 1 hit, 0 runs, 0 walks, 4 strikeouts." (The box score keeps the scorer's 4.1.) pitches: whether they're counted.
+const many = (k, one, more = one + 's') => `${k} ${k === 1 ? one : more}`;
 export function pitchDay(st, pitches = true) {
-  const n = (k, one, many = one + 's') => `${k} ${k === 1 ? one : many}`;
-  const inn = Math.floor(st.outs / 3), outs = st.outs % 3;
-  const work = !st.outs ? 'no outs yet' : [inn ? n(inn, 'inning') : '', outs ? n(outs, 'out') : ''].filter(Boolean).join(' and ');
-  return `${pitches ? `${n(st.np, 'pitch', 'pitches')} (${n(st.str, 'strike')}), ` : ''}${work}, ${n(st.bf, 'batter')} faced, ${n(st.h, 'hit')}, ${n(st.r, 'run')}, ${n(st.bb, 'walk')}, ${n(st.k, 'strikeout')}.`;
+  return `${pitches ? `${many(st.np, 'pitch', 'pitches')} (${many(st.str, 'strike')}), ` : ''}${pitchWork(st)}, ${many(st.h, 'hit')}, ${many(st.r, 'run')}, ${many(st.bb, 'walk')}, ${many(st.k, 'strikeout')}.`;
 }
+// The outs a pitcher got and the batters he faced, in words: "1 inning and 2 outs, 7 batters faced".
+export function pitchWork(st) {
+  const inn = Math.floor(st.outs / 3), outs = st.outs % 3;
+  const work = !st.outs ? 'no outs yet' : [inn ? many(inn, 'inning') : '', outs ? many(outs, 'out') : ''].filter(Boolean).join(' and ');
+  return `${work}, ${many(st.bf, 'batter')} faced`;
+}
+// A pitch count in words: "1 pitch", "34 pitches".
+export const pitchCount = np => many(np, 'pitch', 'pitches');

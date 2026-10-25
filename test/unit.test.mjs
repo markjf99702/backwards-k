@@ -1,7 +1,7 @@
 // The rules of scoring, without a browser:  node --test test/unit.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { replay, suggest, check, runsCount, scoredAs, mark, now, columns, halfLabel, RESULTS, pitchDay, pitchStat } from '../js/engine.js';
+import { replay, suggest, check, runsCount, scoredAs, mark, now, columns, halfLabel, RESULTS, pitchDay, pitchStat, pitchWork, pitchCount } from '../js/engine.js';
 import { newGame, cleanGame, cleanDoc, parseLineup, parsePaste, takeBack, putBack, carryLineup } from '../js/model.js';
 import { sampleGame } from '../js/sample.js';
 // The card is drawn with ui.js, which looks for the page's sheet as it loads: here there's no page, so no sheet.
@@ -913,6 +913,10 @@ test('a pitcher’s day in words: plurals, and outs below an inning said as outs
   assert.equal(pitchDay(w), '106 pitches (69 strikes), 6 innings, 27 batters faced, 5 hits, 4 runs, 2 walks, 8 strikeouts.');
   assert.match(pitchDay({ ...w, outs: 13 }), / 4 innings and 1 out, /);
   assert.match(pitchDay({ ...w, outs: 5 }), / 1 inning and 2 outs, /);
+  // The same words for the list of earlier pitchers.
+  assert.equal(pitchWork({ ...w, outs: 2, bf: 4 }), '2 outs, 4 batters faced');
+  assert.equal(pitchWork({ ...w, outs: 0, bf: 1 }), 'no outs yet, 1 batter faced');
+  assert.deepEqual([pitchCount(1), pitchCount(34)], ['1 pitch', '34 pitches']);
 });
 
 test('a batter’s day: each trip in order, and only what isn’t zero', () => {

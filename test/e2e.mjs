@@ -396,6 +396,19 @@ step('a reliever picked from the batting order, and the pitcher’s day in plain
   await p.click('[data-r=K]');
   await p.click('[data-a=pitcher]');
   assert.equal(await p.textContent('.sheet p.quiet'), '5 pitches (1 strike), 1 out, 2 batters faced, 0 hits, 0 runs, 1 walk, 1 strikeout.');
+  // Bringing back an earlier pitcher: how much each has thrown, and a way out.
+  await p.click('.sheet [data-y=back]');
+  assert.equal(await p.textContent('.sheet [data-j="0"] span'), '2 pitches so far');
+  await p.click('.sheet [data-close]');
+  assert.equal(await p.evaluate(() => document.getElementById('sheet').open), false, 'Cancel closes it');
+  // Without pitches counted, a pitch count would be one a batter: the outs and batters instead.
+  await p.click('[data-a=menu]');
+  await p.click('.sheet [data-y=settings]');
+  await p.click('.sheet [data-g=pitches]');
+  await p.keyboard.press('Escape');
+  await p.click('[data-a=pitcher]');
+  await p.click('.sheet [data-y=back]');
+  assert.equal(await p.textContent('.sheet [data-j="0"] span'), '1 out, 1 batter faced');
   await p.keyboard.press('Escape');
 
   step('two substitutions in a row from the Lineups sheet');

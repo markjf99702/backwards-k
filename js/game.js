@@ -2,7 +2,7 @@
 // away on a phone) the scorecard, the box score and the play-by-play.
 import {
   replay, suggest, check, runsCount, scoredAs, now, RESULTS, BASE, POS, POS_NAME, halfLabel, label, player, teamName,
-  pitcherLabel, ord, runnersOn, mark, pitchStat, pitchWords, pitchDay,
+  pitcherLabel, ord, runnersOn, mark, pitchStat, pitchWords, pitchDay, pitchWork, pitchCount,
 } from './engine.js';
 import { store } from './store.js';
 import { blank, takeBack, putBack } from './model.js';
@@ -770,7 +770,10 @@ function pitcherSheet(side) {
     if (!y) return;
     if (y.dataset.y === 'new') newPitcher(side);
     if (y.dataset.y === 'back') {
-      const b2 = openSheet(`<h2 id="sheetTitle">Who’s pitching?</h2><div class="list">${G.teams[side].pitchers.map((_, j) => j === S.pit[side] ? '' : `<button type="button" class="li" data-j="${j}"><b>${esc(pitcherLabel(G, side, j))}</b><span>${pitchStat(S, side, j).np} pitches so far</span></button>`).join('')}</div>`);
+      // How much each has thrown: pitches when they're counted (without, the count is one a batter, and means nothing).
+      const so = st => (G.pitches ? `${pitchCount(st.np)} so far` : pitchWork(st));
+      const b2 = openSheet(`<h2 id="sheetTitle">Who’s pitching?</h2><div class="list">${G.teams[side].pitchers.map((_, j) => j === S.pit[side] ? '' : `<button type="button" class="li" data-j="${j}"><b>${esc(pitcherLabel(G, side, j))}</b><span>${esc(so(pitchStat(S, side, j)))}</span></button>`).join('')}</div>
+        <div class="row"><button type="button" class="btn quiet" data-close>Cancel</button></div>`);
       b2.addEventListener('click', e2 => { const j = e2.target.closest('[data-j]'); if (j) { closeSheet(); act({ t: 'pch', s: side, i: +j.dataset.j }); } });
     }
   });
