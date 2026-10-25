@@ -675,6 +675,30 @@ step('Fix runners, then Cancel, while a name is being saved: nothing is lost');
   await p.context().close();
 }
 
+step('names typed in the batter, pitcher and lineup sheets after storage was read again (another tab saved) are kept');
+{
+  const p = await phone(), id = await startGame(p);
+  const again = () => p.evaluate(async () => (await import('./js/store.js')).store.reload());
+  const type = async (sel, text) => { await again(); await p.fill(sel, text); };
+  await p.click('[data-a=batter]');
+  await type('.sheet [data-f=name]', 'Ruiz');
+  await p.click('.sheet [data-close]');
+  await p.click('[data-a=pitcher]');
+  await type('.sheet [data-f=name]', 'Halvorsen');
+  await p.click('.sheet [data-close]');
+  await p.click('[data-a=menu]');
+  await p.click('[data-y=lineup]');
+  await type('.sheet [data-slot="2"][data-f=name]', 'Okafor');
+  await type('.sheet [data-pi="0"][data-f=num]', '21');
+  await type('.sheet [data-team]', 'Night Owls');
+  await p.click('.sheet [data-close]');
+  await p.waitForTimeout(600); // names are saved after a pause in the typing
+  const g = await stored(p, id);
+  assert.deepEqual([g.teams[0].lineup[0][0].name, g.teams[1].pitchers[0].name, g.teams[0].lineup[2][0].name, g.teams[0].pitchers[0].num, g.teams[0].name],
+    ['Ruiz', 'Halvorsen', 'Okafor', '21', 'Night Owls']);
+  await p.context().close();
+}
+
 step('undoing a pitcher brought back keeps both pitchers and every change');
 {
   const p = await phone(), id = await startGame(p);

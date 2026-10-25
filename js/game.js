@@ -721,8 +721,14 @@ function nameFields(p, prefix = '', who = '') {
     <label class="nm"><span>Name</span><input ${prefix}data-f="name" maxlength="40" value="${esc(p.name)}" autocomplete="off" autocapitalize="words" autocorrect="off" spellcheck="false" placeholder="Optional"${named('name')}></label>
   </div>`;
 }
-function bindName(body, p, sel = '') {
-  $$(`${sel}[data-f]`, body).forEach(i => i.addEventListener('input', () => { p[i.dataset.f] = i.value.trim(); saveSoon(); draw(); }));
+// who(): the player those fields are for, found again with each key typed: storage read again (another tab saved,
+// or Google Drive) brings in a new copy of the game, and a name typed after that goes in that copy.
+function bindName(body, who, sel = '') {
+  $$(`${sel}[data-f]`, body).forEach(i => i.addEventListener('input', () => {
+    const p = G && who();
+    if (!p) return;
+    p[i.dataset.f] = i.value.trim(); saveSoon(); draw();
+  }));
 }
 
 function batterSheet() {
@@ -738,7 +744,7 @@ function batterSheet() {
       <button type="button" class="li" data-y="lineup"><b>The whole lineup</b><span>Names, numbers and substitutions for both teams.</span></button>
     </div>
     <div class="row"><button type="button" class="btn primary" data-close>Done</button></div>`);
-  bindName(body, p);
+  bindName(body, () => G.teams[n.side].lineup[n.slot]?.[n.p]);
   body.addEventListener('click', e => {
     const y = e.target.closest('[data-y]');
     if (y && y.dataset.y === 'ph') subForm(n.side, n.slot, 'ph');
@@ -805,7 +811,7 @@ function pitcherSheet(side) {
       ${G.teams[side].pitchers.length > 1 ? '<button type="button" class="li" data-y="back"><b>Bring back an earlier pitcher</b><span>Someone who already pitched today.</span></button>' : ''}
     </div>
     <div class="row"><button type="button" class="btn primary" data-close>Done</button></div>`);
-  bindName(body, p);
+  bindName(body, () => G.teams[side].pitchers[i]);
   body.addEventListener('click', e => {
     const y = e.target.closest('[data-y]');
     if (!y) return;
@@ -874,17 +880,15 @@ function lineupSheet(side = S.half, { focus, top } = {}) {
   const names = $$('[data-slot][data-f=name]', body);
   names.forEach((i, k) => { i.enterKeyHint = k < names.length - 1 ? 'next' : 'done'; });
   body.addEventListener('keydown', e => nextName(e, '[data-slot][data-f=name]'));
-  $$('[data-slot][data-f]', body).forEach(i => i.addEventListener('input', () => {
-    const slot = +i.dataset.slot;
-    t.lineup[slot][S.pl[side][slot] ?? 0][i.dataset.f] = i.value.trim(); saveSoon(); draw();
-  }));
-  $$('[data-pi][data-f]', body).forEach(i => i.addEventListener('input', () => { t.pitchers[+i.dataset.pi][i.dataset.f] = i.value.trim(); saveSoon(); draw(); }));
-  body.querySelector('[data-team]').addEventListener('input', e => { t.name = e.target.value.trim(); saveSoon(); draw(); });
+  // (The team is found again with each key typed, as in bindName().)
+  $$('li[data-slot]', body).forEach(li => bindName(li, () => { const slot = +li.dataset.slot; return G.teams[side].lineup[slot]?.[S.pl[side][slot] ?? 0]; }));
+  $$('[data-pi][data-f=name]', body).forEach(i => bindName(i.closest('li'), () => G.teams[side].pitchers[+i.dataset.pi]));
+  body.querySelector('[data-team]').addEventListener('input', e => { if (!G) return; G.teams[side].name = e.target.value.trim(); saveSoon(); draw(); });
   body.addEventListener('click', e => {
     const ls = e.target.closest('[data-ls]'), sub = e.target.closest('[data-sub]'), y = e.target.closest('[data-y]');
     if (ls) lineupSheet(+ls.dataset.ls);
     if (sub) { const at = body.scrollTop; subForm(side, +sub.dataset.sub, side === S.half && S.up[side] === +sub.dataset.sub ? 'ph' : 'def', () => lineupSheet(side, { top: at })); }
-    if (y && y.dataset.y === 'add') { t.lineup.push([blank()]); G.ev.push({ t: 'add', s: side }); redo = []; save(); lineupSheet(side, { focus: S.size[side] - 1 }); }
+    if (y && y.dataset.y === 'add') { G.teams[side].lineup.push([blank()]); G.ev.push({ t: 'add', s: side }); redo = []; save(); lineupSheet(side, { focus: S.size[side] - 1 }); }
     if (y && y.dataset.y === 'pitcher') newPitcher(side);
   });
   const name = focus != null && body.querySelector(`[data-slot="${focus}"][data-f=name]`);
