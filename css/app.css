@@ -639,6 +639,8 @@ html:has(dialog.sheet[open]) { overflow: hidden; scrollbar-gutter: stable; }
 .pos .num { font: 800 19px/1 var(--board-font); }
 .pos .ab { font-size: 9.5px; font-weight: 700; fill: var(--muted); }
 .pos .spot.on ~ text { fill: #fff; }
+/* At night the red is lighter, and takes dark ink, as the red buttons do. */
+@media (prefers-color-scheme: dark) { .pos .spot.on ~ text { fill: #1a0d0b; } }
 .pos .order { font-size: 11px; font-weight: 800; fill: #fff; }
 .pos:focus { outline: none; }
 .pos:focus-visible .spot { stroke-width: 4; }

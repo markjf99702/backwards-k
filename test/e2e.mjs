@@ -1528,6 +1528,26 @@ for (const [width, height, where] of [[390, 844, 'under Card'], [768, 1024, 'bel
   await p.context().close();
 }
 
+step('at night: a picked fielder reads clearly on the red, and the phone’s bar matches the app’s');
+for (const scheme of ['light', 'dark']) {
+  const p = await playing(seventh());
+  await p.emulateMedia({ colorScheme: scheme });
+  await p.click('[data-r=GO]');
+  await p.click('.sheet [data-pos="6"]');
+  // WCAG contrast between two rgb() colours.
+  const contrast = await p.evaluate(() => {
+    const lum = c => { const v = c.match(/\d+/g).slice(0, 3).map(x => { x /= 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; }); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
+    const spot = document.querySelector('[data-pos="6"] .spot'), ink = document.querySelector('[data-pos="6"] .num');
+    const [a, b] = [lum(getComputedStyle(spot).fill), lum(getComputedStyle(ink).fill)].sort((x, y) => y - x);
+    return (a + 0.05) / (b + 0.05);
+  });
+  assert.ok(contrast >= 4.5, `${scheme}: the picked 6 is ${contrast.toFixed(1)}:1 on its circle`);
+  const bar = await p.evaluate(() => [getComputedStyle(document.querySelector('.bar')).backgroundColor, document.querySelector(`meta[name=theme-color][media*="${matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'}"]`).content]);
+  const hex = bar[1].match(/\w\w/g).map(x => parseInt(x, 16)).join(', ');
+  assert.equal(bar[0], `rgb(${hex})`, `${scheme}: the browser’s bar is the app bar’s colour`);
+  await p.context().close();
+}
+
 step('on paper, the line score’s R H E are in black');
 {
   const p = await playing(seventh(), { width: 800, height: 1100 });
