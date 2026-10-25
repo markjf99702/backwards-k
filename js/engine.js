@@ -106,7 +106,9 @@ export function pitcherLabel(g, side, i) {
 }
 
 // ---------- replay ----------
-export function replay(g) {
+// upTo: how many of the events to play, for the game as it stood earlier (the batters added later are left out of
+// the order until they're added).
+export function replay(g, upTo = g.ev.length) {
   const adds = [0, 0];
   for (const e of g.ev) if (e.t === 'add') adds[e.s]++;
   const S = {
@@ -128,8 +130,8 @@ export function replay(g) {
     ph: null, // the batter who left with two strikes, for a pinch hitter's strikeout
     waved: 0, // runners this half-inning who crossed the plate on the third out but didn't count: left on base
   };
-  g.ev.forEach((e, i) => { S.i = i; step(S, e); });
-  S.i = g.ev.length;
+  for (let i = 0; i < upTo; i++) { S.i = i; step(S, g.ev[i]); }
+  S.i = upTo;
   // Over in the middle of a half-inning (a walk-off, or called): it ends here, with the runners still on.
   if (S.over && !S.between) {
     S.lob[S.half][S.inn - 1] = [1, 2, 3].filter(b => S.bases[b]).length + S.waved;

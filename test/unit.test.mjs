@@ -919,7 +919,8 @@ test('a game scored by hand: every batting and pitching line', () => {
 // Everything replay() works out, written out to compare: the score, the count and outs, who's where, each box, the
 // batting and pitching lines, the plays and the line score.
 const state = S => JSON.stringify({
-  R: S.R, H: S.H, E: S.E, outs: S.outs, inn: S.inn, half: S.half, b: S.b, s: S.s, up: S.up, pl: S.pl, pit: S.pit, size: S.size,
+  R: S.R, H: S.H, E: S.E, outs: S.outs, inn: S.inn, half: S.half, b: S.b, s: S.s, up: S.up, pit: S.pit, size: S.size,
+  pl: S.pl.map((a, s) => a.slice(0, S.size[s])), // who's in each spot of the order
   over: S.over, ended: S.ended, hold: S.hold, line: S.line, lob: S.lob, errs: S.errs,
   bases: S.bases.map(r => r && [r.side, r.slot, r.p, r.pi, r.cell.n]), cells: S.cells, bat: S.bat, pitching: S.pitching,
   text: S.text, plays: S.plays,
@@ -950,8 +951,8 @@ function tapByTap(g) {
 test('undo is exact: replaying the first plays gives the game as it stood, tap by tap, and redo puts it all back', () => {
   for (const [name, g] of [...Array.from({ length: 20 }, (_, i) => [`seed ${i + 1}`, sampleGame(i + 1)]), ['every kind', everyKind()]]) {
     const seen = tapByTap(g), n = g.ev.length;
-    // Replaying the first k events (sample games add no batters, so the whole lineup is fine).
-    if (name !== 'every kind') for (let k = 0; k <= n; k++) assert.equal(state(replay({ ...g, ev: g.ev.slice(0, k) })), seen[k], `${name}: the first ${k} events`);
+    // Replaying the first k events of the whole game.
+    for (let k = 0; k <= n; k++) assert.equal(state(replay(g, k)), seen[k], `${name}: the first ${k} events`);
     // Undo, all the way back, then Redo, all the way forward.
     const copy = structuredClone(g), taken = [];
     assert.equal(state(replay(copy)), seen[n], `${name}: all of it`);
@@ -966,6 +967,22 @@ test('undo is exact: replaying the first plays gives the game as it stood, tap b
     }
     assert.deepEqual(copy, g, `${name}: the game is as it was`);
   }
+});
+
+test('replaying the start of a game leaves out a batter added later', () => {
+  const g = game();
+  play(g, 'KL');
+  g.teams[0].lineup.push([{ name: 'Newman', num: '' }]);
+  play(g, { t: 'add', s: 0 }, '1B');
+  assert.deepEqual([replay(g, 1).size, replay(g, 2).size], [[9, 9], [10, 9]]);
+  assert.equal(now(replay(g, 1)).deckName, 'Batter 3');
+  // Added after the order came round: the new batter is up next.
+  const h = game({ innings: 3 });
+  play(h, ...Array(9).fill('1B'));
+  h.teams[0].lineup.push([{ name: 'Newman', num: '' }]);
+  const S = play(h, { t: 'add', s: 0 });
+  assert.equal(now(S).name, 'Newman');
+  assert.equal(now(replay(h, 9)).name, 'Batter 1', 'before he was added, the top of the order was up');
 });
 
 test('every suggested set of runner moves passes check()', () => {

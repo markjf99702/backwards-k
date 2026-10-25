@@ -568,7 +568,7 @@ function fixLast() {
   if (k < 0) return;
   const e = G.ev[k], id = G.id, was = plays(G.ev), code = tapped.e === e ? tapped.r : e.r;
   runnersSheet(code, e.f || null, e.m, {
-    st: replay({ ...G, ev: G.ev.slice(0, k) }),
+    st: replay(G, k),
     editing: true,
     done: e2 => {
       // Another tab or Google Drive changed the plays while the sheet was open: the fix may not fit any more.
@@ -939,7 +939,7 @@ const SAME = [['K', 'KL', 'GO', 'FO', 'LO', 'PU', 'SF', 'SAC'], ['1B', 'BB', 'IB
 // out, and a dropped third strike two strikes (when pitches are counted) and first base open or two out (OBR
 // 5.09(a)(3)).
 function cantBe(c, e) {
-  const st = replay({ ...G, ev: G.ev.slice(0, c.ev) }), why = {};
+  const st = replay(G, c.ev), why = {};
   const nobody = !runnersOn(st).length, two = st.outs >= 2 && 'There were already two out.';
   why.FC = nobody && 'Nobody was on base.';
   why.SAC = (nobody && 'Nobody was on base.') || two;
