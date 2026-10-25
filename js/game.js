@@ -398,7 +398,7 @@ function liveHtml() {
   const n = now(S), g = G;
   // The first time through, the order coming back round to the top is worth a warning: a youth team that bats
   // everyone may have more kids than the order has spots yet.
-  const top = n.deck === 0 && S.size[n.side] > 1 && !S.cells.some(c => c.side === n.side && c.slot === n.slot);
+  const top = n.deck <= n.slot && S.size[n.side] > 1 && !S.cells.some(c => c.side === n.side && c.slot === n.slot);
   // After the final, whoever was left on base is still drawn there, but there's nothing more to tap; and during a
   // delay, nobody runs.
   const runner = b => {
@@ -966,6 +966,7 @@ function batterSheet() {
     ${day.line ? `<div class="today"><p><b>Today</b> ${day.trips.map(t => `<span>${ord(t.inn)}: ${markHtml(t.r, t.mark)}, ${esc(t.words)}</span>`).join(' · ')}</p><p class="quiet">${esc(day.line)}.</p></div>` : ''}
     <div class="list">
       <button type="button" class="li" data-y="ph"><b>Pinch hitter</b><span>Someone else bats in this spot.</span></button>
+      ${S.gone[n.side].size < S.size[n.side] - 1 ? `<button type="button" class="li" data-y="gone"><b>Left the game</b><span>For a team that bats everyone: skip this spot from now on, with no out.</span></button>` : ''}
       <button type="button" class="li" data-y="add"><b>Add a batter to the order</b><span>For a team that bats everyone: a new spot after ${esc(label(player(G, n.side, S.size[n.side] - 1, S.pl[n.side][S.size[n.side] - 1] || 0), S.size[n.side] - 1))}.</span></button>
       <button type="button" class="li" data-y="lineup"><b>The whole lineup</b><span>Names, numbers and substitutions for both teams.</span></button>
     </div>
@@ -974,6 +975,7 @@ function batterSheet() {
   body.addEventListener('click', e => {
     const y = e.target.closest('[data-y]');
     if (y && y.dataset.y === 'ph') subForm(n.side, n.slot, 'ph');
+    if (y && y.dataset.y === 'gone') { closeSheet(); act({ t: 'gone', s: n.side, slot: n.slot }); }
     if (y && y.dataset.y === 'lineup') lineupSheet(n.side);
     if (y && y.dataset.y === 'add') {
       closeSheet();
@@ -991,6 +993,13 @@ function earlier(side, slot) {
 }
 const named = (p, slot) => label(p, slot) + (p.name && p.num ? ' #' + p.num : '');
 
+// Left the game, with nobody to take her place, for a team that bats everyone (a continuous order): her spot is
+// skipped from now on, with no out (Little League 4.04), until she's back. Not the last spot left in the order.
+function goneItem(side, slot, was) {
+  if (S.gone[side].size >= S.size[side] - 1) return '';
+  return `<h3>Nobody in ${esc(was)}’s place?</h3><div class="list"><button type="button" class="li" data-y="gone"><b>Left the game</b><span>For a team that bats everyone: the order skips this spot from now on, with no out, until ${esc(was)} is back.</span></button></div>`;
+}
+
 // A new player in a batting slot: a pinch hitter, a pinch runner, or a change in the field. Or someone who was in
 // this spot before coming back in (a starter re-entering, or the runner who ran for him), as the same player.
 // done: what comes next (the Lineups sheet again, for several changes in a row); otherwise back to the game.
@@ -1005,10 +1014,12 @@ function subForm(side, slot, ty, done) {
     ${nameFields(p, '', '', { pos: true })}
     <div class="chips wide" role="group" aria-label="What kind of substitution">${Object.entries(words).map(([k, w]) => `<button type="button" data-ty="${k}" aria-pressed="${k === ty}">${w}</button>`).join('')}</div>
     <p class="hint">${on ? `They run for ${esc(was)} on ${BASE[on]}, and take that spot in the batting order from now on.` : `They take ${esc(was)}’s place in the batting order from now on.`}</p>
+    ${on ? '' : goneItem(side, slot, was)}
     <div class="row"><button type="button" class="btn quiet" data-close>Cancel</button><button type="button" class="btn primary" data-x="go">Put them in</button></div>`);
   $$('[data-f]', body).forEach(i => i.addEventListener('input', () => { setField(p, i.dataset.f, i.value); }));
   body.addEventListener('click', e => {
     const t = e.target.closest('[data-ty]'), b = e.target.closest('[data-back]');
+    if (e.target.closest('[data-y=gone]')) { closeSheet(); act({ t: 'gone', s: side, slot }); if (done) done(); return; }
     if (t) { ty = t.dataset.ty; $$('[data-ty]', body).forEach(x => x.setAttribute('aria-pressed', String(x.dataset.ty === ty))); body.querySelector('h2').firstChild.textContent = words[ty] + ' '; }
     if (b) {
       closeSheet();
@@ -1113,7 +1124,11 @@ function lineupSheet(side = S.half, { focus, top } = {}) {
     <ol class="lineup-edit">${Array.from({ length: S.size[side] }, (_, slot) => {
       const list = t.lineup[slot], cur = S.pl[side][slot] ?? 0, p = list[cur];
       const before = earlier(side, slot).map(([, x]) => label(x, slot));
-      return `<li data-slot="${slot}"><span class="ord">${slot + 1}</span>${nameFields(p, `data-slot="${slot}" `, `Batter ${slot + 1}`, { pos: true })}<button type="button" class="btn quiet sm" data-sub="${slot}" aria-label="${esc(`Sub for ${label(p, slot)}`)}">Sub</button>${before.length ? `<small class="earlier">Earlier: ${esc(before.join(', '))}</small>` : ''}</li>`;
+      // Someone who left the game, her spot skipped: Back in, rather than a substitute.
+      const left = S.gone[side].has(slot), note = [left ? 'Left the game: the order skips this spot.' : '', before.length ? `Earlier: ${before.join(', ')}` : ''].filter(Boolean).join(' ');
+      return `<li data-slot="${slot}"${left ? ' class="left"' : ''}><span class="ord">${slot + 1}</span>${nameFields(p, `data-slot="${slot}" `, `Batter ${slot + 1}`, { pos: true })}${left
+        ? `<button type="button" class="btn quiet sm" data-in="${slot}" aria-label="${esc(`Back in the game: ${label(p, slot)}`)}">Back in</button>`
+        : `<button type="button" class="btn quiet sm" data-sub="${slot}" aria-label="${esc(`Sub for ${label(p, slot)}`)}">Sub</button>`}${note ? `<small class="earlier">${esc(note)}</small>` : ''}</li>`;
     }).join('')}</ol>
     <div class="row"><button type="button" class="btn quiet" data-y="add">Add a batter to the order</button></div>
     <h3>Pitchers</h3>
@@ -1127,8 +1142,9 @@ function lineupSheet(side = S.half, { focus, top } = {}) {
   $$('[data-pi][data-f=name]', body).forEach(i => bindName(i.closest('li'), () => G.teams[side].pitchers[+i.dataset.pi]));
   body.querySelector('[data-team]').addEventListener('input', e => { if (!G) return; G.teams[side].name = e.target.value.trim(); saveSoon(); draw(); });
   body.addEventListener('click', e => {
-    const ls = e.target.closest('[data-ls]'), sub = e.target.closest('[data-sub]'), y = e.target.closest('[data-y]');
+    const ls = e.target.closest('[data-ls]'), sub = e.target.closest('[data-sub]'), y = e.target.closest('[data-y]'), back = e.target.closest('[data-in]');
     if (ls) lineupSheet(+ls.dataset.ls);
+    if (back) { const at = body.scrollTop; act({ t: 'back', s: side, slot: +back.dataset.in }); lineupSheet(side, { top: at }); }
     if (sub) { const at = body.scrollTop; subForm(side, +sub.dataset.sub, side === S.half && S.up[side] === +sub.dataset.sub ? 'ph' : 'def', () => lineupSheet(side, { top: at })); }
     if (y && y.dataset.y === 'add') { G.teams[side].lineup.push([blank()]); G.ev.push({ t: 'add', s: side }); moved(); save(); lineupSheet(side, { focus: S.size[side] - 1 }); }
     if (y && y.dataset.y === 'pitcher') newPitcher(side);

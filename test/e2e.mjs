@@ -2408,6 +2408,38 @@ step('the runner sheet: defensive indifference moves him up, and isn’t a stole
   await p.context().close();
 }
 
+step('a continuous order: a player who left the game is skipped with no out, and Back in puts her spot back');
+{
+  const p = await phone(), id = await startGame(p);
+  await p.click('[data-a=menu]');
+  await p.click('.sheet [data-y=lineup]');
+  await p.click('.sheet [data-sub="3"]');
+  await p.click('.sheet [data-y=gone]');
+  // (Back to Lineups, as after a substitution made there.)
+  assert.match(await p.textContent('.sheet li[data-slot="3"] .earlier'), /Left the game/);
+  await p.keyboard.press('Escape');
+  assert.equal(await tickerOf(p), 'Batter 4 leaves the game, and the order skips the 4th spot.');
+  for (let i = 0; i < 3; i++) await p.click('[data-r="BB"]');
+  assert.match(await p.textContent('.batter'), /Batter 5/);
+  assert.match(await p.textContent('.deck'), /Batter 6/);
+  assert.equal(await p.locator('.outs .o.on').count(), 0, 'no out');
+  // From the batter: Batter 5 has gone home too.
+  await p.click('[data-a=batter]');
+  await p.click('.sheet [data-y=gone]');
+  assert.match(await p.textContent('.batter'), /Batter 6/);
+  await p.click('[data-a=menu]');
+  await p.click('.sheet [data-y=lineup]');
+  assert.match(await p.textContent('.sheet li[data-slot="3"] .earlier'), /Left the game: the order skips this spot\./);
+  await p.click('.sheet [data-in="3"]');
+  assert.equal(await p.locator('.sheet [data-sub="3"]').count(), 1, 'she can be subbed for again');
+  await p.keyboard.press('Escape');
+  assert.equal(await tickerOf(p), 'Batter 4 is back in the game, 4th in the order.');
+  assert.deepEqual((await stored(p, id)).ev.filter(e => e.t !== 'pa'), [{ t: 'gone', s: 0, slot: 3 }, { t: 'gone', s: 0, slot: 4 }, { t: 'back', s: 0, slot: 3 }]);
+  await p.click('[data-v=box]');
+  assert.match(await p.textContent('.pane[data-p=box]'), /Left the game: Batter 4 \(1st\), Batter 5 \(1st\)\.\s*Back in the game: Batter 4 \(1st\)\./);
+  await p.context().close();
+}
+
 step('positions: kept from a pasted lineup, changed in Lineups, on the card and the box score, and names on the fielder picker');
 {
   const p = await phone();

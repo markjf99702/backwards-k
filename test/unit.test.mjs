@@ -1242,12 +1242,13 @@ function everyKind() {
   play(g, 'PU 2', 'KD', { t: 'r', m: [[1, 2, 'OA']] }, { t: 'r', m: [[2, 0, 'OB']] }, { t: 'eoh' });
   play(g, { t: 'sub', s: 0, slot: 1, i: 0, ty: 'def' }, 'IBB', 'CI', 'SAC 1 3', '3B', { t: 'end' }, { t: 'on' }, 'LO 6', { t: 'delay' }, { t: 'on' }, '1B');
   play(g, { t: 'end', why: 'rule' }, { t: 'on' }, 'DP 6 4 3');
+  play(g, { t: 'gone', s: 1, slot: 4 }, { t: 'back', s: 1, slot: 4 });
   return g;
 }
 
 test('a game with every kind of event comes back the same from a file, Drive, storage and a link', async () => {
   const g = everyKind(), S = replay(g);
-  assert.deepEqual(new Set(g.ev.map(e => e.t)), new Set(['p', 'pa', 'r', 'sub', 'pch', 'add', 'eoh', 'end', 'delay', 'on']));
+  assert.deepEqual(new Set(g.ev.map(e => e.t)), new Set(['p', 'pa', 'r', 'sub', 'pch', 'add', 'eoh', 'end', 'delay', 'on', 'gone', 'back']));
   assert.deepEqual(g.ev.filter(e => e.t === 'end').map(e => e.why), [undefined, 'rule']);
   assert.deepEqual([S.R, S.inn, S.half], [[5, 1], 3, 1]);
   for (const t of S.text) assert.doesNotMatch(t, /undefined|NaN/);
@@ -1999,4 +2000,47 @@ test('positions: kept from a pasted lineup, a file and a link, a team from befor
   assert.deepEqual(p, { name: 'Ava', num: '' });
   setField(p, 'pos', 'RF');
   assert.equal(p.pos, 'RF');
+});
+
+test('a continuous order: a player who left the game is skipped with no out, and comes back in her spot (Little League 4.04)', () => {
+  const g = game();
+  g.teams[0].lineup.forEach((slot, i) => { slot[0] = { name: 'V' + (i + 1), num: '' }; });
+  // V4 goes home while V2 bats: V3 is followed by V5, with V5 on deck, and no out.
+  let S = play(g, 'K', { t: 'gone', s: 0, slot: 3 });
+  assert.equal(S.text.at(-1), 'V4 leaves the game, and the order skips the 4th spot.');
+  assert.deepEqual([S.outs, S.up[0], now(S).deck], [1, 1, 2]);
+  S = play(g, 'K');
+  assert.deepEqual([now(S).name, now(S).deckName], ['V3', 'V5']);
+  S = play(g, '1B', '1B', '1B', 'K');
+  assert.deepEqual(S.cells.map(c => c.slot), [0, 1, 2, 4, 5, 6], 'nobody bats 4th, and her box stays empty');
+  // Leaving while she's up: the next one bats. And she comes back: her spot is in the order again.
+  S = play(g, ...threeK, { t: 'gone', s: 0, slot: 7 });
+  assert.equal(now(S).name, 'V9');
+  S = play(g, { t: 'back', s: 0, slot: 3 });
+  assert.equal(S.text.at(-1), 'V4 is back in the game, 4th in the order.');
+  S = play(g, 'K', 'K', '1B', '1B');
+  assert.deepEqual([S.half, now(S).name], [0, 'V4'], 'V9, V1, V2, V3 done; V4 bats again');
+  // In the box score.
+  assert.match(boxHtml(S), /<b>Left the game:<\/b> V4 \(1st\), V8 \(2nd\)\./);
+  assert.match(boxHtml(S), /<b>Back in the game:<\/b> V4 \(2nd\)\./);
+  assert.match(cardHtml(S, 0), /V8 <i>left 2nd<\/i>/);
+  // One spot always stays; a spot that isn't there, or is skipped already, changes nothing.
+  const one = game({ size: 2 });
+  S = play(one, { t: 'gone', s: 0, slot: 0 }, { t: 'gone', s: 0, slot: 1 }, { t: 'gone', s: 0, slot: 0 }, { t: 'back', s: 0, slot: 1 });
+  assert.deepEqual([...S.gone[0]], [0]);
+  assert.deepEqual(S.text.slice(1), ['Batter 2 stays in the order: it’s the last spot left.', 'Batter 1 stays in the order: that spot is skipped already.', 'Batter 2 is in the game already.']);
+  // A substitute in her spot puts it back in the order.
+  S = play(game(), { t: 'gone', s: 0, slot: 0 }, { t: 'sub', s: 0, slot: 0, i: 0, ty: 'def' });
+  assert.equal(S.gone[0].size, 0);
+  // Kept from a file and a link; nothing newer.
+  assert.deepEqual(cleanGame(JSON.parse(JSON.stringify(g))), g);
+  assert.equal(newer(g), false);
+  assert.deepEqual(cleanGame({ ...g, ev: [{ t: 'gone', s: 0, slot: 30 }] }).ev, [], 'a spot that isn’t there is left out');
+});
+
+test('a continuous order in extra innings: the runner put on second is the one before the leadoff man who’s still in the game', () => {
+  const g = game({ innings: 1, tie: 2 });
+  const S = play(g, { t: 'gone', s: 0, slot: 3 }, 'K', 'K', 'K', ...threeK);
+  assert.equal(S.inn, 2);
+  assert.equal(S.bases[2].slot, 2, 'Batter 5 leads off: Batter 3 starts on second, not Batter 4, who left');
 });

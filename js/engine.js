@@ -124,6 +124,8 @@ export function replay(g, upTo = g.ev.length) {
     up: [0, 0],
     pl: [0, 1].map(t => g.teams[t].lineup.map(() => 0)),
     been: [0, 1].map(t => g.teams[t].lineup.map(() => new Set([0]))), // everyone who has been in each slot
+    gone: [new Set(), new Set()], // spots whose player left the game, skipped in a continuous order (Little League 4.04)
+    left: [[], []], // each team's players who left the game, and came back: { slot, p, inn, back }
     pit: [0, 0],
     line: [[0], []], hInn: [[0], []], eInn: [[0], []], lob: [[], []],
     R: [0, 0], H: [0, 0], E: [0, 0],
@@ -187,6 +189,8 @@ function step(S, e) {
       // A pinch hitter with two strikes already on: if he strikes out, it's the first batter's (OBR 9.15(b)).
       if (e.ty === 'ph' && e.s === S.half && e.slot === S.up[e.s] && S.s === 2) S.ph ??= old;
       S.pl[e.s][e.slot] = e.i;
+      // Someone in a spot whose player had left the game: it's in the order again.
+      S.gone[e.s].delete(e.slot);
       // A substitute for a player who's on base runs for him, whatever the change was called (OBR 5.10): the runs he
       // scores are the substitute's.
       for (const b of [1, 2, 3]) {
@@ -213,11 +217,29 @@ function step(S, e) {
         const back = !e.i || g.ev.slice(0, S.i).some(x => x.t === 'pch' && x.s === e.s && x.i === e.i), who = pitcherLabel(g, e.s, e.i);
         return note(S, `${teamName(g, e.s)} bring ${back ? `${who} back in` : `in ${who}`} to pitch.`, 'sub');
       }
-    case 'add':
-      S.size[e.s]++;
+    case 'add': {
       // Added just as the order came back round to the top: the new batter is up first.
-      if (S.up[e.s] === 0 && S.batted[e.s]) S.up[e.s] = S.size[e.s] - 1;
+      const top = S.batted[e.s] && S.up[e.s] === nextSlot(S, e.s, S.size[e.s] - 1);
+      S.size[e.s]++;
+      if (top) S.up[e.s] = S.size[e.s] - 1;
       return note(S, `${teamName(g, e.s)} add a batter to the order.`, 'sub');
+    }
+    // A player who left the game (went home, or hurt) with nobody to take her place, in a continuous batting order:
+    // her spot is skipped, with no out (Little League 4.04), until she's back in the game. One spot always stays.
+    case 'gone': case 'back': {
+      const gone = S.gone[e.s], who = label(player(g, e.s, e.slot, S.pl[e.s][e.slot] || 0), e.slot), at = ord(e.slot + 1);
+      if (!(e.slot < S.size[e.s])) return note(S, `There’s no ${at} spot in the order.`, 'sub');
+      if (e.t === 'back') {
+        if (!gone.delete(e.slot)) return note(S, `${who} is in the game already.`, 'sub');
+        S.left[e.s].push({ slot: e.slot, p: S.pl[e.s][e.slot] || 0, inn: S.inn, back: true });
+        return note(S, `${who} is back in the game, ${at} in the order.`, 'sub');
+      }
+      if (gone.has(e.slot) || gone.size >= S.size[e.s] - 1) return note(S, `${who} stays in the order: ${gone.has(e.slot) ? 'that spot is skipped already' : 'it’s the last spot left'}.`, 'sub');
+      gone.add(e.slot);
+      S.left[e.s].push({ slot: e.slot, p: S.pl[e.s][e.slot] || 0, inn: S.inn, back: false });
+      if (S.up[e.s] === e.slot) S.up[e.s] = nextSlot(S, e.s, e.slot);
+      return note(S, `${who} leaves the game, and the order skips the ${at} spot.`, 'sub');
+    }
     case 'eoh':
       S.text[S.i] = `Ended the ${S.half ? 'bottom' : 'top'} of the ${ord(S.inn)} early.`;
       return endHalf(S, 'early');
@@ -256,6 +278,14 @@ function resume(S) {
 function note(S, text, kind) {
   S.text[S.i] = text;
   S.plays.push({ i: S.i, inn: S.inn, half: S.half, text, kind, runs: 0 });
+}
+
+// The spot in the order after slot (step -1: before it) that's still in the game: a continuous order skips one whose
+// player left.
+export function nextSlot(S, side, slot, step = 1) {
+  const n = S.size[side];
+  for (let k = 1; k <= n; k++) { const x = (((slot + step * k) % n) + n) % n; if (!S.gone[side].has(x)) return x; }
+  return (slot + step + n) % n;
 }
 
 const key = (side, slot, p) => side + '.' + slot + '.' + p;
@@ -428,7 +458,7 @@ function pa(S, e) {
   S.plays.push({ i: S.i, inn: S.inn, half: side, text, kind: 'pa', runs, cell: cell.n, r: code });
 
   S.b = 0; S.s = 0; S.seq = ''; S.relief = null; S.ph = null;
-  S.up[side] = (slot + 1) % S.size[side];
+  S.up[side] = nextSlot(S, side, slot);
   S.last = cell;
   walkoff(S);
   if (S.outs >= 3 || (full && !S.over)) endHalf(S, S.outs >= 3 ? '' : 'limit');
@@ -684,7 +714,7 @@ export const AUTO = { label: 'On second to start the inning', kind: 'on' };
 function placeRunner(S) {
   const h = S.half, n = S.size[h];
   if (n < 2) return;
-  const slot = (S.up[h] + n - 1) % n, p = S.pl[h][slot], pi = S.pit[1 - h], who = label(player(S.g, h, slot, p), slot);
+  const slot = nextSlot(S, h, S.up[h], -1), p = S.pl[h][slot], pi = S.pit[1 - h], who = label(player(S.g, h, slot, p), slot);
   const cell = {
     n: S.cells.length, side: h, slot, p, pi, inn: S.inn, k: 0, r: 'AR', f: null, mark: 'AR', count: [0, 0], seq: '', ev: -1,
     reach: 2, from: 2, notes: ['', '', '', '', ''], outN: 0, outAt: 0, outHow: '', scored: false, rbi: 0, end: false,
@@ -820,7 +850,7 @@ export function fits(S, e, at) {
     }
     if (outs > 3) return 'runners';
   }
-  if (e.t === 'sub' && !(e.slot < S.size[e.s])) return 'gone';
+  if ((e.t === 'sub' || e.t === 'gone' || e.t === 'back') && !(e.slot < S.size[e.s])) return 'gone';
   return '';
 }
 
@@ -859,7 +889,7 @@ export function scoredAs(S, code, f, moves) {
 export function now(S) {
   const g = S.g, side = S.half, slot = S.up[side], fld = 1 - side;
   const p = S.pl[side][slot] || 0;
-  const deck = (slot + 1) % S.size[side];
+  const deck = nextSlot(S, side, slot);
   return {
     side, fld, slot, p, player: player(g, side, slot, p), name: label(player(g, side, slot, p), slot),
     deck, deckName: label(player(g, side, deck, S.pl[side][deck] || 0), deck),

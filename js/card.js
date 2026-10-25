@@ -140,6 +140,9 @@ export function cardHtml(S, side, { live = true } = {}) {
       const num = p.name && p.num ? `#${p.num}` : '', more = [p.pos, num].filter(Boolean).join(' ');
       h += `<span class="pl${j < shown.length - 1 ? ' was' : ''}" title="${esc(`${label(p, slot)} ${more}`.trim())}">${e ? `<i>${ty}${inn ? ' ' + ord(inn) : ''}</i> ` : ''}${esc(cardName(p, slot, shown.length > 1))}${more ? ` <small>${esc(more)}</small>` : ''}</span>`;
     });
+    // Left the game, with nobody in her place: her spot is skipped (a continuous order).
+    const gone = S.gone[side].has(slot) && S.left[side].findLast(x => x.slot === slot);
+    if (gone) h = h.replace(/<\/span>$/, ` <i>left ${ord(gone.inn)}</i></span>`);
     h += `</span>${nowAt ? '<span class="sr">, at bat</span>' : ''}</th>`;
     for (const col of cols) {
       const k = `${slot}:${col.inn}:${col.k}`, c = at.get(k);

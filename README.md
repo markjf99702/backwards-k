@@ -81,7 +81,9 @@ written out in plain words.
   same spots). Pinch hitters and pitching changes are a tap on the batter or the pitcher (a reliever already in the
   batting order is one more tap, with no typing, and with no DH a new one can take the batting spot of the pitcher
   going out in the same go), and a pinch runner is a tap on the runner. A starter who comes back in (or the runner who
-  ran for him) goes back in as the same player, with one line in the box score.
+  ran for him) goes back in as the same player, with one line in the box score. For a team that bats everyone, a
+  kid who goes home **left the game** (from the batter, or Sub in Lineups): her spot is skipped from then on, with no
+  out (Little League 4.04), and **Back in** puts it back.
 - **Positions, if you like.** Pick where each batter plays (a pasted lineup keeps them), and the card says "Ruiz SS
   #2", the box score "Ruiz SS", and the fielders to tap after a ground out have their names under their numbers, for
   anyone who knows the kids but not the numbers.
