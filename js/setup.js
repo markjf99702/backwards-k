@@ -7,15 +7,16 @@ import { drive } from './sync.js';
 
 // Teams from earlier games, newest first, with the order they started with. Each player's name and number, and
 // nothing else: anything a newer Backwards K saved on a player belongs to that game, and in a new one would make it
-// look-only here (see newer() in model.js).
+// look-only here (see newer() in model.js). Not the pitcher who started last time: youth teams and rotations rarely
+// start the same one twice running, and one filled in without a word is easy to miss (From the order picks one).
 function pastTeams() {
-  const seen = new Map(), who = p => ({ name: p.name, num: p.num });
+  const seen = new Map();
   for (const g of store.all()) {
     if (seen.size >= 8) break;
     g.teams.forEach(t => {
       const k = t.name.trim().toLowerCase();
       if (!k || seen.has(k)) return;
-      seen.set(k, { name: t.name, lineup: starters(t), pitcher: who(t.pitchers[0]) });
+      seen.set(k, { name: t.name, lineup: starters(t) });
     });
   }
   return [...seen.values()].slice(0, 8);
@@ -121,7 +122,7 @@ export function showSetup(el) {
     }
     if (b.dataset.past) {
       const p = past[+b.dataset.past], t = T[side];
-      t.name = p.name; t.lineup = p.lineup.map(x => ({ ...x })); t.pitcher = { ...p.pitcher };
+      t.name = p.name; t.lineup = p.lineup.map(x => ({ ...x }));
       rows(side);
       $('details', fs(side)).open = true;
     }

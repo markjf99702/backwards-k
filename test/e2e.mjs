@@ -1763,6 +1763,25 @@ step('a team from a game a newer Backwards K saved starts a game this one can sc
   await p.context().close();
 }
 
+step('a team from before brings its starters back in their spots, and leaves the starting pitcher to pick');
+{
+  // The Foxes' leadoff hitter had a pinch hitter, and Whitlock started on the mound.
+  const g = sampleUntil(7, S => S.inn === 2);
+  g.id = 'gpastteam';
+  g.teams[0].lineup[0].push({ name: 'Pinchley', num: '40' });
+  g.ev.push({ t: 'sub', s: 0, slot: 0, i: 1, ty: 'ph' });
+  const p = await playing(g);
+  await p.goto(base + '#/new');
+  await p.click('[data-side="0"] [data-past="0"]');
+  assert.equal(await p.inputValue('[data-side="0"] [data-name]'), 'Foxes');
+  assert.deepEqual(await p.$$eval('[data-side="0"] [data-f=name]', i => i.slice(0, 2).map(x => x.value)), ['Ruiz', 'Okafor']);
+  assert.deepEqual(await p.$$eval('[data-side="0"] [data-pf]', i => i.map(x => x.value)), ['', '']);
+  assert.match(await p.textContent('[data-side="0"] .from-order'), /From the order:Ruiz #2Okafor #11/);
+  await p.click('[data-side="0"] .from-order [data-pick="1"]');
+  assert.equal(await p.inputValue('[data-side="0"] [data-pf=name]'), 'Okafor');
+  await p.context().close();
+}
+
 step('tablet sizes: side by side, nothing sideways');
 for (const [w, h] of [[820, 1180], [1180, 820]]) {
   await page.setViewportSize({ width: w, height: h });
