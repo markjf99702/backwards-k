@@ -4,7 +4,9 @@
 //
 // Sides: 0 is the visitors (they bat in the top of each inning), 1 is the home team.
 // Bases: 1, 2 and 3 are the bags, 0 is the batter at the plate, 4 is home (a run).
-// A move is [from, to, how?, fielders?]; to 0 means out.
+// A move is [from, to, how?, fielders?]; to 0 means out. On a plate appearance, how says where a runner (or the batter)
+// put out was put out, '@3' for third (else the next base, or the one after his hit), and how one who got further than
+// the play usually takes him did it: 'T' on the throw, 'E' on an error by fielders[0], or '' on the play itself.
 
 export const POS = ['', 'P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF'];
 export const POS_NAME = ['', 'pitcher', 'catcher', 'first baseman', 'second baseman', 'third baseman', 'shortstop', 'left fielder', 'center fielder', 'right fielder'];
@@ -330,12 +332,12 @@ function pa(S, e) {
   // The same for runs that don't count. The winning run, when a runner brings it in, is said last.
   const bits = [], scored = [], waved = [], past = [];
   const together = (names, one, more) => { if (!names.length) bits.push(() => `${list(names)} ${names.length > 1 ? more : one}`); };
-  let runs = 0, bOut = false, bTo = R.go, handed = null;
+  let runs = 0, bOut = false, bTo = R.go, bAt = 0, handed = null;
   // A league's run limit: the runs that can still count this half-inning, on this play.
   const cap = room(S);
   // (A play from a file that lists someone twice moves them once: the first time.)
   const moved = new Set();
-  for (const [from, was] of moves) {
+  for (const [from, was, how] of moves) {
     const r = from === 0 ? batter : S.bases[from];
     if (!r || moved.has(from)) continue;
     moved.add(from);
@@ -350,14 +352,17 @@ function pa(S, e) {
     if (to === 0) {
       if (from === 0) {
         bOut = true;
-        // Out on a ball that would have put them on (thrown out stretching a single): the path to first, then out.
-        // On a home run (a missed base, on appeal) the whole way round.
-        if (R.kind !== 'out') { reach(cell, 0, R.go || 1, ''); out(S, r, Math.min((R.go || 1) + 1, 4), ''); }
+        // Out on a ball that would have put them on (thrown out stretching a single): the path to the base before the
+        // one he was out at, then out. On a home run (a missed base, on appeal) the whole way round.
+        if (R.kind !== 'out') { bAt = outAt(0, how, R); reach(cell, 0, bAt - 1, ''); out(S, r, bAt, ''); }
         else out(S, r, 0, '');
       } else {
-        out(S, r, from + 1, runnerF);
-        bits.push(`${who} is out at ${BASE[from + 1]}`);
-        r.cell.story.push(`Out at ${BASE[from + 1]} on ${batterName}’s ${R.label.toLowerCase()}.`);
+        // Out at the next base, or one further on (from first, thrown out at third: second was his on the way).
+        const at = outAt(from, how, R);
+        if (at - 1 > from) reach(r.cell, from, at - 1, String(slot + 1));
+        out(S, r, at, runnerF);
+        bits.push(`${who} is out at ${BASE[at]}`);
+        r.cell.story.push(`Out at ${BASE[at]} on ${batterName}’s ${R.label.toLowerCase()}.`);
       }
     } else if (to === 4 && e.x) {
       // The third out came first (or was a force): the run doesn't count, and the runner counts as left on base.
@@ -387,7 +392,7 @@ function pa(S, e) {
   if (runs && R.rbi !== 0) { cell.rbi = runs; B.rbi += runs; }
 
   let text = `${batterName} ${R.say}${fielderWords(code, e.f)}`;
-  if (R.kind !== 'out' && bOut) text += R.go === 4 ? ', but is called out on the bases' : `, but is out trying for ${BASE[(R.go || 1) + 1]}`;
+  if (R.kind !== 'out' && bOut) text += R.go === 4 ? ', but is called out on the bases' : `, but is out trying for ${BASE[bAt]}`;
   else if (R.kind !== 'out' && bTo > R.go && bTo < 4) text += ` and takes ${BASE[bTo]}`;
   else if (R.kind !== 'out' && bTo === 4 && R.go < 4) text += ` and comes all the way home${need === 4 ? ' with the winning run' : ''}`;
   else if (R.kind === 'out' && !bOut && bTo > 0) text += ` but reaches ${BASE[bTo]}`;
@@ -536,6 +541,22 @@ function runners(S, e) {
   S.plays.push({ i: S.i, inn: S.inn, half: side, text, kind: 'run', runs, mark: mk });
   walkoff(S);
   if (S.outs >= 3 || (full && !S.over)) endHalf(S, S.outs >= 3 ? '' : 'limit');
+}
+
+// Where someone put out on a batted ball was put out: the base the scorer picked (a move's how, '@3' for third), or else
+// the next one, or for the batter the one after his hit (thrown out stretching a single: at second). R: the play.
+export function outAt(from, how, R) {
+  const d = from ? from + 1 : Math.min((R.go || 1) + 1, 4), b = /^@[2-4]$/.test(how || '') ? +how[1] : 0;
+  return b > (from || R.go || 1) ? b : d;
+}
+// The bases someone put out on a batted ball could have been put out at, when there's a choice: from first, second,
+// third or home; for the batter after a single, second, third or home. (After a triple only home, and the batter out
+// on an out is out at first.)
+export function outBases(from, R) {
+  if (!from && R.kind === 'out') return [];
+  const lo = from ? from + 1 : Math.min((R.go || 1) + 1, 4), out = [];
+  for (let b = lo; b <= 4; b++) out.push(b);
+  return out.length > 1 ? out : [];
 }
 
 function reach(cell, from, to, how) {

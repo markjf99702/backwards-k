@@ -2354,6 +2354,29 @@ for (const [what, age, over] of [['today', 3600e3, false], ['not started', 600e3
   await p.context().close();
 }
 
+step('the runners sheet: a runner marked out says where, from the next base on (thrown out at the plate on a single)');
+{
+  const p = await phone(), id = await startGame(p);
+  await p.click('[data-r="2B"]');
+  await p.click('[data-r="1B"]');
+  await p.waitForSelector('.sheet .moves');
+  assert.equal(await p.locator('.sheet .how').count(), 0, 'nobody is out: nothing more to ask');
+  await p.click('.mv[data-from="2"] [data-to="0"]');
+  assert.deepEqual(await p.$$eval('.mv[data-from="2"] [data-at]', b => b.map(x => x.textContent + ':' + x.getAttribute('aria-pressed'))), ['3rd:true', 'Home:false']);
+  await p.click('.mv[data-from="2"] [data-at="4"]');
+  await p.click('.sheet [data-x=save]');
+  assert.equal(await tickerOf(p), 'Batter 2 singles. Batter 1 is out at home.');
+  assert.deepEqual((await stored(p, id)).ev[1].m, [[0, 1], [2, 0, '@4']]);
+  // Fix runners shows it as it was saved; a runner who isn't out has nothing more to say.
+  await p.click('[data-a=fixlast]');
+  await p.waitForSelector('.sheet .moves');
+  assert.equal(await p.getAttribute('.mv[data-from="2"] [data-at="4"]', 'aria-pressed'), 'true');
+  await p.click('.mv[data-from="2"] [data-to="3"]');
+  assert.equal(await p.locator('.sheet .how').count(), 0);
+  await p.click('.sheet [data-close]');
+  await p.context().close();
+}
+
 step('tablet sizes: side by side, nothing sideways');
 for (const [w, h] of [[820, 1180], [1180, 820]]) {
   await page.setViewportSize({ width: w, height: h });

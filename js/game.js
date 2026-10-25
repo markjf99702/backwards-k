@@ -3,7 +3,7 @@
 import {
   replay, suggest, check, runsCount, scoredAs, now, RESULTS, BASE, POS, POS_NAME, halfLabel, label, player, teamName,
   pitcherLabel, ord, runnersOn, mark, pitchStat, pitchWords, pitchDay, pitchWork, pitchCount, winningRun, creditedHit, credit, fits,
-  ENDS, regulation, official, winner, AUTO, limitState, restDays, restBand, noCatch, LIMIT_BY, sameSoFar,
+  ENDS, regulation, official, winner, AUTO, limitState, restDays, restBand, noCatch, LIMIT_BY, sameSoFar, outAt, outBases,
 } from './engine.js';
 import { store } from './store.js';
 import { blank, takeBack, putBack, newer, plays } from './model.js';
@@ -672,13 +672,17 @@ function runnersSheet(code, f, moves, { st = S, editing = false, done = act } = 
     <div class="row"><button type="button" class="btn quiet" data-close>Cancel</button><button type="button" class="btn primary" data-x="save">${editing ? 'Save changes' : 'Save play'}</button></div>`);
   function draw() {
     // The chip that had the keyboard keeps it.
-    const had = body.querySelector('[data-to]:focus, [data-runs]:focus');
-    const again = had && (had.dataset.runs ? `[data-runs="${had.dataset.runs}"]` : `[data-from="${had.closest('[data-from]').dataset.from}"] [data-to="${had.dataset.to}"]`);
-    const rows = m.slice().sort((a, b) => b[0] - a[0]).map(([from, to]) => {
+    const had = body.querySelector('[data-to]:focus, [data-runs]:focus, [data-at]:focus');
+    const k = had && ['to', 'at'].find(x => had.dataset[x] != null);
+    const again = had && (had.dataset.runs ? `[data-runs="${had.dataset.runs}"]` : `[data-from="${had.closest('[data-from]').dataset.from}"] [data-${k}="${had.dataset[k]}"]`);
+    const rows = m.slice().sort((a, b) => b[0] - a[0]).map(([from, to, how]) => {
       const opts = [0, ...[1, 2, 3, 4].filter(b => b >= Math.max(from, 1))];
+      // Out: at the next base, or further on (from first, thrown out at third or at home).
+      const at = to === 0 ? outBases(from, R) : [], was = outAt(from, how, R);
       return `<div class="mv" data-from="${from}">
         <p><b>${esc(who(from))}</b><span>${from ? `was on ${BASE[from]}` : 'at bat'}</span></p>
         <div class="chips" role="group" aria-label="Where ${esc(who(from))} ended up">${opts.map(b => `<button type="button" data-to="${b}" aria-pressed="${b === to}" class="${b === 0 ? 'out' : b === 4 ? 'home' : ''}">${b === 0 ? 'Out' : b === from ? 'Stayed' : BASES[b]}</button>`).join('')}</div>
+        ${at.length ? `<div class="how"><span>Out at</span><span class="chips" role="group" aria-label="Where ${esc(who(from))} was put out">${at.map(b => `<button type="button" data-at="${b}" aria-pressed="${b === was}">${BASES[b]}</button>`).join('')}</span></div>` : ''}
       </div>`;
     });
     body.querySelector('.moves').innerHTML = rows.join('');
@@ -712,10 +716,18 @@ function runnersSheet(code, f, moves, { st = S, editing = false, done = act } = 
   }
   draw();
   body.addEventListener('click', e => {
-    const c = e.target.closest('[data-to]'), r = e.target.closest('[data-runs]'), s = e.target.closest('[data-x=save]');
+    const c = e.target.closest('[data-to]'), r = e.target.closest('[data-runs]'), s = e.target.closest('[data-x=save]'), a = e.target.closest('[data-at]');
+    const mv = (c || a) && m.find(x => x[0] === +(c || a).closest('.mv').dataset.from);
     if (c) {
-      const from = +c.closest('.mv').dataset.from;
-      m.find(x => x[0] === from)[1] = +c.dataset.to;
+      // (Where he ended up changed: how he got there, or where he was put out, is asked again.)
+      mv[1] = +c.dataset.to;
+      mv.length = 2;
+      draw();
+    } else if (a) {
+      // The next base needn't be said: it's where an out is unless the scorer says otherwise.
+      const b = +a.dataset.at;
+      mv.length = 2;
+      if (b !== outAt(mv[0], '', R)) mv.push('@' + b);
       draw();
     } else if (r) { userSaid = true; counts.v = r.dataset.runs === '1'; draw(); }
     else if (s && !s.disabled) {

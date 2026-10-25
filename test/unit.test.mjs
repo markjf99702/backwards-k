@@ -105,6 +105,35 @@ test('on a double play the runner’s box gets the throws that put him out, and 
   assert.deepEqual([S.cells[0].outHow, S.cells[1].outHow], ['5-4-3', '5-4-3']);
 });
 
+test('a runner put out on a hit is out where the scorer says: from second, at home; from first, at third', () => {
+  // Without a word, at the next base, as before.
+  let S = play(game(), '2B', { t: 'pa', r: '1B', m: [[0, 1], [2, 0]] });
+  assert.deepEqual([S.cells[0].outAt, S.cells[0].reach], [3, 2]);
+  assert.match(S.text.at(-1), /is out at third\./);
+  // Thrown out at the plate: third was his on the way, with the batter's number there, and the bar across the way home.
+  S = play(game(), '2B', { t: 'pa', r: '1B', m: [[0, 1], [2, 0, '@4']] });
+  const c = S.cells[0];
+  assert.deepEqual([c.outAt, c.reach, c.notes[3], c.outN], [4, 3, '2', 1]);
+  assert.equal(S.text.at(-1), 'Batter 2 singles. Batter 1 is out at home.');
+  assert.deepEqual(c.story, ['Out at home on Batter 2’s single.']);
+  assert.match(cellSvg(c), /<line class="path" x1="11" y1="32"/, 'the line starts at third');
+  // From first, out at third trying to go two; and the batter out at third stretching a single.
+  S = play(game(), '1B', { t: 'pa', r: '1B', m: [[0, 1], [1, 0, '@3']] });
+  assert.deepEqual([S.cells[0].reach, S.cells[0].outAt], [2, 3]);
+  assert.match(S.text.at(-1), /Batter 1 is out at third/);
+  S = play(game(), { t: 'pa', r: '1B', m: [[0, 0, '@3']] });
+  assert.deepEqual([S.cells[0].reach, S.cells[0].outAt, S.outs], [2, 3, 1]);
+  assert.equal(S.text.at(-1), 'Batter 1 singles, but is out trying for third.');
+  // A base he can't have been out at (behind him, or one that isn't a base) is the next one.
+  S = play(game(), '2B', { t: 'pa', r: '1B', m: [[0, 1], [2, 0, '@2']] }, { t: 'pa', r: '1B', m: [[0, 0, '@9']] });
+  assert.deepEqual([S.cells[0].outAt, S.cells[2].outAt], [3, 2]);
+  // Kept from a file and a link.
+  const g = game();
+  play(g, '2B', { t: 'pa', r: '1B', m: [[0, 1], [2, 0, '@4']] });
+  assert.deepEqual(cleanGame(JSON.parse(JSON.stringify(g))).ev[1].m, [[0, 1], [2, 0, '@4']]);
+  assert.equal(newer(g), false);
+});
+
 test('a fielder’s choice puts out the runner from first and leaves the batter on', () => {
   const g = game();
   let S = play(g, '1B');

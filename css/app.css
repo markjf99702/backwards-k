@@ -700,6 +700,10 @@ html:has(dialog.sheet[open]) { overflow: hidden; scrollbar-gutter: stable; }
 .mv .chips button.out[aria-pressed="true"] { background: var(--red); border-color: var(--red); color: #fff; }
 .mv .chips button.home[aria-pressed="true"] { background: var(--on); border-color: var(--on); color: #fff; }
 @media (prefers-color-scheme: dark) { .mv .chips button.out[aria-pressed="true"], .mv .chips button.home[aria-pressed="true"] { color: #10141c; } }
+/* More about one runner's move: where he was put out, or how he took the extra base. */
+.mv .how { display: flex; align-items: center; gap: 10px; }
+.mv .how > span:first-child { flex: none; color: var(--muted); font-size: 14px; min-width: 4.2em; }
+.mv .how .chips { flex: 1; }
 .tally { min-height: 1.4em; font-weight: 650; color: var(--ink-2); }
 .tally .third { display: grid; gap: 6px; margin-top: 8px; font-weight: 400; }
 .seq { min-height: 1.6em; margin: 4px 0; font-size: 15px; color: var(--ink-2); }

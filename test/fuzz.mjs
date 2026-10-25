@@ -225,12 +225,19 @@ function fielders(rnd, code) {
   if (!R.f || rnd() < 0.25) return null;
   return Array.from({ length: R.f === 1 ? 1 : 1 + Math.floor(rnd() * 3) }, () => 1 + Math.floor(rnd() * 9));
 }
-// The sheet's chips, some changed: where the runners went if not where they usually do.
-function changed(rnd, S, m) {
+// The sheet's chips, some changed: where the runners went if not where they usually do, and now and then, for one
+// marked out, where (the Out at row).
+function changed(rnd, S, m, code) {
   for (let i = 0; i < 25; i++) {
     const t = m.map(x => x.slice());
     for (const x of t) if (rnd() < 0.5) x[1] = pick(rnd, opts(x[0]));
-    if (!check(S, t)) return t;
+    if (check(S, t)) continue;
+    for (const x of t) {
+      x.length = 2;
+      const at = x[1] === 0 && code ? E.outBases(x[0], RESULTS[code]) : [];
+      if (at.length && rnd() < 0.4) x.push('@' + pick(rnd, at));
+    }
+    return t;
   }
   return m;
 }
@@ -255,11 +262,11 @@ function choose(C, rnd) {
       const ok = Object.keys(RESULTS).filter(c => offered(C, c));
       const r = rnd() < 0.5 ? pick(rnd, ok) : weighed(rnd, LIKELY.filter(([, c]) => ok.includes(c))), f = fielders(rnd, r);
       if (quiet(S, r)) return { a: 'pa', r, f };
-      const m = rnd() < 0.45 ? changed(rnd, S, suggest(S, r)) : suggest(S, r);
+      const m = rnd() < 0.45 ? changed(rnd, S, suggest(S, r), r) : suggest(S, r);
       return { a: 'pa', r, f, m, said: said(rnd, S, m) };
     }
     case 'fix': {
-      const k = fixable(C), st = replay(g, k), m = changed(rnd, st, g.ev[k].m);
+      const k = fixable(C), st = replay(g, k), m = changed(rnd, st, g.ev[k].m, g.ev[k].r);
       return { a: 'fix', m, said: said(rnd, st, m) };
     }
     case 'run': {
