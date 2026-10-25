@@ -607,6 +607,38 @@ test('play-by-play reads like a person wrote it', () => {
   assert.equal(S.plays[1].text, 'Okafor grounds out, short to first (6-3). Ruiz to second.');
 });
 
+test('everyone who scores on a play is in one sentence, so a grand slam fits the line under the field', () => {
+  const g = game();
+  ['Mackenzie', 'Alejandro', 'Christopher', 'Josephine'].forEach((name, i) => { g.teams[0].lineup[i][0].name = name; });
+  let S = play(g, 'BB', 'BB', 'BB', 'HR');
+  assert.equal(S.text.at(-1), 'Josephine hits a home run. Mackenzie, Alejandro and Christopher score.');
+  // Each box keeps its own story.
+  assert.deepEqual(S.cells.slice(0, 3).map(c => c.story.at(-1)), Array(3).fill('Scored on Josephine’s home run.'));
+  // Two who score, and one who moves up.
+  S = play(g, 'BB', 'BB', 'BB', { t: 'pa', r: '2B', m: [[0, 2], [3, 4], [2, 4], [1, 3]] });
+  assert.equal(S.text.at(-1), 'Batter 8 doubles. Batter 5 and Batter 6 score. Batter 7 to third.');
+  // A wild pitch that scores one and moves another up.
+  S = play(g, { t: 'r', m: [[3, 4, 'WP'], [2, 3, 'WP']] });
+  assert.equal(S.text.at(-1), 'Batter 7 scores on a wild pitch. Batter 8 moves to third on a wild pitch.');
+  // Two who score on one wild pitch, or on one wild throw.
+  S = play(game(), '1B', '1B', { t: 'r', m: [[2, 4, 'WP'], [1, 4, 'WP']] });
+  assert.equal(S.text.at(-1), 'Batter 1 and Batter 2 score on a wild pitch.');
+  S = play(game(), '1B', '1B', { t: 'r', m: [[2, 4, 'E', [2]], [1, 4, 'E', [2]]] });
+  assert.equal(S.text.at(-1), 'Batter 1 and Batter 2 score on an error by the catcher (E2).');
+  // Runs that cross the plate on the third out but don't count.
+  S = play(game(), '1B', '1B', '1B', 'K', 'K', { t: 'pa', r: 'GO', f: [6, 3], m: [[0, 0], [3, 4], [2, 4], [1, 3]], x: 1 });
+  assert.equal(S.text.at(-1), 'Batter 6 grounds out, short to first (6-3). Batter 1 and Batter 2 cross the plate, but the runs don’t count. Batter 3 to third.');
+  assert.equal(S.R[0], 0);
+});
+
+test('a pitching change says who comes in, or comes back in', () => {
+  const g = game();
+  g.teams[1].pitchers[0].name = 'Halvorsen';
+  g.teams[1].pitchers.push({ name: 'Bishop', num: '37' });
+  const S = play(g, { t: 'pch', s: 1, i: 1 }, { t: 'pch', s: 1, i: 0 }, { t: 'pch', s: 1, i: 1 });
+  assert.deepEqual(S.text, ['Comets bring in Bishop to pitch.', 'Comets bring Halvorsen back in to pitch.', 'Comets bring Bishop back in to pitch.']);
+});
+
 test('the card marks where a new pitcher took over and where a substitute first batted', () => {
   const g = game();
   g.teams[1].pitchers.push({ name: 'Bishop', num: '37' });

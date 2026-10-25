@@ -58,6 +58,8 @@ export const RUNS = {
 export const PITCH = { b: 'ball', c: 'called strike', s: 'swinging strike', f: 'foul', x: 'in play' };
 export const pitchWords = seq => [...seq].map(k => PITCH[k]).filter(Boolean).join(', ');
 
+// Names in a list, as said: "Ruiz", "Ruiz and Okafor", "Ruiz, Okafor and Brennan".
+const list = a => (a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a.at(-1));
 export const ord = n => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th');
 const dash = f => (f && f.length ? f.join('-') : '');
 
@@ -171,7 +173,11 @@ function step(S, e) {
       // are the pitcher's who left (OBR 9.16(h)).
       if (e.s === 1 - S.half) S.relief = S.b >= 2 && S.b > S.s ? S.relief ?? S.pit[e.s] : null;
       S.pit[e.s] = e.i;
-      return note(S, `Pitching change: ${pitcherLabel(g, e.s, e.i)} pitches for ${teamName(g, e.s)}.`, 'sub');
+      {
+        // The starter, or someone who pitched earlier, comes back in; anyone else is new.
+        const back = !e.i || g.ev.slice(0, S.i).some(x => x.t === 'pch' && x.s === e.s && x.i === e.i), who = pitcherLabel(g, e.s, e.i);
+        return note(S, `${teamName(g, e.s)} bring ${back ? `${who} back in` : `in ${who}`} to pitch.`, 'sub');
+      }
     case 'add':
       S.size[e.s]++;
       // Added just as the order came back round to the top: the new batter is up first.
@@ -271,7 +277,10 @@ function pa(S, e) {
   const runnerF = dash(split ? e.f.slice(0, -1) : e.f);
   const batter = { cell, side, slot, p, pi };
   const batterName = label(player(g, side, slot, p), slot);
-  const bits = [];
+  // Everyone who scores is in one sentence, where the first of them would be: "Okafor, Brennan and Castillo score."
+  // The same for runs that don't count.
+  const bits = [], scored = [], waved = [];
+  const together = (names, one, more) => { if (!names.length) bits.push(() => `${list(names)} ${names.length > 1 ? more : one}`); };
   let runs = 0, bOut = false, bTo = R.go, handed = null;
   for (const [from, to] of moves) {
     const r = from === 0 ? batter : S.bases[from];
@@ -298,14 +307,15 @@ function pa(S, e) {
     } else if (to === 4 && e.x) {
       // The third out came first (or was a force): the run doesn't count, and the runner counts as left on base.
       S.waved++;
-      bits.push(`${who} crosses the plate, but the run doesn’t count`);
+      together(waved, 'crosses the plate, but the run doesn’t count', 'cross the plate, but the runs don’t count');
+      waved.push(who);
       r.cell.story.push('Crossed the plate, but the run doesn’t count.');
     } else {
       reach(r.cell, from, to, from ? String(slot + 1) : '');
       if (to === 4) {
         score(S, r);
         runs++;
-        if (from) { bits.push(`${who} scores`); r.cell.story.push(`Scored on ${batterName}’s ${R.label.toLowerCase()}.`); }
+        if (from) { together(scored, 'scores', 'score'); scored.push(who); r.cell.story.push(`Scored on ${batterName}’s ${R.label.toLowerCase()}.`); }
       } else {
         S.bases[to] = r;
         if (from && to > from) { bits.push(`${who} to ${BASE[to]}`); r.cell.story.push(`To ${BASE[to]} on ${batterName}’s ${R.label.toLowerCase()}.`); }
@@ -319,7 +329,7 @@ function pa(S, e) {
   else if (R.kind !== 'out' && bTo > R.go && bTo < 4) text += ` and takes ${BASE[bTo]}`;
   else if (R.kind !== 'out' && bTo === 4 && R.go < 4) text += ' and comes all the way home';
   else if (R.kind === 'out' && !bOut && bTo > 0) text += ` but reaches ${BASE[bTo]}`;
-  text += '.' + (bits.length ? ' ' + bits.join('. ') + '.' : '');
+  text += '.' + (bits.length ? ' ' + sentences(bits) + '.' : '');
   cell.text = text;
   S.text[S.i] = text;
   S.plays.push({ i: S.i, inn: S.inn, half: side, text, kind: 'pa', runs, cell: cell.n, r: e.r });
@@ -330,6 +340,10 @@ function pa(S, e) {
   walkoff(S);
   if (S.outs >= 3) endHalf(S);
 }
+
+// A play's sentences, joined. A sentence that lists everyone who scored is a function, written out once they're all
+// known.
+const sentences = bits => bits.map(b => (typeof b === 'function' ? b() : b)).join('. ');
 
 function fielderWords(code, f) {
   if (!f || !f.length) return '';
@@ -344,7 +358,8 @@ function runners(S, e) {
   S.fresh = false;
   const g = S.g, side = S.half, fld = 1 - side;
   const moves = e.m.slice().sort((a, b) => b[0] - a[0]);
-  const bits = [];
+  // Runners who score for the same reason are in one sentence: "Ruiz and Okafor score on a wild pitch."
+  const bits = [], scored = {};
   let runs = 0, err = null;
   const balk = moves.length && moves.every(m => m[2] === 'BK');
   for (const [from, to, how, f] of moves) {
@@ -365,9 +380,12 @@ function runners(S, e) {
       r.cell.story.push(bits[bits.length - 1].replace(who + ' is', 'Was') + '.');
     } else {
       reach(r.cell, from, to, m);
-      const where = to === 4 ? 'scores' : `${how === 'SB' ? 'steals' : 'moves to'} ${BASE[to]}`;
       const why = how === 'WP' ? ' on a wild pitch' : how === 'PB' ? ' on a passed ball' : how === 'E' ? ` on an error by the ${POS_NAME[f && f[0]] || 'fielder'}${f && f[0] ? ` (E${f[0]})` : ''}` : '';
-      bits.push(`${who} ${how === 'SB' && to === 4 ? 'steals home' : where}${balk ? '' : why}`);
+      const said = balk ? '' : why;
+      if (to === 4 && how !== 'SB') {
+        if (!scored[said]) { const names = scored[said] = []; bits.push(() => `${list(names)} ${names.length > 1 ? 'score' : 'scores'}${said}`); }
+        scored[said].push(who);
+      } else bits.push(`${who} ${to === 4 ? 'steals home' : `${how === 'SB' ? 'steals' : 'moves to'} ${BASE[to]}`}${said}`);
       r.cell.story.push(`${how === 'SB' && to === 4 ? 'Stole home' : to === 4 ? 'Scored' : how === 'SB' ? 'Stole ' + BASE[to] : 'Moved to ' + BASE[to]}${balk ? ' on a balk' : why}.`);
       if (to === 4) { score(S, r); runs++; } else S.bases[to] = r;
     }
@@ -376,7 +394,7 @@ function runners(S, e) {
   if (err) { S.E[fld]++; S.eInn[side][S.inn - 1]++; S.errs[fld].push(err[0]); }
   if (moves.some(m => m[2] === 'WP')) pstat(S).wp++;
   if (balk) pstat(S).bk++;
-  const text = (balk ? 'Balk. ' : '') + (bits.length ? bits.join('. ') + '.' : '');
+  const text = (balk ? 'Balk. ' : '') + (bits.length ? sentences(bits) + '.' : '');
   S.text[S.i] = text;
   S.plays.push({ i: S.i, inn: S.inn, half: side, text, kind: 'run', runs });
   walkoff(S);

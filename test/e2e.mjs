@@ -505,7 +505,7 @@ step('Fix runners, then leaving the game: the play is still there');
   await p.click('.sheet [data-x=save]');
   assert.equal(await plays(p, id), 'pa1B pa2B p pa1B');
   assert.deepEqual((await stored(p, id)).ev.at(-1).m.find(x => x[0] === 2), [2, 4]);
-  assert.match(await p.textContent('.ticker p'), /Batter 2 scores/);
+  assert.match(await p.textContent('.ticker p'), /Batter 1 and Batter 2 score\./);
 
   step('Fix runners while another tab scores in the same game: nothing changes, and it says so');
   await p.click('[data-a=fixlast]');
@@ -1156,9 +1156,9 @@ step('a screen reader hears each play and where things stand, in a region that s
   await p.click('[data-p=s]');
   await p.click('[data-r=HR]');
   await p.click('.sheet [data-x=save]');
-  assert.equal(await said(), 'Batter 3 hits a home run. Batter 1 scores. Batter 2 scores. Owls 3, Home 0. Nobody on, nobody out.');
+  assert.equal(await said(), 'Batter 3 hits a home run. Batter 1 and Batter 2 score. Owls 3, Home 0. Nobody on, nobody out.');
   await p.click('.bar .undo');
-  assert.equal(await said(), 'Took back: Batter 3 hits a home run. Batter 1 scores. Batter 2 scores. Runners on second and third, nobody out, 0 balls, 1 strike.');
+  assert.equal(await said(), 'Took back: Batter 3 hits a home run. Batter 1 and Batter 2 score. Runners on second and third, nobody out, 0 balls, 1 strike.');
   assert.equal(await region.evaluate(el => el.isConnected), true, 'the same region all along');
   const board = await p.textContent('.bug');
   assert.match(board, /Owls\s*0, batting/);
