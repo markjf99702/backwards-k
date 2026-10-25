@@ -533,7 +533,9 @@ function limitLines(st) {
 
 // ---------- taps ----------
 function onClick(e) {
-  const t = e.target.closest('[data-a],[data-r],[data-p],[data-runner],[data-cell],[data-v],[data-cs]');
+  // (A pitch is a button: the panes for the card, the box score and the plays are data-p too, and a tap on the line
+  // score, a table or a play in one of them isn't a pitch.)
+  const t = e.target.closest('[data-a],[data-r],button[data-p],[data-runner],[data-cell],[data-v],[data-cs]');
   if (!t || t.disabled) return;
   if (t.dataset.v) {
     view = t.dataset.v;

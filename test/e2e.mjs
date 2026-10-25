@@ -1237,6 +1237,23 @@ step('a pitch limit: the pitcher’s button turns amber five before it and red a
   await p.context().close();
 }
 
+step('a tap on the line score, the box score or the plays scores nothing');
+{
+  const g = sampleGame(1);
+  g.id = 'gsample1panes';
+  for (const [w, h] of [[390, 844], [1280, 800]]) {
+    const p = await playing({ ...g }, { width: w, height: h }, '.vtabs');
+    for (const v of ['card', 'box', 'plays']) {
+      await p.click(`[data-v=${v}]`);
+      await p.click(`.pane[data-p=${v}] ${v === 'plays' ? '.plays h3' : '.line-wrap'}`);
+      await p.click(`.pane[data-p=${v}]`, { position: { x: 5, y: 5 } });
+    }
+    assert.equal((await stored(p, g.id)).ev.length, g.ev.length, `${w}: nothing was scored`);
+    assert.match(await p.title(), /· Final ·/);
+    await p.context().close();
+  }
+}
+
 step('only the pane on screen is drawn, and the one shown next is drawn as it’s shown');
 {
   const drawn = p => p.evaluate(() => [...document.querySelectorAll('.side .pane')].map(x => `${x.dataset.p}:${x.childElementCount ? 'drawn' : 'empty'}`).join(' '));
