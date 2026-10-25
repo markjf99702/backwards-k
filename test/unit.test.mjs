@@ -1398,6 +1398,8 @@ test('spray charts: where a team’s and a batter’s balls went, once the game 
   assert.match(h, /<title>Batter 3, 1st: single to left<\/title>/);
   assert.match(h, /<title>Batter 1, 1st: ground out, 6-3<\/title>/);
   assert.match(h, /Hits: 2 to left, 1 to center\. 2 other balls in play\./);
+  // Only hits, two of them to one fielder: no "0 other balls".
+  assert.match(spray(S, c => c.side === 0 && RESULTS[c.r].kind === 'hit', 'x'), /<p class="spray-words">Hits: 2 to left, 1 to center\.<\/p>/);
   // The home run is over the fence, straight out to center.
   const hr = /class="ball hit" transform="translate\(([\d.]+) ([\d.]+)\)"><title>Batter 4/.exec(h);
   assert.ok(+hr[1] === 160 && +hr[2] < 36, `the home run at ${hr[1]}, ${hr[2]}`);

@@ -164,8 +164,9 @@ export function spray(S, which, title, { now = null } = {}) {
   for (const b of balls) if (b.hit) hits.set(b.n, (hits.get(b.n) || 0) + 1);
   const many = (k, one, more = one + 's') => `${k} ${k === 1 ? one : more}`;
   // (In words too: where the hits went, field by field, and how many balls weren't hits.)
+  const others = balls.filter(b => !b.hit).length;
   const words = [hits.size ? `Hits: ${[...hits].sort((a, b) => b[1] - a[1] || a[0] - b[0]).map(([n, k]) => `${k} to ${toWhere(n)}`).join(', ')}.` : 'No hits placed.',
-    balls.length > hits.size ? `${many(balls.filter(b => !b.hit).length, 'other ball')} in play.` : ''].filter(Boolean).join(' ');
+    others ? `${many(others, 'other ball')} in play.` : ''].filter(Boolean).join(' ');
   const key = `<span class="key"><svg viewBox="-8 -8 16 16" aria-hidden="true"><circle class="dot hit" r="6"/></svg>Hit</span><span class="key"><svg viewBox="-8 -8 16 16" aria-hidden="true"><circle class="dot" r="6"/></svg>Out, error or fielder’s choice</span>`;
   return `<figure class="spray"><figcaption>${esc(title)}</figcaption>${sprayField(balls, `${title}. ${words}`)}<p class="spray-key">${key}</p><p class="spray-words">${esc(words)}</p></figure>`;
 }
