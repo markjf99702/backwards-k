@@ -96,11 +96,12 @@ export const whyNot = p => (p === 'full' ? 'this device is out of room' : 'this 
 // An open sheet covers the whole page, and nothing outside it can be reached, so while one is open the message goes
 // in the sheet's own line instead (in index.html, beside the sheet's body, so it's there before anything is written).
 let toastT = null, toastHide = null, toastAt = null;
+const toasts = () => [document.getElementById('toast'), dlg() && dlg().querySelector('.sheet-toast')].filter(Boolean);
 const toastEl = () => (sheetOpen() && dlg().querySelector('.sheet-toast')) || document.getElementById('toast');
 export function toast(msg, { action, run, ms = 3200, focus = false } = {}) {
   const t = toastEl();
   clearTimeout(toastT);
-  for (const x of document.querySelectorAll('.toast')) if (x !== t) x.textContent = '';
+  for (const x of toasts()) if (x !== t) x.textContent = '';
   t.innerHTML = `<span>${esc(msg)}</span>${action ? `<button type="button">${esc(action)}</button>` : ''}`;
   toastAt = t;
   if (t.classList.contains('sheet-toast')) placeInSheet(t);
@@ -136,7 +137,7 @@ function placeInSheet(t) {
 // While the toast has the keyboard or the pointer it stays, and it goes 4 seconds after both have left. Escape
 // closes it.
 function wireToast() {
-  for (const t of document.querySelectorAll('.toast')) {
+  for (const t of toasts()) {
     const stay = () => { if (toastAt === t) clearTimeout(toastT); };
     t.addEventListener('focusin', stay);
     t.addEventListener('mouseenter', stay);
