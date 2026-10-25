@@ -7,14 +7,21 @@ const listeners = [];
 // Why this device isn't saving: '' when the last save worked, 'full' when it's out of room, 'blocked' when the
 // browser won't let the page store anything (private browsing, or site data turned off).
 let problem = '';
-let doc = read();
 
+// What's stored, tidied (an empty store when there's nothing, or nothing that can be read).
 function read() {
   let raw;
   try { raw = localStorage.getItem(KEY); } catch { problem = 'blocked'; return cleanDoc(null); }
-  try { return cleanDoc(JSON.parse(raw || 'null')); } catch { return cleanDoc(null); }
+  try { return cleanDoc(JSON.parse(raw || 'null')); } catch { unreadable = raw; aside(); return cleanDoc(null); }
+}
+// What was stored but can't be read (damaged, say) isn't written over: it's put aside first, under a name of its own
+// (backwards-k.v1.unreadable-<when>), where it can still be got at. Until that works, nothing is written.
+function aside() {
+  if (unreadable == null) return true;
+  try { localStorage.setItem(`${KEY}.unreadable-${Date.now()}`, unreadable); unreadable = null; return true; } catch (e) { problem = isFull(e) ? 'full' : 'blocked'; return false; }
 }
 function write() {
+  if (!aside()) return false;
   try { localStorage.setItem(KEY, text()); problem = ''; } catch (e) { problem = isFull(e) ? 'full' : 'blocked'; }
   return !problem;
 }
@@ -49,6 +56,9 @@ function flush() {
 }
 const isFull = e => !!e && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED' || e.code === 22 || e.code === 1014);
 const tell = why => listeners.forEach(f => { try { f(why); } catch (e) { console.error(e); } });
+
+// What's stored, read when the page opens; and what couldn't be read, until it's put aside (see aside()).
+let unreadable = null, doc = read();
 
 export const store = {
   all: () => Object.values(doc.games).sort((a, b) => b.updated - a.updated),

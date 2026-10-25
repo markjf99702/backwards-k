@@ -55,7 +55,9 @@ written out in plain words.
 ### What's saved where
 
 - **On each device:** every game, in the browser's storage. If the browser won't save (private browsing, site data
-  turned off, or a device that's out of room), the game screen says so and offers to save the game as a file.
+  turned off, or a device that's out of room), the game screen says so and offers to save the game as a file. Games
+  stored but unreadable (damaged) are put aside in the browser's storage, under backwards-k.v1.unreadable-…, rather
+  than written over.
 - **In Google Drive, when it's on:** one JSON file per game in the "Backwards K" folder, with a line or two at the top
   saying who played and the score. A game changed on one device is brought up to date on the others. One changed on
   two devices before they caught up is put together by its plays: when one copy's plays are the start of the other's,

@@ -842,6 +842,18 @@ step('a tap is stored just after the screen is drawn, and the page going away st
   await p.context().close();
 }
 
+step('games stored but unreadable (damaged) are put aside, not written over by the next save');
+{
+  const p = await phone(() => { if (!sessionStorage.getItem('damaged')) { localStorage.setItem('backwards-k.v1', '{"app":"backwards-k","v":1,"games":{"gx'); sessionStorage.setItem('damaged', '1'); } });
+  const id = await startGame(p);
+  await written(p);
+  const all = await p.evaluate(() => Object.fromEntries(Object.keys(localStorage).filter(k => k.startsWith('backwards-k.v1')).map(k => [k.replace(/-\d+$/, '-'), localStorage.getItem(k)])));
+  assert.deepEqual(Object.keys(all).sort(), ['backwards-k.v1', 'backwards-k.v1.unreadable-']);
+  assert.equal(all['backwards-k.v1.unreadable-'], '{"app":"backwards-k","v":1,"games":{"gx');
+  assert.deepEqual(Object.keys(JSON.parse(all['backwards-k.v1']).games), [id]);
+  await p.context().close();
+}
+
 step('a browser that won’t store anything: the line says so from the start');
 {
   const p = await phone(() => Object.defineProperty(window, 'localStorage', { get() { throw new DOMException('The operation is insecure.', 'SecurityError'); } }));
