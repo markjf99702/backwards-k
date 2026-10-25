@@ -663,6 +663,9 @@ li.scored { border-left: 4px solid var(--red); }
 @media (prefers-reduced-motion: no-preference) { .toast:not(:empty) { animation: up .16s ease-out; } }
 .toast button { border: 0; background: none; color: var(--lamp-s); font-weight: 800; padding: 4px; }
 .toast :focus-visible { outline-color: #fff; }
+/* The same message inside an open sheet, which covers the page: over the sheet, just above its last row of buttons
+   (js/ui.js sets how far up), or at its bottom edge. */
+.sheet-toast { position: absolute; z-index: 5; max-width: min(560px, calc(100% - 32px)); }
 
 /* ---------- the footer ---------- */
 .jd-foot { padding: 10px 16px calc(22px + env(safe-area-inset-bottom)); text-align: center; font-size: 14px; color: var(--muted); }

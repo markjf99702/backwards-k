@@ -40,6 +40,14 @@ const step = name => console.log('·', name);
 // Where an element is, and whether it's wholly inside another one.
 const box = (p, sel) => p.evaluate(sel => { const r = document.querySelector(sel).getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom }; }, sel);
 const inside = (a, b) => a.left >= b.left - 0.5 && a.right <= b.right + 0.5 && a.top >= b.top - 0.5 && a.bottom <= b.bottom + 0.5;
+// The message on screen (on the page, or in an open sheet's own line), and that it's really seen: what's at its middle
+// is part of it, not a sheet drawn over it.
+const seen = p => p.evaluate(() => {
+  const t = [...document.querySelectorAll('.toast')].find(x => x.textContent);
+  if (!t) return '';
+  const r = t.getBoundingClientRect(), at = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+  return t.contains(at) ? t.textContent : `hidden under ${at ? at.tagName + '.' + at.className : 'nothing'}: ${t.textContent}`;
+});
 
 await page.goto(base);
 await page.evaluate(() => document.fonts.ready);
@@ -101,7 +109,7 @@ assert.equal(await bases(), '3:Ruiz 2:Castillo');
 step('an error can’t move a runner onto a base that’s taken');
 await tap('[data-runner="2"]');
 await tap('.sheet [data-k="E"]');
-assert.equal(await page.textContent('#toast'), 'Someone’s on third. Move them up too.');
+assert.equal(await seen(page), 'Someone’s on third. Move them up too.');
 assert.equal(await page.locator('.sheet .pick').count(), 0, 'no fielders to pick');
 await tap('.sheet [data-close]');
 assert.equal(await bases(), '3:Ruiz 2:Castillo');
@@ -242,7 +250,7 @@ async function startGame(p, away = 'Owls') {
 }
 const stored = (p, id) => p.evaluate(id => JSON.parse(localStorage.getItem('backwards-k.v1')).games[id], id);
 const plays = async (p, id) => (await stored(p, id)).ev.map(e => e.t + (e.r || '')).join(' ');
-const shown = p => p.evaluate(() => document.getElementById('toast').textContent);
+const shown = p => p.evaluate(() => [...document.querySelectorAll('.toast')].map(t => t.textContent).join(''));
 
 step('pasting a lineup from a group text: names with commas, and the pitcher');
 {
@@ -887,10 +895,10 @@ step('a wild pitch that moves two runners is one play, and one wild pitch');
   step('moving runners together can’t put two on a base or pass the runner ahead');
   await p.click('[data-runner="2"]');
   await p.click('.sheet [data-k=PB]');
-  assert.equal(await shown(p), 'Someone’s on third. Move them up too.');
+  assert.equal(await seen(p), 'Someone’s on third. Move them up too.');
   await p.click(row(2, 4));
   await p.click('.sheet [data-k=OA]');
-  assert.equal(await shown(p), 'Someone’s on third. Move them up too.');
+  assert.equal(await seen(p), 'Someone’s on third. Move them up too.');
   await p.click(row(3, 4));
   await p.click('.sheet [data-k=E]');
   await p.click('.sheet [data-pos="2"]');
@@ -904,15 +912,43 @@ step('a wild pitch that moves two runners is one play, and one wild pitch');
   await p.click('[data-runner="1"]');
   await p.click(row(1, 3));
   await p.click('.sheet [data-k=OA]');
-  assert.equal(await shown(p), 'Someone’s on second. Move them up too.');
+  assert.equal(await seen(p), 'Someone’s on second. Move them up too.');
   await p.click(row(2, 3));
   await p.click('.sheet [data-k=OA]');
-  assert.equal(await shown(p), 'Two runners can’t both be on third.');
+  assert.equal(await seen(p), 'Two runners can’t both be on third.');
   await p.click(row(1, 4));
   await p.click('.sheet [data-k=OA]');
-  assert.equal(await shown(p), 'A runner can’t pass the runner ahead of them.');
+  assert.equal(await seen(p), 'A runner can’t pass the runner ahead of them.');
   await p.keyboard.press('Escape');
   assert.equal(await plays(p, id), 'pa1B paBB r r pa1B pa1B', 'and nothing was saved');
+  await p.context().close();
+}
+
+step('a message while a sheet is open shows on top of it, and leaves its buttons free');
+{
+  const p = await phone();
+  await p.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: base.slice(0, -1) });
+  await startGame(p);
+  await p.click('[data-r="1B"]');
+  await p.click('[data-r=BB]');
+  await p.click('[data-a=menu]');
+  await p.click('.sheet [data-y=share]');
+  await p.click('.sheet [data-y=text]');
+  await p.waitForFunction(() => [...document.querySelectorAll('.toast')].some(t => t.textContent));
+  assert.equal(await seen(p), 'Score copied.');
+  assert.match(await p.evaluate(() => navigator.clipboard.readText()), /^Owls 0, Home 0 \(Top 1st\)/);
+  const free = sel => p.evaluate(sel => { const b = document.querySelector(sel), r = b.getBoundingClientRect(); return b.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)); }, sel);
+  assert.equal(await free('.sheet [data-close]'), true, 'Close isn’t under it');
+  await p.click('.sheet [data-close]');
+  await p.waitForFunction(() => !document.querySelector('.sheet-toast').textContent, null, { timeout: 1000 }); // it goes with the sheet
+  // Runners on first and second: a steal of second has to wait for the runner there to move.
+  await p.click('[data-runner="1"]');
+  await p.click('.sheet [data-k=SB]');
+  assert.equal(await seen(p), 'Someone’s already on second. Move them first.');
+  assert.equal(await free('.sheet [data-close]'), true);
+  await p.keyboard.press('Escape');
+  assert.equal(await p.evaluate(() => document.getElementById('sheet').open), false);
+  await p.waitForFunction(() => !document.querySelector('.sheet-toast').textContent, null, { timeout: 1000 });
   await p.context().close();
 }
 

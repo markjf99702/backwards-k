@@ -64,8 +64,15 @@ export const sheetOpen = () => dlg().open;
 function wire() {
   const d = dlg();
   if (!d) return;
-  // (The close event comes a moment later; if another sheet opened meanwhile, it's that one's now.)
-  d.addEventListener('close', () => { if (d.open) return; const f = onClose; onClose = null; if (f) f(); d.querySelector('.sheet-body').innerHTML = ''; });
+  // (The close event comes a moment later; if another sheet opened meanwhile, it's that one's now.) A message in the
+  // sheet's own line goes with it.
+  d.addEventListener('close', () => {
+    if (d.open) return;
+    const f = onClose; onClose = null; if (f) f();
+    d.querySelector('.sheet-body').innerHTML = '';
+    const t = d.querySelector('.sheet-toast');
+    if (t && toastHide && toastAt === t) toastHide(); else if (t) t.textContent = '';
+  });
   // A tap on the dimmed page behind it closes it.
   d.addEventListener('click', e => { if (e.target === d) d.close(); });
   d.addEventListener('click', e => { if (e.target.closest('[data-close]')) d.close(); });
@@ -86,20 +93,25 @@ export const whyNot = p => (p === 'full' ? 'this device is out of room' : 'this 
 // ---------- the toast ----------
 // It stays on the page, empty between messages (and so out of sight), so a screen reader hears each one. focus:
 // give its button the keyboard (the only way back from deleting a game); when it goes, the keyboard goes back.
-let toastT = null, toastHide = null;
-const toastEl = () => document.getElementById('toast');
+// An open sheet covers the whole page, and nothing outside it can be reached, so while one is open the message goes
+// in the sheet's own line instead (in index.html, beside the sheet's body, so it's there before anything is written).
+let toastT = null, toastHide = null, toastAt = null;
+const toastEl = () => (sheetOpen() && dlg().querySelector('.sheet-toast')) || document.getElementById('toast');
 export function toast(msg, { action, run, ms = 3200, focus = false } = {}) {
   const t = toastEl();
   clearTimeout(toastT);
+  for (const x of document.querySelectorAll('.toast')) if (x !== t) x.textContent = '';
   t.innerHTML = `<span>${esc(msg)}</span>${action ? `<button type="button">${esc(action)}</button>` : ''}`;
+  toastAt = t;
+  if (t.classList.contains('sheet-toast')) placeInSheet(t);
   let back = null;
   toastHide = () => {
     clearTimeout(toastT);
     toastHide = null;
     const had = t.contains(document.activeElement);
     t.textContent = '';
-    const to = had && (back && back.isConnected ? back : document.querySelector('#app h1'));
-    if (to) { if (to.tagName === 'H1') to.tabIndex = -1; to.focus({ preventScroll: true }); }
+    const to = had && (back && back.isConnected ? back : t.classList.contains('sheet-toast') ? dlg().querySelector('.sheet-body h2') : document.querySelector('#app h1'));
+    if (to) { if (/^H[12]$/.test(to.tagName)) to.tabIndex = -1; to.focus({ preventScroll: true }); }
   };
   hideIn(action ? Math.max(ms, 6000) : ms);
   if (action) {
@@ -109,17 +121,26 @@ export function toast(msg, { action, run, ms = 3200, focus = false } = {}) {
   }
 }
 const hideIn = ms => { clearTimeout(toastT); toastT = setTimeout(() => toastHide && toastHide(), ms); };
+// In a sheet, the message sits just above the sheet's last row of buttons (Save play, Close, Done), so the button the
+// scorer wants next isn't under it. If that row is scrolled out of sight, it sits at the sheet's bottom edge.
+function placeInSheet(t) {
+  t.style.bottom = '';
+  const d = dlg(), row = d.querySelector('.sheet-body').lastElementChild;
+  if (!row || !row.matches('.row')) return;
+  const box = d.getBoundingClientRect(), r = row.getBoundingClientRect();
+  if (r.height && r.top >= box.top && r.bottom <= box.bottom + 1) t.style.bottom = `${Math.round(box.bottom - r.top + 8)}px`;
+}
 // While the toast has the keyboard or the pointer it stays, and it goes 4 seconds after both have left. Escape
 // closes it.
 function wireToast() {
-  const t = document.getElementById('toast');
-  if (!t) return;
-  const stay = () => clearTimeout(toastT);
-  t.addEventListener('focusin', stay);
-  t.addEventListener('mouseenter', stay);
-  t.addEventListener('focusout', e => { if (toastHide && !t.contains(e.relatedTarget) && !t.matches(':hover')) hideIn(4000); });
-  t.addEventListener('mouseleave', () => { if (toastHide && !t.contains(document.activeElement)) hideIn(4000); });
-  t.addEventListener('keydown', e => { if (e.key === 'Escape' && toastHide) { e.preventDefault(); toastHide(); } });
+  for (const t of document.querySelectorAll('.toast')) {
+    const stay = () => { if (toastAt === t) clearTimeout(toastT); };
+    t.addEventListener('focusin', stay);
+    t.addEventListener('mouseenter', stay);
+    t.addEventListener('focusout', e => { if (toastHide && toastAt === t && !t.contains(e.relatedTarget) && !t.matches(':hover')) hideIn(4000); });
+    t.addEventListener('mouseleave', () => { if (toastHide && toastAt === t && !t.contains(document.activeElement)) hideIn(4000); });
+    t.addEventListener('keydown', e => { if (e.key === 'Escape' && toastHide && toastAt === t) { e.preventDefault(); toastHide(); } });
+  }
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wireToast); else wireToast();
 
