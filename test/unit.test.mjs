@@ -2044,3 +2044,35 @@ test('a continuous order in extra innings: the runner put on second is the one b
   assert.equal(S.inn, 2);
   assert.equal(S.bases[2].slot, 2, 'Batter 5 leads off: Batter 3 starts on second, not Batter 4, who left');
 });
+
+test('a courtesy runner: only the name on the base changes, and the run and the steal are the player’s she ran for', () => {
+  const g = game();
+  g.teams[0].lineup.forEach((slot, i) => { slot[0] = { name: 'V' + (i + 1), num: '' }; });
+  // V1 (the catcher) singles, and Emma, from the bench, runs for her; she steals and scores on V3's single.
+  let S = play(g, '1B', { t: 'cr', s: 0, b: 1, name: 'Emma', num: '12' });
+  assert.equal(S.text.at(-1), 'Emma runs for V1 on first, a courtesy runner.');
+  assert.equal(S.bases[1].slot, 0);
+  S = play(g, { t: 'r', m: [[1, 2, 'SB']] }, 'K', { t: 'pa', r: '1B', m: [[0, 1], [2, 4]] });
+  assert.equal(S.text.at(-3), 'Emma steals second.');
+  assert.equal(S.text.at(-1), 'V3 singles. Emma scores.');
+  const b = S.bat['0.0.0'];
+  assert.deepEqual([b.pa, b.ab, b.h, b.r, b.sb], [1, 1, 1, 1, 1], 'V1’s line stays whole: her hit, her run, her steal');
+  assert.equal(S.bat['0.2.0'].rbi, 1, 'the RBI is the batter’s who drove her in');
+  assert.deepEqual(S.cells[0].story, ['Emma ran for V1 as a courtesy runner.', 'Stole second.', 'Scored on V3’s single.']);
+  // V1 bats again in her own spot, once the order comes round.
+  S = play(g, 'K', 'K', ...threeK, 'K', 'K', 'K', ...threeK, 'K');
+  assert.equal(now(S).name, 'V1');
+  assert.match(boxHtml(S), /<b>Courtesy runners:<\/b> Emma ran for V1 in the 1st\./);
+  // From the order: V9, who made the last out, runs for V2; a pinch runner after her takes over the base.
+  S = play(g, 'K', '1B', { t: 'cr', s: 0, b: 1, slot: 8 });
+  assert.equal(S.text.at(-1), 'V9 runs for V2 on first, a courtesy runner.');
+  g.teams[0].lineup[1].push({ name: 'Diaz', num: '' });
+  S = play(g, { t: 'sub', s: 0, slot: 1, i: 1, ty: 'pr' }, { t: 'r', m: [[1, 2, 'SB']] });
+  assert.equal(S.text.at(-1), 'Diaz steals second.');
+  // Nobody on that base: nothing changes. Kept from a file and a link; nothing newer.
+  S = play(g, { t: 'cr', s: 0, b: 3, name: 'Zoe', num: '' });
+  assert.equal(S.text.at(-1), 'There’s nobody on third to run for.');
+  assert.deepEqual(cleanGame(JSON.parse(JSON.stringify(g))), g);
+  assert.equal(newer(g), false);
+  assert.deepEqual(cleanGame({ ...g, ev: [{ t: 'cr', s: 0, b: 1, slot: 30 }] }).ev, [], 'a spot that isn’t there is left out');
+});

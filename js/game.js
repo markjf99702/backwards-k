@@ -4,6 +4,7 @@ import {
   replay, suggest, check, runsCount, scoredAs, now, RESULTS, BASE, POS, POS_NAME, halfLabel, label, player, teamName,
   pitcherLabel, ord, runnersOn, mark, pitchStat, pitchWords, pitchDay, pitchWork, pitchCount, winningRun, creditedHit, credit, fits,
   ENDS, regulation, official, winner, AUTO, limitState, restDays, restBand, noCatch, LIMIT_BY, sameSoFar, outAt, outBases, usualBase,
+  runnerName,
 } from './engine.js';
 import { store } from './store.js';
 import { blank, takeBack, putBack, newer, plays, setField } from './model.js';
@@ -404,7 +405,7 @@ function liveHtml() {
   const runner = b => {
     const r = S.bases[b];
     if (!r) return '';
-    const [x, y] = BASE_AT[b], name = esc(label(player(g, r.side, r.slot, r.p), r.slot));
+    const [x, y] = BASE_AT[b], name = esc(runnerName(g, r));
     if (S.over || S.delayed) return `<span class="runner left" style="left:${x}%;top:${y}%"><span class="sr">${S.over ? 'Left on' : 'On'} ${BASE[b]}: </span><span>${name}</span></span>`;
     return `<button type="button" class="runner" data-runner="${b}" style="left:${x}%;top:${y}%" aria-label="Runner on ${BASE[b]}: ${name}. Tap for steals and other moves."><span>${name}</span></button>`;
   };
@@ -679,7 +680,7 @@ function runnersSheet(code, f, moves, { st = S, editing = false, done = act } = 
   const m = moves.map(x => x.slice());
   const counts = { v: runsCount(st, code, m) };
   let userSaid = null, asked = null;
-  const who = b => (b === 0 ? n.name : label(player(G, st.bases[b].side, st.bases[b].slot, st.bases[b].p), st.bases[b].slot));
+  const who = b => (b === 0 ? n.name : runnerName(G, st.bases[b]));
   const body = openSheet(`<h2 id="sheetTitle">${R.kind === 'out' && code !== 'KL' && code !== 'K' ? esc(R.label) : code === 'KL' ? 'Strikeout looking' : esc(R.label)}${f && f.length ? ` <span class="mk">${esc(mark(code, f))}</span>` : ''}</h2>
     <p class="hint">Here’s where everyone usually ends up. Change anything that went differently.</p>
     <div class="moves"></div>
@@ -866,12 +867,12 @@ function endSheet() {
 function runnerSheet(b) {
   const r = S.bases[b];
   if (!r || S.over || S.delayed) return;
-  const name = label(player(G, r.side, r.slot, r.p), r.slot), next = b + 1;
+  const name = runnerName(G, r), next = b + 1;
   // Where each runner ended up when they moved up without a hit. Everyone else on base can move up on the same wild
   // pitch, passed ball or throw; they stayed unless the scorer says otherwise.
   const to = { [b]: next }, others = runnersOn(S).filter(x => x !== b);
   for (const x of others) to[x] = x;
-  const who = x => label(player(G, S.bases[x].side, S.bases[x].slot, S.bases[x].p), S.bases[x].slot);
+  const who = x => runnerName(G, S.bases[x]);
   const chips = (x, words) => `<span class="chips" role="group" aria-label="${esc(words)}">${[1, 2, 3, 4].filter(y => y > x || (y === x && x !== b)).map(y => `<button type="button" data-to="${y}" aria-pressed="${y === to[x]}"${y === 4 ? ' class="home"' : ''}>${y === x ? 'Stayed' : BASES[y]}</button>`).join('')}</span>`;
   const body = openSheet(`<h2 id="sheetTitle">${esc(name)} <small>on ${BASE[b]}</small></h2>
     <div class="row2">
@@ -892,7 +893,8 @@ function runnerSheet(b) {
     </div>
     <div class="list">
       <button type="button" class="li" data-k="BK"><b>Balk</b><span>Every runner moves up a base.</span></button>
-      <button type="button" class="li" data-k="PR"><b>Pinch runner</b><span>Someone else runs for ${esc(name)}.</span></button>
+      <button type="button" class="li" data-k="PR"><b>Pinch runner</b><span>Someone else runs for ${esc(name)}, and takes that spot in the order.</span></button>
+      <button type="button" class="li" data-k="CR"><b>Courtesy runner</b><span>Someone runs for ${esc(name)}, who stays in that spot in the order (youth and softball).</span></button>
     </div>
     <div class="row"><button type="button" class="btn quiet" data-close>Close</button></div>`);
   body.addEventListener('click', e => {
@@ -906,6 +908,7 @@ function runnerSheet(b) {
     if (!k) return;
     const how = k.dataset.k;
     if (how === 'PR') return subForm(r.side, r.slot, 'pr');
+    if (how === 'CR') return courtesy(b);
     if (how === 'BK') { closeSheet(); return act({ t: 'r', m: runnersOn(S).map(x => [x, x + 1, 'BK']) }); }
     if (how === 'SB') { if (S.bases[next] && next < 4) return toast(`Someone’s already on ${BASE[next]}. Move them first.`); closeSheet(); return act({ t: 'r', m: [[b, next, 'SB']] }); }
     if (how === 'CS' || how === 'PO' || how === 'OB') {
@@ -921,6 +924,32 @@ function runnerSheet(b) {
     act({ t: 'r', m: moves });
   });
 }
+// A courtesy runner for the runner on base b (Little League's and softball's, for a pitcher or catcher, or anyone a
+// league allows): someone else in the order, or a name typed in. Only who's on the base changes: the player stays in
+// his spot in the order, and the run, if it scores, is his, and so are any steals (the box score lists who ran for
+// whom). The same runner on another base, or the one he runs for, isn't offered.
+function courtesy(b) {
+  const r = S.bases[b], side = r.side, name = runnerName(G, r), p = blank();
+  const busy = new Set([1, 2, 3].filter(x => S.bases[x]).flatMap(x => [S.bases[x].slot, S.bases[x].cr && S.bases[x].cr.slot]));
+  const from = [];
+  for (let slot = 0; slot < S.size[side]; slot++) {
+    const x = G.teams[side].lineup[slot][S.pl[side][slot] ?? 0];
+    if (!busy.has(slot) && !(side === S.half && S.up[side] === slot)) from.push([slot, x]);
+  }
+  const body = openSheet(`<h2 id="sheetTitle">Courtesy runner <small>for ${esc(name)} on ${BASE[b]}</small></h2>
+    ${from.length ? `<p class="pick-row" role="group" aria-label="From the order"><span>From the order:</span>${from.map(([slot, x]) => `<button type="button" class="chip" data-cr="${slot}">${esc(named(x, slot))}</button>`).join('')}</p>` : ''}
+    ${nameFields(p)}
+    <p class="hint">${esc(name)} stays in the order, and a run scored, or a base stolen, is ${esc(name)}’s.</p>
+    <div class="row"><button type="button" class="btn quiet" data-close>Cancel</button><button type="button" class="btn primary" data-x="go">Run for ${esc(name)}</button></div>`);
+  $$('[data-f]', body).forEach(i => i.addEventListener('input', () => { setField(p, i.dataset.f, i.value); }));
+  body.addEventListener('click', e => {
+    const c = e.target.closest('[data-cr]');
+    if (c) { closeSheet(); return act({ t: 'cr', s: side, b, slot: +c.dataset.cr }); }
+    if (e.target.closest('[data-x=go]')) { closeSheet(); act({ t: 'cr', s: side, b, name: p.name, num: p.num }); }
+  });
+  body.querySelector('[data-f=name]').focus();
+}
+
 // What's wrong with where the runners would be after some of them move up, in words, or '' if it could happen: two
 // on one base, or one passing the runner ahead (often because the runner ahead stayed).
 function jam(moves) {

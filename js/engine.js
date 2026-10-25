@@ -100,6 +100,13 @@ export function player(g, side, slot, p = 0) {
   const s = g.teams[side].lineup[slot];
   return (s && (s[p] || s[s.length - 1])) || { name: '', num: '' };
 }
+// Who's on a base: the player, or the courtesy runner running for him (r.cr: someone in the order, or a name).
+export function runnerName(g, r) {
+  const c = r.cr;
+  if (!c) return label(player(g, r.side, r.slot, r.p), r.slot);
+  if (c.slot != null) return label(player(g, r.side, c.slot, c.p), c.slot);
+  return c.name || (c.num ? '#' + c.num : 'Courtesy runner');
+}
 export function label(pl, slot) {
   if (pl.name) return pl.name;
   if (pl.num) return '#' + pl.num;
@@ -126,6 +133,7 @@ export function replay(g, upTo = g.ev.length) {
     been: [0, 1].map(t => g.teams[t].lineup.map(() => new Set([0]))), // everyone who has been in each slot
     gone: [new Set(), new Set()], // spots whose player left the game, skipped in a continuous order (Little League 4.04)
     left: [[], []], // each team's players who left the game, and came back: { slot, p, inn, back }
+    crs: [[], []], // each team's courtesy runners: { name, for, inn }
     pit: [0, 0],
     line: [[0], []], hInn: [[0], []], eInn: [[0], []], lob: [[], []],
     R: [0, 0], H: [0, 0], E: [0, 0],
@@ -195,7 +203,7 @@ function step(S, e) {
       // scores are the substitute's.
       for (const b of [1, 2, 3]) {
         const r = S.bases[b];
-        if (r && r.side === e.s && r.slot === e.slot && (e.ty === 'pr' || r.p === old)) r.p = e.i;
+        if (r && r.side === e.s && r.slot === e.slot && (e.ty === 'pr' || r.p === old)) { r.p = e.i; r.cr = null; }
       }
       const a = label(player(g, e.s, e.slot, e.i), e.slot), was = label(player(g, e.s, e.slot, old), e.slot);
       // Someone who was in this spot before: a starter re-entering, or the runner who ran for him.
@@ -223,6 +231,18 @@ function step(S, e) {
       S.size[e.s]++;
       if (top) S.up[e.s] = S.size[e.s] - 1;
       return note(S, `${teamName(g, e.s)} add a batter to the order.`, 'sub');
+    }
+    // A courtesy runner (youth and softball): someone runs for the player on base b, who stays in her spot in the order.
+    // Only the name on the base changes: the run, if she scores, is the player's she ran for, and so are steals.
+    case 'cr': {
+      const r = S.bases[e.b];
+      if (!r || r.side !== e.s || S.over) return note(S, `There’s nobody on ${BASE[e.b] || 'that base'} to run for.`, 'sub');
+      const who = runnerName(g, r);
+      r.cr = e.slot != null ? { slot: e.slot, p: S.pl[e.s][e.slot] || 0 } : { name: e.name || '', num: e.num || '' };
+      const cr = runnerName(g, r);
+      S.crs[e.s].push({ name: cr, for: who, inn: S.inn });
+      r.cell.story.push(`${cr} ran for ${who} as a courtesy runner.`);
+      return note(S, `${cr} runs for ${who} on ${BASE[e.b]}, a courtesy runner.`, 'sub');
     }
     // A player who left the game (went home, or hurt) with nobody to take her place, in a continuous batting order:
     // her spot is skipped, with no out (Little League 4.04), until she's back in the game. One spot always stays.
@@ -385,7 +405,7 @@ function pa(S, e) {
     // he's that pitcher's (OBR 9.16(g)). The runners go first, so the batter comes last.
     if (from && to === 0 && handed == null && r.pi !== S.pit[fld]) handed = r.pi;
     if (!from && to && handed != null && R.kind !== 'hit') r.pi = handed;
-    const who = label(player(g, side, r.slot, r.p), r.slot);
+    const who = runnerName(g, r);
     // Further than the play usually takes him, on the throw or on an error (by fielder ef, 0 when not said).
     const u = usual(from), extra = to > u && (how === 'T' || how === 'E'), ef = extra && how === 'E' ? (hf && hf[0]) || 0 : null;
     const why = !extra ? '' : how === 'T' ? ' on the throw' : ` on an error by the ${POS_NAME[ef] || 'fielder'}${ef ? ` (E${ef})` : ''}`;
@@ -557,7 +577,7 @@ function runners(S, e) {
     // Someone who didn't move is still on that base (the runners ahead go first): this runner stays put.
     if (to >= 1 && to <= 3 && to !== from && S.bases[to]) continue;
     S.bases[from] = null;
-    const who = label(player(g, side, r.slot, r.p), r.slot), m = runMark(how, f);
+    const who = runnerName(g, r), m = runMark(how, f);
     mk ||= m; // the play's mark in the play-by-play: the first of its moves' (SB, WP, CS 2-6)
     if (how === 'E' && !err) err = f && f[0] ? f : [0];
     if (how === 'SB') bstat(S, side, r.slot, r.p).sb++;
@@ -851,6 +871,7 @@ export function fits(S, e, at) {
     if (outs > 3) return 'runners';
   }
   if ((e.t === 'sub' || e.t === 'gone' || e.t === 'back') && !(e.slot < S.size[e.s])) return 'gone';
+  if (e.t === 'cr' && !(S.bases[e.b] && S.bases[e.b].side === e.s)) return 'runners';
   return '';
 }
 

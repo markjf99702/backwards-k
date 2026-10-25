@@ -2440,6 +2440,31 @@ step('a continuous order: a player who left the game is skipped with no out, and
   await p.context().close();
 }
 
+step('a courtesy runner: only the name on the base changes, and the player she ran for keeps her spot and the run');
+{
+  const p = await phone(), id = await startGame(p);
+  await p.click('[data-r="1B"]');
+  await p.click('[data-runner="1"]');
+  await p.click('.sheet [data-k="CR"]');
+  assert.equal(await p.locator('.sheet [data-cr="0"]').count(), 0, 'not the runner herself');
+  assert.equal(await p.locator('.sheet [data-cr="1"]').count(), 0, 'nor the batter');
+  await p.fill('.sheet [data-f=name]', 'Emma');
+  await p.click('.sheet [data-x=go]');
+  assert.equal(await tickerOf(p), 'Emma runs for Batter 1 on first, a courtesy runner.');
+  assert.equal(await bases(p), '1:Emma');
+  assert.match(await p.textContent('.batter'), /Batter 2/, 'the order goes on as it was');
+  await p.click('[data-r="2B"]');
+  await p.click('.mv[data-from="1"] [data-to="4"]');
+  await p.click('.sheet [data-x=save]');
+  assert.equal(await tickerOf(p), 'Batter 2 doubles. Emma scores.');
+  assert.deepEqual((await stored(p, id)).ev[1], { t: 'cr', s: 0, b: 1, name: 'Emma', num: '' });
+  await p.click('[data-v=box]');
+  const box = await p.textContent('.pane[data-p=box]');
+  assert.match(box, /Courtesy runners: Emma ran for Batter 1 in the 1st\./);
+  assert.match(await p.innerHTML('.pane[data-p=box] .stats tbody tr'), /Batter 1<\/th><td>1<\/td><td>1<\/td><td>1<\/td>/, 'Batter 1: 1 AB, 1 run, 1 hit');
+  await p.context().close();
+}
+
 step('positions: kept from a pasted lineup, changed in Lineups, on the card and the box score, and names on the fielder picker');
 {
   const p = await phone();

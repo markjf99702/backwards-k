@@ -43,8 +43,9 @@ const KNOWN = new Map(Object.entries({
   team: ['name', 'lineup', 'pitchers'], player: ['name', 'num', 'pos'], rules: ['set', 'runs', 'last', 'all', 'mercy'], limit: ['by', 'age', 'max'],
   p: ['t', 'k'], pa: ['t', 'r', 'f', 'm', 'x'], r: ['t', 'm'], sub: ['t', 's', 'slot', 'i', 'ty'], pch: ['t', 's', 'i'],
   add: ['t', 's'], eoh: ['t'], end: ['t', 'why'], delay: ['t'], on: ['t'], gone: ['t', 's', 'slot'], back: ['t', 's', 'slot'],
+  cr: ['t', 's', 'b', 'slot', 'name', 'num'],
 }));
-const EVENTS = new Set(['p', 'pa', 'r', 'sub', 'pch', 'add', 'eoh', 'end', 'delay', 'on', 'gone', 'back']), KINDS = ['b', 'c', 's', 'f'], SUBS = ['ph', 'pr', 'def'];
+const EVENTS = new Set(['p', 'pa', 'r', 'sub', 'pch', 'add', 'eoh', 'end', 'delay', 'on', 'gone', 'back', 'cr']), KINDS = ['b', 'c', 's', 'f'], SUBS = ['ph', 'pr', 'def'];
 // A value from a newer version, as plain JSON: text (200 characters at most), numbers, true, false and null, and lists
 // (50 long) and objects (20 values) of those, four deep. Anything else is left out (undefined).
 function plain(v, deep = 0) {
@@ -111,6 +112,11 @@ function cleanEvent(e) {
     case 'add': o = { t: 'add', s: int(e.s, 0, 1, 0) }; break;
     // A player who left the game, skipped in a continuous order, and back in it: her spot in the order.
     case 'gone': case 'back': o = { t: e.t, s: int(e.s, 0, 1, 0), slot: int(e.slot, 0, 40, 0) }; break;
+    // A courtesy runner for the runner on base b: someone in the order (her spot), or a name and number.
+    case 'cr':
+      o = { t: 'cr', s: int(e.s, 0, 1, 0), b: int(e.b, 1, 3, 1) };
+      if (e.slot != null && e.slot !== '') o.slot = int(e.slot, 0, 40, 0); else Object.assign(o, { name: str(e.name), num: str(e.num, 4) });
+      break;
     // Why the game ended: a run rule or a time limit (none: called). A reason from a newer version is kept.
     case 'end': o = { t: 'end' }; if (typeof e.why === 'string' && /^\w{1,12}$/.test(e.why)) o.why = e.why; break;
     default: o = { t: e.t };
@@ -164,7 +170,7 @@ export function cleanGame(g) {
   const ev = cleanList(g.ev, cleanEvent).filter(Boolean);
   // Substitutions point at players by position in a slot; drop any that point past the end.
   const ok = ev.filter(e => (e.t === 'sub' ? !!teams[e.s].lineup[e.slot] && e.i < teams[e.s].lineup[e.slot].length
-    : e.t === 'gone' || e.t === 'back' ? !!teams[e.s].lineup[e.slot]
+    : e.t === 'gone' || e.t === 'back' || (e.t === 'cr' && 'slot' in e) ? !!teams[e.s].lineup[e.slot]
     : e.t === 'pch' ? e.i < teams[e.s].pitchers.length : true));
   return {
     id: typeof g.id === 'string' && /^g[\w-]{4,40}$/.test(g.id) ? g.id : 'g' + uid(),

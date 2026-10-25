@@ -71,11 +71,11 @@ function pinch(S, side) {
   return [out.ph.join('; '), out.pr.join('; ')];
 }
 
-// The notes under one team's box score, the way a newspaper prints them: its pinch hitters and runners, who left the
-// game and came back (a continuous order), extra-base
-// hits, sacrifices, hit batters, steals, runners left on base and errors, then its pitchers' wild pitches, hit
-// batters and balks, and under a pitch limit by league age, the days of rest each pitcher needs and who can't catch
-// today (Little League Regulation VI). Lines with nothing to say are left out.
+// The notes under one team's box score, the way a newspaper prints them: its pinch hitters and runners, courtesy
+// runners (the runs and steals they made are the players' they ran for), who left the game and came back (a
+// continuous order), extra-base hits, sacrifices, hit batters, steals, runners left on base and errors, then its
+// pitchers' wild pitches, hit batters and balks, and under a pitch limit by league age, the days of rest each pitcher
+// needs and who can't catch today (Little League Regulation VI). Lines with nothing to say are left out.
 function notes(S, side) {
   const g = S.g, cells = S.cells.filter(c => c.side === side), who = c => label(player(g, side, c.slot, c.p), c.slot);
   const of = r => names(cells.filter(c => c.r === r).map(c => [who(c), 1]));
@@ -91,7 +91,8 @@ function notes(S, side) {
   // A continuous order: who left the game (her spot skipped), and who came back, with the inning.
   const left = back => S.left[side].filter(x => x.back === back).map(x => `${label(player(g, side, x.slot, x.p), x.slot)} (${ord(x.inn)})`).join(', ');
   const lines = [
-    ['Pinch hitters', ph], ['Pinch runners', pr], ['Left the game', left(false)], ['Back in the game', left(true)], ['Doubles', of('2B')], ['Triples', of('3B')], ['Home runs', of('HR')], ['Sacrifice flies', of('SF')], ['Sacrifice bunts', of('SAC')],
+    ['Pinch hitters', ph], ['Pinch runners', pr], ['Courtesy runners', S.crs[side].map(x => `${x.name} ran for ${x.for} in the ${ord(x.inn)}`).join('; ')],
+    ['Left the game', left(false)], ['Back in the game', left(true)], ['Doubles', of('2B')], ['Triples', of('3B')], ['Home runs', of('HR')], ['Sacrifice flies', of('SF')], ['Sacrifice bunts', of('SAC')],
     ['Hit by a pitch', of('HBP')], ['Stolen bases', names(bats.map(([n, b]) => [n, b.sb]))], ['Caught stealing', names(bats.map(([n, b]) => [n, b.cs]))],
     ['Left on base', String(S.lob[side].reduce((a, b) => a + (b || 0), 0))], ['Errors', errs],
     ['Wild pitches', names(arms.map(([n, p]) => [n, p.wp]))],

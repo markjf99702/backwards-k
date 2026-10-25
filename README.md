@@ -83,7 +83,8 @@ written out in plain words.
   going out in the same go), and a pinch runner is a tap on the runner. A starter who comes back in (or the runner who
   ran for him) goes back in as the same player, with one line in the box score. For a team that bats everyone, a
   kid who goes home **left the game** (from the batter, or Sub in Lineups): her spot is skipped from then on, with no
-  out (Little League 4.04), and **Back in** puts it back.
+  out (Little League 4.04), and **Back in** puts it back. A **courtesy runner** is a tap on the runner too: only the
+  name on the base changes, and the player she ran for keeps her spot in the order, and the run and any steals.
 - **Positions, if you like.** Pick where each batter plays (a pasted lineup keeps them), and the card says "Ruiz SS
   #2", the box score "Ruiz SS", and the fielders to tap after a ground out have their names under their numbers, for
   anyone who knows the kids but not the numbers.
