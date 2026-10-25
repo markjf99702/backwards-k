@@ -1261,13 +1261,42 @@ test('a game with every kind of event comes back the same from a file, Drive, st
   assert.deepEqual(cleanDoc({ app: 'backwards-k', v: 1, games: { [g.id]: json }, gone: {} }).games, { [g.id]: g });
   const { pack, unpack } = await import('../js/share.js');
   const link = await pack(g);
-  assert.equal(link[0], 'z');
+  assert.equal(link[0], 'c');
   assert.deepEqual(await unpack(link), json);
   assert.deepEqual(cleanGame(await unpack(link)), g);
-  // A link made where the browser can't compress: the game as plain JSON, in base64url.
-  const plain = 'j' + Buffer.from(JSON.stringify(g)).toString('base64url');
-  assert.deepEqual(cleanGame(await unpack(plain)), g);
-  assert.deepEqual(replay(cleanGame(await unpack(plain))).text, S.text);
+  // A link made where the browser can't compress: the game as plain JSON, with its checksum.
+  const zip = globalThis.CompressionStream;
+  delete globalThis.CompressionStream;
+  try {
+    const plain = await pack(g);
+    assert.equal(plain[0], 'p');
+    assert.deepEqual(cleanGame(await unpack(plain)), g);
+  } finally { globalThis.CompressionStream = zip; }
+  // Links made before there was a checksum: compressed, and plain JSON, in base64url.
+  const { deflateRawSync } = await import('node:zlib');
+  for (const old of ['z' + deflateRawSync(JSON.stringify(g)).toString('base64url'), 'j' + Buffer.from(JSON.stringify(g)).toString('base64url')]) {
+    assert.deepEqual(cleanGame(await unpack(old)), g, old[0]);
+    assert.deepEqual(replay(cleanGame(await unpack(old))).text, S.text);
+  }
+});
+
+test('a link changed on its way, or cut short, doesn’t open as another game', async () => {
+  const { pack, unpack } = await import('../js/share.js');
+  const g = sampleGame(7), json = JSON.stringify(g), link = await pack(g);
+  // Each letter changed in turn: the link won't open, or (a letter whose last bits base64 leaves unused) is the game.
+  let caught = 0;
+  for (let i = 0; i < link.length; i++) {
+    const x = link.slice(0, i) + (link[i] === 'A' ? 'B' : 'A') + link.slice(i + 1);
+    let got = null;
+    try { got = JSON.stringify(await unpack(x)); } catch { caught++; continue; }
+    assert.equal(got, json, `letter ${i} changed opens another game`);
+  }
+  assert.ok(caught >= link.length - 1, `${caught} of ${link.length} changed letters caught`);
+  // Cut short anywhere, or with a letter left out.
+  for (const n of [5, 9, Math.floor(link.length / 2), link.length - 2]) {
+    await assert.rejects(unpack(link.slice(0, n)), `cut at ${n}`);
+    await assert.rejects(unpack(link.slice(0, n) + link.slice(n + 1)), `letter ${n} left out`);
+  }
 });
 
 test('a game this version makes holds nothing newer', () => {

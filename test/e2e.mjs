@@ -209,7 +209,7 @@ const link = await page.evaluate(async () => {
   const { store } = await import('./js/store.js');
   return linkFor(store.all()[0]);
 });
-assert.ok(link.startsWith('https://backwards-k.junkdrawer.works/#s=z'), link.slice(0, 60));
+assert.ok(link.startsWith('https://backwards-k.junkdrawer.works/#s=c'), link.slice(0, 60));
 const friend = await browser.newContext({ viewport: { width: 390, height: 844 } });
 const fp = await friend.newPage();
 fp.on('pageerror', e => problems.push('friend: ' + e.message));
@@ -236,6 +236,16 @@ const final = await fp.evaluate(async () => {
 await fp.goto(base + final);
 await fp.waitForSelector('.shared-bar');
 assert.equal(await fp.textContent('.shared-bar p'), 'A scorecard someone shared with you. Tap any box to see what happened.');
+// A link from before links had a checksum (z: the game compressed, and nothing else) still opens.
+const old = await fp.evaluate(async () => {
+  const { sampleGame } = await import('./js/sample.js'), g = sampleGame(3);
+  const z = new Uint8Array(await new Response(new Blob([JSON.stringify(g)]).stream().pipeThrough(new CompressionStream('deflate-raw'))).arrayBuffer());
+  return '#s=z' + btoa(String.fromCharCode(...z)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+});
+await fp.goto('about:blank');
+await fp.goto(base + old);
+await fp.waitForSelector('.shared-bar');
+assert.match(await fp.textContent('.bar .title'), /Foxes/);
 await friend.close();
 
 step('the sample game');

@@ -9,15 +9,29 @@ const b64 = bytes => { let s = ''; for (let i = 0; i < bytes.length; i += 0x8000
 const unb64 = s => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
 const pipe = async (bytes, stream) => new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(stream)).arrayBuffer());
 
+// A checksum of some bytes (CRC-32): any one letter of a link changed on its way changes it.
+const CRC = Uint32Array.from({ length: 256 }, (_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c; });
+export const crc32 = bytes => { let c = 0xffffffff; for (const b of bytes) c = CRC[(c ^ b) & 0xff] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; };
+
+// The game in a link: a letter for how it's packed, then base64url. 'c': the checksum of the game's text, in four
+// bytes, then the text compressed; 'p' the same with the text as it is, where the browser can't compress. A link that
+// a chat app or a text cut short or changed doesn't match its checksum, and doesn't open as some other game. Links
+// made before there was a checksum still open: 'z' (compressed) and 'j' (as it is).
 export async function pack(g) {
-  const json = new TextEncoder().encode(JSON.stringify(g));
-  if (typeof CompressionStream === 'function') return 'z' + b64(await pipe(json, new CompressionStream('deflate-raw')));
-  return 'j' + b64(json);
+  const json = new TextEncoder().encode(JSON.stringify(g)), z = typeof CompressionStream === 'function';
+  const body = z ? await pipe(json, new CompressionStream('deflate-raw')) : json, out = new Uint8Array(4 + body.length);
+  new DataView(out.buffer).setUint32(0, crc32(json));
+  out.set(body, 4);
+  return (z ? 'c' : 'p') + b64(out);
 }
 export async function unpack(s) {
-  const bytes = unb64(s.slice(1));
-  const json = s[0] === 'z' ? await pipe(bytes, new DecompressionStream('deflate-raw')) : bytes;
-  return JSON.parse(new TextDecoder().decode(json));
+  const k = s[0], bytes = unb64(s.slice(1)), text = json => JSON.parse(new TextDecoder().decode(json));
+  if (k === 'z' || k === 'j') return text(k === 'z' ? await pipe(bytes, new DecompressionStream('deflate-raw')) : bytes);
+  if ((k !== 'c' && k !== 'p') || bytes.length < 5) throw new Error('not a link to a game');
+  const sum = new DataView(bytes.buffer, bytes.byteOffset).getUint32(0), body = bytes.subarray(4);
+  const json = k === 'c' ? await pipe(body, new DecompressionStream('deflate-raw')) : body;
+  if (crc32(json) !== sum) throw new Error('the link changed on its way');
+  return text(json);
 }
 // The link always points at the real site, even from the one-file copy.
 const base = () => (location.origin + '/' === SITE ? location.origin + location.pathname : SITE);

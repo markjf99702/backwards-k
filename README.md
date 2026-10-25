@@ -102,7 +102,8 @@ written out in plain words.
 - **Positions, if you like.** Pick where each batter plays (a pasted lineup keeps them), and the card says "Ruiz SS
   #2", the box score "Ruiz SS", and the fielders to tap after a ground out have their names under their numbers, for
   anyone who knows the kids but not the numbers.
-- **Sharing.** Send a link that carries the whole game (nothing is uploaded to share it), copy the score as text for
+- **Sharing.** Send a link that carries the whole game (nothing is uploaded to share it, and a checksum in it means
+  one that a chat app cut short or changed says so, rather than opening as some other game), copy the score as text for
   a group chat, print both cards and the box score (a page each, Letter or A4, upright or sideways), or save the
   game as a file.
 - **Google Drive, if you like.** Each game is saved as its own file in a "Backwards K" folder in your Drive, and shows
