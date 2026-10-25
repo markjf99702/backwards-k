@@ -487,7 +487,8 @@ details.lineup summary small { color: var(--muted); font-weight: 400; }
 .card .ord { flex: none; font: 800 18px/1 var(--board-font); color: var(--muted); width: 16px; text-align: right; }
 .card .names { display: grid; min-width: 0; }
 .card .pl { font-family: var(--hand); font-size: 15px; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--pencil); }
-.card .pl small { font-family: var(--sans); color: var(--muted); font-size: 11px; }
+.card .pl small { font-family: var(--sans); color: var(--muted); font-size: 11px; white-space: nowrap; }
+.card .names.one .pl { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.05; }
 .card .pl i { font-style: normal; font-family: var(--sans); font-size: 10px; font-weight: 700; color: var(--red); }
 .card .pl.was { font-size: 12px; color: var(--muted); text-decoration: line-through; text-decoration-color: rgba(128, 128, 128, .6); }
 .card tr.up .who { background: var(--now); }
@@ -736,6 +737,7 @@ li.scored { border-left: 4px solid var(--red); }
   #print .card tbody .who .ord { display: inline-block; vertical-align: middle; margin-right: 4px; }
   #print .card tbody .who .names { display: inline-grid; vertical-align: middle; max-width: calc(100% - 22px); }
   #print .card .pl { font-size: 14px; line-height: 1.1; }
+  #print .card .names.one .pl { display: block; white-space: nowrap; }
   #print .card .pl.was { font-size: 11px; }
   #print .card tfoot th, #print .card tfoot td, #print .card tfoot .who { height: .22in; font-size: 13px; }
   #print .cs .ct { font-size: 9px; }

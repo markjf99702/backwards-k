@@ -350,7 +350,7 @@ step('a pinch runner, and then the starter back in from Lineups: the same player
   assert.deepEqual(rows, ['1Morris', 'PR Diaz']);
   await p.click('[data-v=card]');
   await p.click('[data-cs="0"]');
-  assert.match(await p.textContent('.card tbody tr:first-child .names'), /^MorrisPR 1st Diazback 1st Morris$/);
+  assert.match(await p.textContent('.card tbody tr:first-child .names'), /^Morris #21PR 1st Diazback 1st Morris #21$/);
   await p.context().close();
 }
 

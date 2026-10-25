@@ -94,6 +94,15 @@ function boxWords(c, count) {
 const WORDS = { AB: 'At bats', R: 'Runs', H: 'Hits', RBI: 'Runs batted in', BB: 'Walks', K: 'Strikeouts', IP: 'Innings pitched', HR: 'Home runs', BF: 'Batters faced', 'P-S': 'Pitches and strikes' };
 export const abbr = k => `<abbr title="${WORDS[k]}">${k}</abbr>`;
 
+// A name the card's narrow column can show: a long one becomes the first initial and the surname ("C. Ellsworth"),
+// or the surname alone when that's long too ("Montgomery-Ellsworth"), the part scorers go by. Alone in its spot a
+// name can take two lines; with others above it, one.
+export function cardName(p, slot, tight = false) {
+  const name = label(p, slot), w = name.split(/\s+/), sur = w.slice(1).join(' ');
+  if (!p.name || w.length < 2 || name.length <= (tight ? 13 : 20)) return name;
+  return sur.length > 10 ? sur : `${w[0][0]}.\u00a0${sur}`;
+}
+
 // The card for one team. live: mark where the next batter goes.
 export function cardHtml(S, side, { live = true } = {}) {
   const g = S.g, cols = columns(S, side), subs = subsOf(g, side), marks = changes(S, side);
@@ -119,12 +128,13 @@ export function cardHtml(S, side, { live = true } = {}) {
     const players = g.teams[side].lineup[slot] || [{ name: '', num: '' }];
     const shown = [0, ...(subs[slot] || []).map(e => e.i)];
     const nowAt = live && !S.over && S.half === side && S.up[side] === slot;
-    h += `<tr${nowAt ? ' class="up"' : ''}><th class="who" scope="row"><span class="ord">${slot + 1}</span><span class="names">`;
+    h += `<tr${nowAt ? ' class="up"' : ''}><th class="who" scope="row"><span class="ord">${slot + 1}</span><span class="names${shown.length === 1 ? ' one' : ''}">`;
     shown.forEach((pi, j) => {
       const p = players[pi] || players[0], e = j ? subs[slot][j - 1] : null;
       const inn = e && innOf.get(g.ev.indexOf(e));
       const ty = e && (shown.slice(0, j).includes(pi) ? BACK : TYPE[e.ty]);
-      h += `<span class="pl${j < shown.length - 1 ? ' was' : ''}">${e ? `<i>${ty}${inn ? ' ' + ord(inn) : ''}</i> ` : ''}${esc(label(p, slot))}</span>`;
+      const num = p.name && p.num ? `#${p.num}` : '';
+      h += `<span class="pl${j < shown.length - 1 ? ' was' : ''}" title="${esc(`${label(p, slot)} ${num}`.trim())}">${e ? `<i>${ty}${inn ? ' ' + ord(inn) : ''}</i> ` : ''}${esc(cardName(p, slot, shown.length > 1))}${num ? ` <small>${esc(num)}</small>` : ''}</span>`;
     });
     h += `</span>${nowAt ? '<span class="sr">, at bat</span>' : ''}</th>`;
     for (const col of cols) {

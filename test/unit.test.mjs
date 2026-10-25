@@ -6,7 +6,7 @@ import { newGame, cleanGame, cleanDoc, parseLineup, parsePaste, takeBack, putBac
 import { sampleGame } from '../js/sample.js';
 // The card is drawn with ui.js, which looks for the page's sheet as it loads: here there's no page, so no sheet.
 globalThis.document ??= { readyState: 'complete', getElementById: () => null };
-const { lineHtml, cellSvg, cardHtml } = await import('../js/card.js');
+const { lineHtml, cellSvg, cardHtml, cardName } = await import('../js/card.js');
 const { playsHtml, boxHtml, dayOf } = await import('../js/box.js');
 
 const game = (opts = {}) => newGame({ away: 'Foxes', home: 'Comets', ...opts });
@@ -867,7 +867,7 @@ test('a player who was in the spot before comes back in as himself: one box-scor
   assert.doesNotMatch(box, /Morris ran for|Pinch hitters/, 'coming back in isn’t pinch-running');
   assert.match(box, /<tr class="sub"><th scope="row"><abbr class="how" title="Pinch runner">PR<\/abbr> Diaz<\/th>/);
   const card = cardHtml(S, 0), row = card.split('<tr')[2];
-  assert.match(row, /<i>PR 1st<\/i> Diaz<\/span><span class="pl"><i>back 1st<\/i> Morris/);
+  assert.match(row, /<i>PR 1st<\/i> Diaz <small>#4<\/small><\/span><span class="pl" title="Morris #21"><i>back 1st<\/i> Morris <small>#21<\/small>/);
   // His single counts once in the card's totals: AB 1, R 0, H 1.
   assert.deepEqual(row.match(/<td class="tot">(\d+)<\/td>/g).map(x => +x.match(/\d+/)[0]), [1, 0, 1, 0]);
   // Next game starts with whoever finished in each spot: Morris, not Diaz.
@@ -941,4 +941,19 @@ test('the box score: what each pinch hitter did and who ran for whom, and dashes
   assert.match(box, /Diaz<\/th>(<td><span aria-label="none">–<\/span><\/td>){6}<\/tr>/, 'Diaz is up, but hasn’t batted');
   assert.match(box, /Batter 9<\/th>(<td><span aria-label="none">–<\/span><\/td>){6}<\/tr>/);
   assert.match(box, /Kowalski<\/th><td>1<\/td><td>0<\/td><td>1<\/td>/);
+});
+
+test('names on the card: the number beside it, the whole name in a title, and a long one cut to the surname', () => {
+  const g = game();
+  g.teams[0].lineup[0][0] = { name: 'Christopher Montgomery-Ellsworth', num: '10' };
+  g.teams[0].lineup[1][0] = { name: 'Freddie Freeman', num: '5' };
+  g.teams[0].lineup[2] = [{ name: 'Brennan', num: '' }, { name: 'Speedy Gonzalez-Ramirez', num: '' }];
+  const h = cardHtml(play(g, '1B', 'K', { t: 'sub', s: 0, slot: 2, i: 1, ty: 'ph' }), 0);
+  assert.match(h, /<span class="names one"><span class="pl" title="Christopher Montgomery-Ellsworth #10">Montgomery-Ellsworth <small>#10<\/small><\/span>/);
+  assert.match(h, /title="Freddie Freeman #5">Freddie Freeman <small>#5<\/small>/, 'room for it on two lines');
+  assert.match(h, /title="Speedy Gonzalez-Ramirez"><i>PH 1st<\/i> Gonzalez-Ramirez<\/span>/, 'one line under another name');
+  assert.equal(cardName({ name: 'Maximiliano Fernandez', num: '' }, 0), 'M.\u00a0Fernandez');
+  assert.equal(cardName({ name: 'Christopher Lee', num: '' }, 0, true), 'C.\u00a0Lee');
+  assert.equal(cardName({ name: 'Christopher Lee', num: '' }, 0), 'Christopher Lee');
+  assert.match(h, /title="Batter 4">Batter 4<\/span>/);
 });
