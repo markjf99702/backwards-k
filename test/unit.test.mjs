@@ -2076,3 +2076,27 @@ test('a courtesy runner: only the name on the base changes, and the run and the 
   assert.equal(newer(g), false);
   assert.deepEqual(cleanGame({ ...g, ev: [{ t: 'cr', s: 0, b: 1, slot: 30 }] }).ev, [], 'a spot that isn’t there is left out');
 });
+
+test('someone else is batting: the order picks up with him, the spots passed over stay empty, and the rest is in the right row', () => {
+  const g = game();
+  g.teams[0].lineup.forEach((slot, i) => { slot[0] = { name: 'V' + (i + 1), num: '' }; });
+  // A trip to the plate was missed: V3 is batting, not V2. The count is his.
+  let S = play(g, 'K', P('b'), { t: 'up', s: 0, slot: 2 });
+  assert.equal(S.text.at(-1), 'V3 is batting, 3rd in the order.');
+  assert.deepEqual([now(S).name, now(S).deckName, S.b], ['V3', 'V4', 1]);
+  S = play(g, '1B', '1B');
+  assert.deepEqual(S.cells.map(c => [c.slot, c.inn, c.k]), [[0, 1, 0], [2, 1, 0], [3, 1, 0]], 'V2’s box is empty this time round');
+  // Back to someone who batted already this inning: his box goes in a new column, as when a team bats around.
+  S = play(g, { t: 'up', s: 0, slot: 0 }, 'K');
+  assert.deepEqual(S.cells.at(-1), { ...S.cells.at(-1), slot: 0, inn: 1, k: 1 });
+  // Who leads off for the other team next; nobody who isn't there; the one up already.
+  S = play(g, { t: 'up', s: 1, slot: 4 }, { t: 'up', s: 0, slot: 20 }, { t: 'up', s: 0, slot: 1 });
+  assert.deepEqual(S.text.slice(-3), ['Batter 5 leads off for the Comets next.', 'There’s nobody batting 21st in the order.', 'V2 is up already.']);
+  S = play(g, 'K');
+  assert.equal(now(S).name, 'Batter 5');
+  // Kept from a file and a link (one for a spot that isn't there is left out); nothing newer.
+  const c = cleanGame(JSON.parse(JSON.stringify(g)));
+  g.ev = g.ev.filter(e => e.slot !== 20);
+  assert.deepEqual(c, g);
+  assert.equal(newer(g), false);
+});

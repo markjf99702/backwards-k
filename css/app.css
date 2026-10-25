@@ -307,7 +307,8 @@ details.lineup summary small { color: var(--muted); font-weight: 400; }
 .name-row input, .name-row select { width: 100%; min-height: 48px; padding: 18px 10px 4px; border-radius: 10px; border: 1.5px solid var(--line-2); background: var(--paper); }
 /* A batter's position beside his number and name. */
 .name-row.has-pos { grid-template-columns: 64px 1fr 68px; }
-.name-row select { padding: 18px 4px 4px 8px; font: inherit; color: var(--ink); }
+.name-row select { height: 48px; padding: 18px 4px 4px 8px; font: inherit; color: var(--ink); }
+.sheet .name-row + .list { margin-top: 10px; }
 .pitcher-row { grid-template-columns: 74px 1fr; margin-top: 10px; }
 .pitcher-row .lbl { grid-column: 1 / -1; font-weight: 700; font-size: 15px; }
 .from-order .pick-row { margin: 8px 0 0; }

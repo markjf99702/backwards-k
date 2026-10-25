@@ -85,6 +85,8 @@ written out in plain words.
   kid who goes home **left the game** (from the batter, or Sub in Lineups): her spot is skipped from then on, with no
   out (Little League 4.04), and **Back in** puts it back. A **courtesy runner** is a tap on the runner too: only the
   name on the base changes, and the player she ran for keeps her spot in the order, and the run and any steals.
+  Missed a trip to the plate, or batted out of turn? **Someone else is batting** (tap the batter) picks who's up, and
+  the order goes on from there, with the box passed over left empty.
 - **Positions, if you like.** Pick where each batter plays (a pasted lineup keeps them), and the card says "Ruiz SS
   #2", the box score "Ruiz SS", and the fielders to tap after a ground out have their names under their numbers, for
   anyone who knows the kids but not the numbers.

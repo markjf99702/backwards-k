@@ -2440,6 +2440,25 @@ step('a continuous order: a player who left the game is skipped with no out, and
   await p.context().close();
 }
 
+step('someone else is batting: the order picks up with him, and the box passed over stays empty');
+{
+  const p = await phone(), id = await startGame(p);
+  await p.click('[data-r=K]');
+  await p.click('[data-a=batter]');
+  await p.click('.sheet [data-y=up]');
+  assert.equal(await p.locator('.sheet [data-up="1"]').count(), 0, 'not the one up already');
+  await p.click('.sheet [data-up="2"]');
+  assert.equal(await tickerOf(p), 'Batter 3 is batting, 3rd in the order.');
+  assert.match(await p.textContent('.batter'), /Batter 3/);
+  assert.match(await p.textContent('.deck'), /Batter 4/);
+  await p.click('[data-r="1B"]');
+  assert.deepEqual((await stored(p, id)).ev.map(e => e.t), ['pa', 'up', 'pa']);
+  await p.click('[data-v=card]');
+  assert.equal(await p.locator('.card tbody tr:nth-child(2) [data-cell]').count(), 0, 'Batter 2’s box is empty');
+  assert.equal(await p.locator('.card tbody tr:nth-child(3) [data-cell]').count(), 1);
+  await p.context().close();
+}
+
 step('a courtesy runner: only the name on the base changes, and the player she ran for keeps her spot and the run');
 {
   const p = await phone(), id = await startGame(p);

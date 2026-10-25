@@ -232,6 +232,17 @@ function step(S, e) {
       if (top) S.up[e.s] = S.size[e.s] - 1;
       return note(S, `${teamName(g, e.s)} add a batter to the order.`, 'sub');
     }
+    // Someone else is batting than the order says (the scorer missed a trip to the plate, or the batters went out of
+    // turn): the order picks up with him, and the spots passed over stay empty this time round. The count, if pitches
+    // have been thrown, is his.
+    case 'up': {
+      const who = label(player(g, e.s, e.slot, S.pl[e.s][e.slot] || 0), e.slot), at = ord(e.slot + 1);
+      if (!(e.slot < S.size[e.s]) || S.gone[e.s].has(e.slot)) return note(S, `There’s nobody batting ${at} in the order.`, 'sub');
+      if (S.up[e.s] === e.slot) return note(S, `${who} is up already.`, 'sub');
+      S.up[e.s] = e.slot;
+      if (e.s === S.half) S.ph = null;
+      return note(S, e.s === S.half ? `${who} is batting, ${at} in the order.` : `${who} leads off for the ${teamName(g, e.s)} next.`, 'sub');
+    }
     // A courtesy runner (youth and softball): someone runs for the player on base b, who stays in her spot in the order.
     // Only the name on the base changes: the run, if she scores, is the player's she ran for, and so are steals.
     case 'cr': {
@@ -872,6 +883,7 @@ export function fits(S, e, at) {
   }
   if ((e.t === 'sub' || e.t === 'gone' || e.t === 'back') && !(e.slot < S.size[e.s])) return 'gone';
   if (e.t === 'cr' && !(S.bases[e.b] && S.bases[e.b].side === e.s)) return 'runners';
+  if (e.t === 'up' && (!(e.slot < S.size[e.s]) || S.gone[e.s].has(e.slot))) return 'gone';
   return '';
 }
 

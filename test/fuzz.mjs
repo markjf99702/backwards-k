@@ -5,7 +5,7 @@
 // a pitch, a result with its fielders and the runners sheet (check(), scoredAs() and "did the run count", where a
 // runner was put out and how one took an extra base), Fix runners, a runner's steal, pickoff, wild pitch, defensive
 // indifference, balk or courtesy runner, a substitution or someone back in, a player who left the game and came back
-// (a continuous order), a pitching change, a
+// (a continuous order), someone else batting than the order says, a pitching change, a
 // batter added, End this half-inning, End the game here (a delay, a run rule, a time limit, called), Keep playing
 // and Resume play, a box switched to another result, and Undo,
 // Redo and Put back. After each one: the outs, the count and the bases make sense; runs, hits and errors add up the
@@ -174,6 +174,11 @@ function run(C, a) {
       return true;
     }
     case 'add': g.teams[a.side].lineup.push([M.blank()]); act(C, { t: 'add', s: a.side }); return true;
+    case 'up': { // someone else is batting (the batter's sheet: the team at bat)
+      if (S.over || !(a.slot < S.size[S.half]) || S.gone[S.half].has(a.slot) || S.up[S.half] === a.slot) return false;
+      act(C, { t: 'up', s: S.half, slot: a.slot });
+      return true;
+    }
     case 'cr': { // a courtesy runner: someone in the order not on base, or a name (game.js courtesy())
       const r = S.bases[a.b];
       if (S.over || S.delayed || !r) return false;
@@ -268,7 +273,7 @@ function choose(C, rnd) {
   else if (S.delayed) w.push([3, 'on'], [0.5, 'end'], [0.5, 'undo'], [0.3, 'sub'], [0.2, 'pitcher'], [0.2, 'back'], [0.2, 'box']);
   else {
     if (g.pitches) w.push([6, 'p']);
-    w.push([3.2, 'pa'], [0.12, 'sub'], [0.05, 'pitcher'], [0.08, 'back'], [0.03, 'add'], [0.02, 'eoh'], [0.012, 'end'], [0.01, 'delay'], [0.4, 'undo'], [0.08, 'box'], [0.03, 'gone'], [0.02, 'in']);
+    w.push([3.2, 'pa'], [0.12, 'sub'], [0.05, 'pitcher'], [0.08, 'back'], [0.03, 'add'], [0.02, 'eoh'], [0.012, 'end'], [0.01, 'delay'], [0.4, 'undo'], [0.08, 'box'], [0.03, 'gone'], [0.02, 'in'], [0.03, 'up']);
     if (runnersOn(S).length) w.push([0.7, 'run']);
   }
   if (fixable(C) >= 0) w.push([0.15, 'fix']);
@@ -305,6 +310,7 @@ function choose(C, rnd) {
     case 'add': return { a: 'add', side: rnd() < 0.5 ? 0 : 1 };
     case 'gone': { const side = rnd() < 0.7 ? S.half : 1 - S.half; return { a: 'gone', side, slot: rnd() < 0.3 ? S.up[side] : Math.floor(rnd() * S.size[side]) }; }
     case 'in': return { a: 'in', side: rnd() < 0.5 ? 0 : 1, k: Math.floor(rnd() * 5) };
+    case 'up': return { a: 'up', slot: Math.floor(rnd() * S.size[S.half]) };
     case 'end': return { a: 'end', why: pick(rnd, ['', '', 'rule', 'time']) };
     case 'box': {
       if (!S.cells.length) return { a: 'undo' };
@@ -509,6 +515,7 @@ function say(a) {
     case 'back': return 'bring back an earlier pitcher';
     case 'add': return `add a batter for ${a.side ? 'home' : 'visitors'}`;
     case 'gone': return `${a.side ? 'home' : 'visitors'} spot ${a.slot + 1} left the game`;
+    case 'up': return `spot ${a.slot + 1} is batting`;
     case 'cr': return `courtesy runner for the runner on ${a.b}${a.slot != null ? `: spot ${a.slot + 1}` : ''}`;
     case 'in': return `${a.side ? 'home' : 'visitors'} back in the game`;
     case 'box': return `box ${a.n} switched to ${a.to}`;

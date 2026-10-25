@@ -995,6 +995,7 @@ function batterSheet() {
     ${day.line ? `<div class="today"><p><b>Today</b> ${day.trips.map(t => `<span>${ord(t.inn)}: ${markHtml(t.r, t.mark)}, ${esc(t.words)}</span>`).join(' · ')}</p><p class="quiet">${esc(day.line)}.</p></div>` : ''}
     <div class="list">
       <button type="button" class="li" data-y="ph"><b>Pinch hitter</b><span>Someone else bats in this spot.</span></button>
+      ${S.size[n.side] - S.gone[n.side].size > 1 ? '<button type="button" class="li" data-y="up"><b>Someone else is batting</b><span>A trip to the plate was missed, or they batted out of turn: pick who’s up, and the order goes on from there.</span></button>' : ''}
       ${S.gone[n.side].size < S.size[n.side] - 1 ? `<button type="button" class="li" data-y="gone"><b>Left the game</b><span>For a team that bats everyone: skip this spot from now on, with no out.</span></button>` : ''}
       <button type="button" class="li" data-y="add"><b>Add a batter to the order</b><span>For a team that bats everyone: a new spot after ${esc(label(player(G, n.side, S.size[n.side] - 1, S.pl[n.side][S.size[n.side] - 1] || 0), S.size[n.side] - 1))}.</span></button>
       <button type="button" class="li" data-y="lineup"><b>The whole lineup</b><span>Names, numbers and substitutions for both teams.</span></button>
@@ -1005,12 +1006,33 @@ function batterSheet() {
     const y = e.target.closest('[data-y]');
     if (y && y.dataset.y === 'ph') subForm(n.side, n.slot, 'ph');
     if (y && y.dataset.y === 'gone') { closeSheet(); act({ t: 'gone', s: n.side, slot: n.slot }); }
+    if (y && y.dataset.y === 'up') whoUp(n.side);
     if (y && y.dataset.y === 'lineup') lineupSheet(n.side);
     if (y && y.dataset.y === 'add') {
       closeSheet();
       G.teams[n.side].lineup.push([blank()]);
       act({ t: 'add', s: n.side });
     }
+  });
+}
+
+// Someone else is batting than the order says: everyone else in the order, by spot, to pick from. The spots passed
+// over stay empty this time round (Undo takes it back).
+function whoUp(side) {
+  const at = S.up[side], n = S.size[side], list = [];
+  // From the one after the batter the order has up, the likeliest, round to the one before.
+  for (let k = 1; k < n; k++) {
+    const slot = (at + k) % n;
+    if (S.gone[side].has(slot)) continue;
+    list.push(`<button type="button" class="li" data-up="${slot}"><b>${esc(named(player(G, side, slot, S.pl[side][slot] || 0), slot))}</b><span>${ord(slot + 1)} in the order</span></button>`);
+  }
+  const body = openSheet(`<h2 id="sheetTitle">Who’s batting? <small>for ${esc(teamName(G, side))}</small></h2>
+    <p class="hint">The order goes on from whoever’s up. Anyone passed over has an empty box this time round.</p>
+    <div class="list">${list.join('')}</div>
+    <div class="row"><button type="button" class="btn quiet" data-close>Cancel</button></div>`);
+  body.addEventListener('click', e => {
+    const b = e.target.closest('[data-up]');
+    if (b) { closeSheet(); act({ t: 'up', s: side, slot: +b.dataset.up }); }
   });
 }
 
