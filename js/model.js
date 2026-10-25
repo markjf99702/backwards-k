@@ -99,26 +99,85 @@ export function cleanDoc(d) {
 // The same thing written the same way every time, to tell whether anything changed.
 export const canon = d => JSON.stringify(d);
 
-// A pasted lineup, one player per line: "Ruiz", "12 Ruiz", "Ruiz #12", or a lineup copied from a game preview,
-// "1. Shohei Ohtani DH" or "1 Mookie Betts (R) SS". When the lines are numbered 1, 2, 3 in order, those numbers are
-// places in the batting order, not jersey numbers, and lines without one (a team name, a heading) are left out.
-const POSITION = /[\s,]+(P|SP|RP|C|1B|2B|3B|SS|LF|CF|RF|DH|EH|UT|IF|OF)$/i;
-export function parseLineup(text) {
-  let lines = String(text).split(/\r?\n/).map(l => l.trim()).filter(l => /\p{L}/u.test(l));
-  const lead = lines.map(l => /^(\d{1,2})(?:\s*[.)]|\s)/.exec(l));
+// A pasted lineup: one player per line, "Ruiz", "12 Ruiz", "Ruiz #12", "- Emma 4" or "Ohtani - DH"; names on one line
+// with commas between them, as in a group text; or a lineup copied from a game preview, "1. Shohei Ohtani DH" or
+// "1 Mookie Betts (R) SS .289". When the lines are numbered 1, 2, 3 in order, those numbers are places in the batting
+// order, not jersey numbers, and lines without one (a team name, a heading) are left out. Headings ("Saturday lineup",
+// "Dodgers lineup vs. LHP Snell:"), bullets, positions, (L) or (R) and batting averages go. A line marked SP, RP or
+// P, or starting "Pitcher:", is the starting pitcher. Returns { batters: [player], pitcher: player or null }.
+const POS = 'P|SP|RP|C|1B|2B|3B|SS|LF|CF|RF|DH|EH|UT|IF|OF';
+const TRAIL = new RegExp(`(\\s*[,\\-–—]\\s*|\\s+)(${POS})$`, 'i');
+const LEAD = new RegExp(`^(${POS})\\s+(?=[^\\s.])`); // "SS M. Betts" (capitals only, so it's not a name)
+const PAREN = new RegExp(`\\s*\\((${POS})\\)`, 'gi');
+const PITCHER = /^(?:SP|RP|P|starting pitcher|starter|pitcher|pitching)$/i;
+const HEADING = /\b(?:line-?ups?|roster|batting order)\b/i;
+const PITCHES = new Set(['P', 'SP', 'RP']);
+const BULLET = /^[^\p{L}\p{N}#]+/u; // - • * · and emoji
+// One line with everyone on it: split at semicolons, at commas (two or more), or before each "2." when they run 1, 2, 3.
+function oneLine(l) {
+  if (l.includes(';')) return l.split(';');
+  if (l.split(',').length >= 3) return l.split(',');
+  const at = [...l.matchAll(/(?:^|\s)(\d{1,2})[.)]\s*/g)];
+  if (at.length >= 2 && at[0].index === 0 && at.every((m, i) => +m[1] === i + 1)) return at.map((m, i) => l.slice(m.index, at[i + 1]?.index));
+  return [l];
+}
+export function parsePaste(text) {
+  // Each line that names someone, with whether it's the pitcher; headings left out.
+  const read = list => {
+    const out = [];
+    let next = false;
+    for (let l of list) {
+      l = l.trim().replace(BULLET, '');
+      if (!/\p{L}/u.test(l)) continue;
+      const lab = /^([^:]{1,60}):\s*(.*)$/.exec(l);
+      if (lab && PITCHER.test(lab[1].trim())) { if (lab[2]) out.push({ l: lab[2], pitch: true }); else next = true; continue; }
+      if (lab && !lab[2]) continue; // "Dodgers lineup vs. LHP Snell:"
+      if (lab && (HEADING.test(lab[1]) || lab[2].split(',').length >= 3)) l = lab[2]; // "Lineup today: Emma, Liam, Ava"
+      else if (HEADING.test(l)) continue; // "Saturday lineup"
+      out.push({ l, pitch: next });
+      next = false;
+    }
+    return out;
+  };
+  let lines = read(String(text).split(/\r?\n/));
+  const named = lines.filter(x => !x.pitch);
+  if (named.length === 1) lines = lines.flatMap(x => (x === named[0] ? read(oneLine(x.l)) : [x]));
+  const lead = lines.map(x => /^(\d{1,2})(?:\s*[.)]|\s)/.exec(x.l));
   const numbered = lead.filter(Boolean).map(m => +m[1]);
   const ordered = numbered.length >= 2 && numbered.every((n, i) => n === i + 1);
-  if (ordered) lines = lines.filter((_, i) => lead[i]);
-  return lines.slice(0, 30).map(l => {
-    l = l.replace(ordered ? /^\d{1,2}\s*[.)]?\s*/ : /^\d{1,2}\s*[.)]\s*/, '')
-      .replace(/\s*\((?:L|R|S|B)\)/gi, '').replace(POSITION, '').replace(/\s+/g, ' ').trim();
-    let m = /^#?(\d{1,3})\s+(.+)$/.exec(l);
-    if (m) return { num: m[1], name: m[2].trim() };
-    m = /^(.+?)[\s,]+#?(\d{1,3})$/.exec(l);
-    if (m) return { name: m[1].trim(), num: m[2] };
-    return { name: l, num: '' };
-  });
+  // First names and initials ("Liam O", "Ava K"): a P or C at the end is someone's initial, not a position.
+  const initials = lines.some(x => /\s\p{Lu}\.?$/u.test(x.l) && !/\s[PC]$/i.test(x.l));
+  const all = lines.map((x, i) => ({ ...one(x.l, ordered, initials), pitch: x.pitch, inOrder: !ordered || !!lead[i] }));
+  const dh = all.some(p => p.pos === 'DH');
+  // A pitcher who doesn't bat: after "Pitcher:", or marked SP or RP, or P with a DH in the order (OBR 5.11). In a
+  // numbered order, everyone with a number bats, and the pitcher can be a line outside it.
+  const bats = p => p.inOrder && !p.pitch && (ordered || !(p.pos === 'SP' || p.pos === 'RP' || (p.pos === 'P' && dh)));
+  const pitcher = all.find(p => p.pitch || PITCHES.has(p.pos));
+  const strip = ({ name, num }) => ({ name, num });
+  return { batters: all.filter(bats).slice(0, 30).map(strip), pitcher: pitcher ? strip(pitcher) : null };
 }
+// One player from one line: { name, num, pos }.
+function one(l, ordered, initials) {
+  let pos = '';
+  const take = (_, p) => { pos ||= p.toUpperCase(); return ''; };
+  const trail = s => {
+    const m = TRAIL.exec(s);
+    if (!m || (initials && m[2].length === 1 && !/[,\-–—]/.test(m[1]))) return s;
+    pos ||= m[2].toUpperCase();
+    return s.slice(0, m.index);
+  };
+  l = l.replace(ordered ? /^\d{1,2}\s*[.)]?\s*/ : /^\d{1,2}\s*[.)]\s*/, '')
+    .replace(/\s+[01]?\.\d{3}\b.*$/, '') // a batting average, and whatever stats come after it
+    .replace(/\s*\((?:L|R|S|B)\)/gi, '').replace(PAREN, take).replace(LEAD, take);
+  l = trail(l.replace(/\s+/g, ' ').trim()).trim();
+  let m = /^#?(\d{1,3})\s+(.+)$/.exec(l);
+  if (m) return { num: m[1], name: trail(m[2]).trim(), pos };
+  m = /^(.+?)[\s,]+#?(\d{1,3})$/.exec(l);
+  if (m) return { name: trail(m[1]).trim(), num: m[2], pos };
+  return { name: l, num: '', pos };
+}
+// The batters from a pasted lineup (see parsePaste).
+export const parseLineup = text => parsePaste(text).batters;
 
 // A team's lineup to start another game with: the players in each slot at the end of this one.
 export function carryLineup(team) {

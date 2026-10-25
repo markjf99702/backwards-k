@@ -255,6 +255,8 @@ fieldset { margin: 0; min-width: 0; }
 .chip { min-height: 34px; padding: 4px 12px; }
 .stepper { display: flex; align-items: center; gap: 8px; }
 .stepper span { flex: 1; color: var(--ink-2); }
+.stepper .st { display: grid; justify-items: start; }
+.stepper .link-btn { width: auto; height: auto; border: 0; border-radius: 0; background: none; font-size: 15px; line-height: 1.2; padding: 4px 0 2px; }
 .stepper button { width: 42px; height: 42px; border-radius: 50%; border: 1.5px solid var(--line-2); background: var(--card); font-size: 22px; line-height: 1; }
 .stepper b { min-width: 2ch; text-align: center; font: 800 26px/1 var(--board-font); }
 details.lineup summary { cursor: pointer; font-weight: 700; padding: 6px 0; }

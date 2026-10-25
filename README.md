@@ -36,8 +36,8 @@ written out in plain words.
 - **Phone or tablet.** On a phone the buttons, the card, the box score and the play-by-play are tabs. On a tablet
   held sideways (or any screen 1000 pixels wide or more) the buttons and the card sit side by side, and the card
   fills in while you watch; on one held upright, the card is under the buttons.
-- **Lineups when you want them.** Start with two team names, and name batters as they come up, paste a lineup, or
-  reuse a team from an earlier game. Pinch hitters and pitching changes are a tap on the batter or the pitcher, and a
+- **Lineups when you want them.** Start with two team names, and name batters as they come up, paste a lineup (from
+  a group text or a game preview, starting pitcher included), or reuse a team from an earlier game. Pinch hitters and pitching changes are a tap on the batter or the pitcher, and a
   pinch runner is a tap on the runner.
 - **Sharing.** Send a link that carries the whole game (nothing is uploaded to share it), copy the score as text for
   a group chat, print both cards, or save the game as a file.

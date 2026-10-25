@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { replay, suggest, check, runsCount, scoredAs, mark, now, columns, halfLabel, RESULTS } from '../js/engine.js';
-import { newGame, cleanGame, cleanDoc, parseLineup } from '../js/model.js';
+import { newGame, cleanGame, cleanDoc, parseLineup, parsePaste } from '../js/model.js';
 import { sampleGame } from '../js/sample.js';
 // The card is drawn with ui.js, which looks for the page's sheet as it loads: here there's no page, so no sheet.
 globalThis.document ??= { readyState: 'complete', getElementById: () => null };
@@ -801,4 +801,45 @@ test('pasting a lineup: jersey numbers, or a batting order copied from a game pr
   assert.deepEqual(parseLineup('1) Judge #99 RF\n2) Soto LF'), [{ name: 'Judge', num: '99' }, { name: 'Soto', num: '' }]);
   // Numbers that aren't 1, 2, 3 in order are jersey numbers.
   assert.deepEqual(parseLineup('22 Kershaw\n35 Bellinger'), [{ name: 'Kershaw', num: '22' }, { name: 'Bellinger', num: '35' }]);
+});
+
+test('pasting a lineup from a group text: commas, bullets, headings, dashes and the pitcher', () => {
+  const names = list => list.map(p => (p.num ? `${p.name} #${p.num}` : p.name));
+  const kids = ['Emma', 'Liam', 'Noah', 'Olivia', 'Ava', 'Mia', 'Lucas', 'Zoe', 'Eli', 'Ruby', 'Finn'];
+  assert.deepEqual(names(parseLineup(kids.join(', '))), kids);
+  assert.deepEqual(names(parseLineup('Lineup today: Emma, Liam, Ava, Noah')), ['Emma', 'Liam', 'Ava', 'Noah']);
+  assert.deepEqual(names(parseLineup('Lineup today:\nEmma, Liam, Ava')), ['Emma', 'Liam', 'Ava']);
+  assert.deepEqual(parsePaste('Lineup today: Emma, Liam, Ava\nPitcher: Olivia #22'), { batters: ['Emma', 'Liam', 'Ava'].map(name => ({ name, num: '' })), pitcher: { name: 'Olivia', num: '22' } });
+  assert.deepEqual(names(parseLineup('Ruiz 2; Okafor 11; Brennan')), ['Ruiz #2', 'Okafor #11', 'Brennan']);
+  // Bullets, emoji, a heading, a position after a dash or in brackets; the pitcher bats too, with no DH.
+  const text = parsePaste('Saturday lineup 🧢\n- Emma 4\n- Liam 12\n- Noah (C)\n- Olivia - P\n• Ava');
+  assert.deepEqual(names(text.batters), ['Emma #4', 'Liam #12', 'Noah', 'Olivia', 'Ava']);
+  assert.deepEqual(text.pitcher, { name: 'Olivia', num: '' });
+  // First names and initials: a final P or C is someone's initial.
+  assert.deepEqual(parsePaste('Emma P\nLiam O\nNoah C\nAva K'), { batters: ['Emma P', 'Liam O', 'Noah C', 'Ava K'].map(name => ({ name, num: '' })), pitcher: null });
+});
+
+test('pasting a lineup from a game preview: the heading, the starting pitcher, one line, positions first, stats', () => {
+  const nine = ['Ohtani', 'Betts', 'Freeman', 'Hernández', 'Smith', 'Muncy', 'Edman', 'Pages', 'Conforto'];
+  const pos = ['DH', 'SS', '1B', 'RF', 'C', '3B', '2B', 'CF', 'LF'];
+  const just = list => list.map(p => p.name);
+  // A beat writer's list: the heading isn't batter 1, and the starter isn't batter 10.
+  const beat = parsePaste(`Dodgers lineup vs. LHP Blake Snell:\n${nine.map((n, i) => `${n} ${pos[i]}`).join('\n')}\nYamamoto SP`);
+  assert.deepEqual(just(beat.batters), nine);
+  assert.deepEqual(beat.pitcher, { name: 'Yamamoto', num: '' });
+  const numbered = parsePaste(`Dodgers lineup vs. LHP Snell:\n${nine.map((n, i) => `${i + 1}. ${n} ${pos[i]}`).join('\n')}\nSP: Yoshinobu Yamamoto`);
+  assert.deepEqual(just(numbered.batters), nine);
+  assert.equal(numbered.pitcher.name, 'Yoshinobu Yamamoto');
+  // With a DH in the order, a pitcher marked P doesn't bat.
+  assert.deepEqual(just(parsePaste('Ohtani DH\nBetts SS\nGlasnow P').batters), ['Ohtani', 'Betts']);
+  assert.deepEqual(parsePaste('Pitcher: Okafor #11\nRuiz\nBrennan').pitcher, { name: 'Okafor', num: '11' });
+  // All on one line, with commas or numbered.
+  assert.deepEqual(just(parseLineup(nine.map((n, i) => `${n} ${pos[i]}`).join(', '))), nine);
+  assert.deepEqual(just(parseLineup('1. Ohtani DH 2. Betts SS 3. Freeman 1B')), ['Ohtani', 'Betts', 'Freeman']);
+  assert.deepEqual(parseLineup('1. 17 Ohtani DH 2. 50 Betts SS'), [{ name: 'Ohtani', num: '17' }, { name: 'Betts', num: '50' }]);
+  // The position first, after a dash, or a batting average at the end.
+  assert.deepEqual(just(parseLineup('SS M. Betts\nDH S. Ohtani\nC W. Smith')), ['M. Betts', 'S. Ohtani', 'W. Smith']);
+  assert.deepEqual(just(parseLineup('Shohei Ohtani - DH\nMookie Betts – SS\nFreddie Freeman — 1B')), ['Shohei Ohtani', 'Mookie Betts', 'Freddie Freeman']);
+  assert.deepEqual(just(parseLineup('1 Ohtani DH .282\n2 Betts SS .289 12 HR')), ['Ohtani', 'Betts']);
+  assert.deepEqual(parseLineup('1\tShohei Ohtani\tDH\n2\t#50 Mookie Betts\tSS'), [{ name: 'Shohei Ohtani', num: '' }, { name: 'Mookie Betts', num: '50' }]);
 });

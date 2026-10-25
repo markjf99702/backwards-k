@@ -1,6 +1,6 @@
 // Starting a game: two team names and you're off. Lineups, innings and the rest are optional, and all of it can
 // be changed once the game is going.
-import { newGame, blank, carryLineup, today, parseLineup } from './model.js';
+import { newGame, blank, carryLineup, today, parsePaste } from './model.js';
 import { store } from './store.js';
 import { $, $$, esc, openSheet, closeSheet, go } from './ui.js';
 import { drive } from './sync.js';
@@ -49,7 +49,7 @@ export function showSetup(el) {
       <legend><b>${side ? 'Home team' : 'Visitors'}</b> <small>${side ? 'bats second' : 'bats first'}</small></legend>
       <input class="team-name-in" data-name maxlength="40" placeholder="${side ? 'Home' : 'Visitors'}" aria-label="${side ? 'Home team' : 'Visitors'} name" autocapitalize="words">
       ${past.length ? `<p class="past-teams"><span>Teams from before:</span>${past.map((t, i) => `<button type="button" class="chip" data-past="${i}">${esc(t.name)}</button>`).join('')}</p>` : ''}
-      <div class="stepper"><span>Batters in the order</span><button type="button" data-step="-1" aria-label="One fewer batter">−</button><b data-size role="status">9</b><button type="button" data-step="1" aria-label="One more batter">+</button></div>
+      <div class="stepper"><span class="st">Batters in the order<button type="button" class="link-btn" data-paste aria-label="Paste a lineup for the ${side ? 'home team' : 'visitors'}">Paste a lineup</button></span><button type="button" data-step="-1" aria-label="One fewer batter">−</button><b data-size role="status">9</b><button type="button" data-step="1" aria-label="One more batter">+</button></div>
       <details class="lineup">
         <summary>Lineup and pitcher <small>optional, add names any time</small></summary>
         <ol class="lineup-edit"></ol>
@@ -57,7 +57,6 @@ export function showSetup(el) {
           <label class="num"><span>No.</span><input data-pf="num" inputmode="numeric" maxlength="4" aria-label="Starting pitcher number"></label>
           <label class="nm"><span>Name</span><input data-pf="name" maxlength="40" placeholder="Optional" autocapitalize="words" aria-label="Starting pitcher name"></label>
         </div>
-        <div class="row"><button type="button" class="btn quiet sm" data-paste>Paste a list of names</button></div>
       </details>
     </fieldset>`;
   }
@@ -68,7 +67,7 @@ export function showSetup(el) {
         <label class="num"><span>No.</span><input data-i="${i}" data-f="num" inputmode="numeric" maxlength="4" value="${esc(p.num)}" aria-label="Batter ${i + 1} number"></label>
         <label class="nm"><span>Name</span><input data-i="${i}" data-f="name" maxlength="40" value="${esc(p.name)}" placeholder="Batter ${i + 1}" autocapitalize="words" aria-label="Batter ${i + 1} name"></label>
       </div></li>`).join('');
-    $('[data-size]', fs(side)).innerHTML = `${t.lineup.length}<span class="sr"> batters</span>`;
+    $('[data-size]', fs(side)).innerHTML = `${t.lineup.length}<span class="sr"> batter${t.lineup.length === 1 ? '' : 's'}</span>`;
     $('[data-name]', fs(side)).value = t.name;
     $$('[data-pf]', fs(side)).forEach(i => { i.value = t.pitcher[i.dataset.pf]; });
   }
@@ -120,13 +119,15 @@ export function showSetup(el) {
 
   function pasteSheet(side) {
     const body = openSheet(`<h2 id="sheetTitle">Paste a lineup</h2>
-      <p class="hint">One player per line, in batting order. Jersey numbers are picked up too: “12 Ruiz” or “Ruiz #12”. A lineup copied from a game preview works as it is: the 1 to 9 down the side, positions and (L) or (R) are left out.</p>
+      <p class="hint">One player per line, in batting order. Names separated by commas work too. Jersey numbers are picked up: “12 Ruiz” or “Ruiz #12”. A lineup copied from a game preview works as it is: the 1 to 9 down the side, positions and (L) or (R) are left out, and the pitcher (SP, or “Pitcher: Okafor”) goes in as the starting pitcher.</p>
       <textarea rows="10" data-focus placeholder="Ruiz #2&#10;Okafor #11&#10;Brennan #24"></textarea>
       <div class="row"><button type="button" class="btn quiet" data-close>Cancel</button><button type="button" class="btn primary" data-x="use">Use these</button></div>`);
     body.addEventListener('click', ev => {
       if (!ev.target.closest('[data-x=use]')) return;
-      const list = parseLineup(body.querySelector('textarea').value);
-      if (list.length) { T[side].lineup = list; rows(side); $('details', fs(side)).open = true; }
+      const { batters, pitcher } = parsePaste(body.querySelector('textarea').value);
+      if (batters.length) T[side].lineup = batters;
+      if (pitcher) T[side].pitcher = pitcher;
+      if (batters.length || pitcher) { rows(side); $('details', fs(side)).open = true; }
       closeSheet();
     });
   }

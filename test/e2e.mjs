@@ -52,7 +52,7 @@ await page.waitForSelector('[data-side="0"] [data-name]');
 assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('[data-side="0"] [data-name]')).fontSize), '26px', 'team names in the scoreboard type');
 await page.fill('[data-side="0"] [data-name]', 'Foxes');
 await page.fill('[data-side="1"] [data-name]', 'Comets');
-await tap('[data-side="0"] summary');
+// Paste a lineup is out in the open, beside the size of the order.
 await tap('[data-side="0"] [data-paste]');
 await page.fill('.sheet textarea', '1. 2 Ruiz SS\nOkafor #11\n24 Brennan\nCastillo, 7\nLindqvist\nMarsh\nDelgado\nHan\nPruitt');
 await tap('[data-x=use]');
@@ -243,6 +243,20 @@ async function startGame(p, away = 'Owls') {
 const stored = (p, id) => p.evaluate(id => JSON.parse(localStorage.getItem('backwards-k.v1')).games[id], id);
 const plays = async (p, id) => (await stored(p, id)).ev.map(e => e.t + (e.r || '')).join(' ');
 const shown = p => p.evaluate(() => document.getElementById('toast').textContent);
+
+step('pasting a lineup from a group text: names with commas, and the pitcher');
+{
+  const p = await phone();
+  await p.goto(base + '#/new');
+  await p.click('[data-side="1"] [data-paste]');
+  await p.fill('.sheet textarea', 'Lineup today: Emma, Liam, Noah, Ava, Mia, Lucas, Zoe, Eli, Ruby, Finn\nPitcher: Olivia #22');
+  await p.click('[data-x=use]');
+  assert.equal(await p.textContent('[data-side="1"] [data-size]'), '10 batters');
+  assert.equal(await p.inputValue('[data-side="1"] [data-i="9"][data-f="name"]'), 'Finn');
+  assert.deepEqual([await p.inputValue('[data-side="1"] [data-pf="num"]'), await p.inputValue('[data-side="1"] [data-pf="name"]')], ['22', 'Olivia']);
+  assert.equal(await p.locator('[data-side="1"] details').getAttribute('open'), '', 'the lineup opens to show them');
+  await p.context().close();
+}
 
 step('Fix runners, then leaving the game: the play is still there');
 {
