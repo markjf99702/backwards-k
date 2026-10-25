@@ -122,16 +122,26 @@ export function toast(msg, { action, run, ms = 3200, focus = false } = {}) {
 }
 const hideIn = ms => { clearTimeout(toastT); toastT = setTimeout(() => toastHide && toastHide(), ms); };
 // In a sheet, the message sits just above the rows of buttons that end it (Save play, Close, Done, and Change the
-// fielders over Done), so the button the scorer wants next isn't under it. If they're scrolled out of sight, it sits
-// at the sheet's bottom edge.
+// fielders over Done), so the button the scorer wants next isn't under it: above the highest of them in sight (the
+// last one always is, since it stays at the bottom edge). With none in sight, it sits at the sheet's bottom edge.
 function placeInSheet(t) {
   t.style.bottom = '';
-  const d = dlg();
-  let row = d.querySelector('.sheet-body').lastElementChild;
-  if (!row || !row.matches('.row')) return;
-  while (row.previousElementSibling && row.previousElementSibling.matches('.row')) row = row.previousElementSibling;
-  const box = d.getBoundingClientRect(), r = row.getBoundingClientRect();
-  if (r.height && r.top >= box.top && r.top <= box.bottom) t.style.bottom = `${Math.round(box.bottom - r.top + 8)}px`;
+  const d = dlg(), box = d.getBoundingClientRect();
+  let top = Infinity;
+  for (let row = d.querySelector('.sheet-body').lastElementChild; row && row.matches('.row'); row = row.previousElementSibling) {
+    const r = row.getBoundingClientRect();
+    if (r.height && r.top >= box.top && r.top <= box.bottom) top = Math.min(top, r.top);
+  }
+  if (top < Infinity) t.style.bottom = `${Math.round(box.bottom - top + 8)}px`;
+}
+// Scrolls an open sheet just far enough for el to show above the row of buttons that ends it, which stays put at the
+// bottom edge while the rest scrolls under it.
+export function reveal(el) {
+  const body = el.closest('.sheet-body');
+  if (!body) return;
+  const row = body.lastElementChild, b = body.getBoundingClientRect(), r = el.getBoundingClientRect();
+  const floor = row && row !== el && row.matches('.row') ? row.getBoundingClientRect().top : b.bottom;
+  if (r.bottom > floor - 8) body.scrollTop += Math.min(r.bottom - floor + 8, Math.max(0, r.top - b.top - 8));
 }
 // While the toast has the keyboard or the pointer it stays, and it goes 4 seconds after both have left. Escape
 // closes it.

@@ -9,7 +9,7 @@ import { blank, takeBack, putBack } from './model.js';
 import { cardHtml, lineHtml, cellSvg } from './card.js';
 import { boxHtml, playsHtml, dayOf } from './box.js';
 import { infieldSvg, fieldSvg, BASE_AT } from './field.js';
-import { $, $$, esc, openSheet, closeSheet, sheetOpen, toast, KL, markHtml, fmtDate, go, inFrame, nextName } from './ui.js';
+import { $, $$, esc, openSheet, closeSheet, sheetOpen, reveal, toast, KL, markHtml, fmtDate, go, inFrame, nextName } from './ui.js';
 import { drive } from './sync.js';
 import { shareSheet, saveFile } from './share.js';
 import { helpSheet } from './help.js';
@@ -503,7 +503,7 @@ function runnersSheet(code, f, moves, { st = S, editing = false, done = act } = 
   const R = RESULTS[code], n = now(st);
   const m = moves.map(x => x.slice());
   const counts = { v: runsCount(st, code, m) };
-  let userSaid = null;
+  let userSaid = null, asked = null;
   const who = b => (b === 0 ? n.name : label(player(G, st.bases[b].side, st.bases[b].slot, st.bases[b].p), st.bases[b].slot));
   const body = openSheet(`<h2 id="sheetTitle">${R.kind === 'out' && code !== 'KL' && code !== 'K' ? esc(R.label) : code === 'KL' ? 'Strikeout looking' : esc(R.label)}${f && f.length ? ` <span class="mk">${esc(mark(code, f))}</span>` : ''}</h2>
     <p class="hint">Here’s where everyone usually ends up. Change anything that went differently.</p>
@@ -537,8 +537,13 @@ function runnersSheet(code, f, moves, { st = S, editing = false, done = act } = 
       if (third) t += `<span class="third">That’s the third out. Did the run${runs > 1 ? 's' : ''} cross the plate before it?
         <span class="chips"><button type="button" data-runs="1" aria-pressed="${counts.v}">Yes, ${runs > 1 ? 'they count' : 'it counts'}</button><button type="button" data-runs="0" aria-pressed="${!counts.v}">No</button></span></span>`;
     }
-    body.querySelector('.tally').innerHTML = t;
+    const tally = body.querySelector('.tally');
+    tally.innerHTML = t;
     body.querySelector('[data-x=save]').disabled = !!err;
+    // What's wrong, or the third-out question, that a tap just brought up shows above Save play, not under it.
+    const ask = err || (third ? 'third' : '');
+    if (ask && asked !== null && ask !== asked) reveal(tally);
+    asked = ask;
     if (again && body.querySelector(again)) body.querySelector(again).focus({ preventScroll: true });
   }
   draw();

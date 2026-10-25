@@ -1198,6 +1198,31 @@ step('a message while a sheet is open shows on top of it, and leaves its buttons
   await p.context().close();
 }
 
+step('on a small phone, each sheet’s last row of buttons is in reach without scrolling it');
+{
+  const p = await playing(sampleUntil(7, S => S.bases[1] && S.bases[2] && S.bases[3] && S.b + S.s === 0), { width: 360, height: 640 });
+  const reach = async (what, sel) => {
+    await p.waitForTimeout(250);
+    const got = await p.evaluate(sel => ({ scrolls: document.querySelector('.sheet-body').scrollHeight > document.querySelector('.sheet-body').clientHeight, top: document.querySelector('.sheet-body').scrollTop, b: document.querySelector(sel).textContent }), sel);
+    assert.ok(inside(await box(p, sel), await box(p, '#sheet')), `${what}: ${got.b} is inside the sheet`);
+    return got;
+  };
+  await p.click('[data-r="1B"]');
+  assert.deepEqual(await reach('the bases-loaded runners sheet', '.sheet [data-x=save]'), { scrolls: true, top: 0, b: 'Save play' });
+  // Two out already, so the runner from first out at second is the third, and the question about the runs shows above
+  // Save play.
+  await p.click('.mv[data-from="1"] [data-to="0"]');
+  assert.match(await p.textContent('.tally'), /third out/);
+  assert.ok((await box(p, '.tally')).bottom <= (await box(p, '.sheet-body > .row:last-child')).top + 0.5, 'the question isn’t under the buttons');
+  await p.click('.sheet [data-close]');
+  await p.click('[data-a=menu]');
+  await p.click('.sheet [data-y=help]');
+  assert.equal((await reach('the help sheet, 3 screens long', '.sheet-body > .row:last-child button')).b, 'Got it');
+  await p.click('.sheet [data-close]');
+  assert.equal(await p.evaluate(() => document.getElementById('sheet').open), false);
+  await p.context().close();
+}
+
 step('a screen reader hears each play and where things stand, in a region that stays put');
 {
   const p = await phone();
