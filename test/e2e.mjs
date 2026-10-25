@@ -1204,6 +1204,15 @@ step('a box’s “Change what it was” offers only what could have happened');
   await p.context().close();
 }
 
+step('the runner sheet: a gap between the ways to move up and the balk');
+{
+  const p = await playing(seventh());
+  await p.click('[data-runner="2"]');
+  const gap = await p.evaluate(() => { const l = document.querySelector('.sheet .row2 + .list'); return l.getBoundingClientRect().top - l.previousElementSibling.getBoundingClientRect().bottom; });
+  assert.ok(gap >= 10, `the balk is ${gap}px below Wild pitch and the rest`);
+  await p.context().close();
+}
+
 step('a wild pitch that moves two runners is one play, and one wild pitch');
 {
   const p = await phone(), id = await startGame(p);

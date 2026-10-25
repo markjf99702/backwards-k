@@ -612,6 +612,7 @@ html:has(dialog.sheet[open]) { overflow: hidden; scrollbar-gutter: stable; }
 .li.danger b { color: var(--red); }
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .row2 .res { min-height: 64px; padding: 8px 6px; }
+.row2 + .list { margin-top: 12px; }
 .to { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
 .to > span:first-child { font-weight: 700; }
 .moves { display: grid; gap: 10px; margin: 8px 0; }
