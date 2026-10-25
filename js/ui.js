@@ -41,6 +41,10 @@ export function openSheet(html, { wide = false, close } = {}) {
   const prev = onClose;
   onClose = null;
   if (prev) prev();
+  // A message in the sheet's own line was about the sheet this one replaces, so it goes (one about this sheet comes
+  // after it opens).
+  const said = d.open && d.querySelector('.sheet-toast');
+  if (said && toastHide && toastAt === said) toastHide(); else if (said) said.textContent = '';
   // A new panel each time, so taps handled by the last sheet's listeners can't reach this one.
   const body = document.createElement('div');
   body.className = 'sheet-body';

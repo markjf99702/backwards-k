@@ -1191,6 +1191,12 @@ step('a box’s “Change what it was” offers only what could have happened');
   assert.match(await p.textContent('.sheet .cell-big'), /E6 Error/);
   assert.equal((await stored(p, id)).ev[1].f.join(), '6');
   assert.equal(await seen(p), 'Changed to error (E6).Undo');
+  // The message is about that box: the next sheet (here, who fielded it) opens without it over the fielders.
+  await p.click('.sheet [data-y=f]');
+  await p.waitForSelector('.sheet .pick');
+  assert.equal(await seen(p), '', 'the box’s message is gone from the fielder picker');
+  await p.click('.sheet [data-pos="6"]');
+  assert.match(await p.textContent('.sheet .cell-big'), /E6 Error/);
   await p.keyboard.press('Escape');
   assert.match(await p.locator('.card').innerHTML(), />E6</);
   // Skip leaves the fielders blank.
