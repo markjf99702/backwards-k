@@ -33,7 +33,9 @@ written out in plain words.
   and says which one it took (with Redo) when the line under the field is out of sight. A change made in a box has
   its own Undo, right after it.
 - **It knows when the game is over.** Final comes when the last inning is decided, or the moment the home team goes
-  ahead in it. **Keep playing** after a Final finishes that half-inning; a game you ended early (rain, a mercy rule)
+  ahead in it. That run is the last to count, and a hit that brings it in counts for the bases it needed, as an
+  official scorer has it: with the bases loaded, a double that wins the game is a single (a home run still scores
+  everyone). **Keep playing** after a Final finishes that half-inning; a game you ended early (rain, a mercy rule)
   picks up where it stopped and ends the usual way.
 - **Phone or tablet.** On a phone the buttons, the card, the box score and the play-by-play are tabs. On a tablet
   held sideways (or any screen 1000 pixels wide or more) the buttons and the card sit side by side, and the card

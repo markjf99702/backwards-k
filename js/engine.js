@@ -62,6 +62,8 @@ export const pitchWords = seq => [...seq].map(k => PITCH[k]).filter(Boolean).joi
 const list = a => (a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a.at(-1));
 export const ord = n => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th');
 const dash = f => (f && f.length ? f.join('-') : '');
+// A hit for so many bases.
+const HITS = ['', '1B', '2B', '3B'];
 
 // The scorer's shorthand for a plate appearance: 6-3, F8, E6, BB. A strikeout looking is KL here and is drawn
 // as a backwards K wherever it's shown.
@@ -239,8 +241,13 @@ function pitch(S, k) {
 }
 
 function pa(S, e) {
-  const g = S.g, side = S.half, fld = 1 - side, slot = S.up[side], p = S.pl[side][slot], R = RESULTS[e.r];
-  if (!R) return;
+  const g = S.g, side = S.half, fld = 1 - side, slot = S.up[side], p = S.pl[side][slot];
+  if (!RESULTS[e.r]) return;
+  const moves = (e.m || suggest(S, e.r)).slice().sort((a, b) => b[0] - a[0]);
+  // A hit that wins the game counts for the bases the winning run needed, and nobody behind that run gets further
+  // (OBR 9.06(f)): with the bases loaded, a double that wins it is a single.
+  const need = winningRun(S, e.r, moves, e.x), tapped = RESULTS[e.r];
+  const code = need && tapped.kind === 'hit' && need < tapped.go && !moves.some(m => m[0] === 0 && m[1] === 0) ? HITS[need] : e.r, R = RESULTS[code];
   S.fresh = false;
   const P = pstat(S);
   if (!e.auto && R.pitch) {
@@ -252,7 +259,7 @@ function pa(S, e) {
   S.col.used.add(slot);
   S.batted[side] = true;
   const cell = {
-    n: S.cells.length, side, slot, p, pi: S.pit[fld], inn: S.inn, k: S.col.k, r: e.r, f: e.f || null, mark: mark(e.r, e.f),
+    n: S.cells.length, side, slot, p, pi: S.pit[fld], inn: S.inn, k: S.col.k, r: code, f: e.f || null, mark: mark(code, e.f),
     count: [Math.min(S.b, 3), Math.min(S.s, 2)], seq: S.seq, ev: S.i, reach: 0, notes: ['', '', '', '', ''],
     outN: 0, outAt: 0, outHow: '', scored: false, rbi: 0, end: false, text: '', story: [],
   };
@@ -272,7 +279,6 @@ function pa(S, e) {
   }
   if (R.err) { S.E[fld]++; S.eInn[side][S.inn - 1]++; S.errs[fld].push(e.r === 'CI' ? 'CI' : (e.f && e.f[0]) || 0); }
 
-  const moves = (e.m || suggest(S, e.r)).slice().sort((a, b) => b[0] - a[0]);
   // A 6-4-3 double play: the runner was out 6-4 and the batter 4-3, so the runner's box gets the throws before the
   // last. (With two runners out, or two fielders, there's no telling: each keeps the whole play.)
   const split = (e.r === 'DP' || e.r === 'TP') && e.f && e.f.length >= 3 && moves.some(m => !m[0] && !m[1])
@@ -281,16 +287,17 @@ function pa(S, e) {
   const batter = { cell, side, slot, p, pi };
   const batterName = label(player(g, side, slot, p), slot);
   // Everyone who scores is in one sentence, where the first of them would be: "Okafor, Brennan and Castillo score."
-  // The same for runs that don't count.
+  // The same for runs that don't count. The winning run, when a runner brings it in, is said last.
   const bits = [], scored = [], waved = [];
   const together = (names, one, more) => { if (!names.length) bits.push(() => `${list(names)} ${names.length > 1 ? more : one}`); };
   let runs = 0, bOut = false, bTo = R.go, handed = null;
   // (A play from a file that lists someone twice moves them once: the first time.)
   const moved = new Set();
-  for (const [from, to] of moves) {
+  for (const [from, was] of moves) {
     const r = from === 0 ? batter : S.bases[from];
     if (!r || moved.has(from)) continue;
     moved.add(from);
+    const to = need && was ? Math.min(was, from + need) : was;
     if (from) S.bases[from] = null;
     // A batter who reaches without a hit while a runner another pitcher let on is put out takes that runner's place:
     // he's that pitcher's (OBR 9.16(g)). The runners go first, so the batter comes last.
@@ -321,7 +328,11 @@ function pa(S, e) {
       if (to === 4) {
         score(S, r);
         runs++;
-        if (from) { together(scored, 'scores', 'score'); scored.push(who); r.cell.story.push(`Scored on ${batterName}’s ${R.label.toLowerCase()}.`); }
+        if (from) {
+          if (!scored.length) bits.push(() => scorers(scored, need > 0 && need < 4));
+          scored.push(who);
+          r.cell.story.push(`Scored on ${batterName}’s ${R.label.toLowerCase()}.`);
+        }
       } else {
         S.bases[to] = r;
         if (from && to > from) { bits.push(`${who} to ${BASE[to]}`); r.cell.story.push(`To ${BASE[to]} on ${batterName}’s ${R.label.toLowerCase()}.`); }
@@ -330,15 +341,16 @@ function pa(S, e) {
   }
   if (runs && R.rbi !== 0) { cell.rbi = runs; B.rbi += runs; }
 
-  let text = `${batterName} ${R.say}${fielderWords(e.r, e.f)}`;
+  let text = `${batterName} ${tapped.say}${fielderWords(code, e.f)}`;
+  if (code !== e.r) text += `, but it counts as a ${R.label.toLowerCase()}: the winning run needed only ${['', 'one base', 'two bases'][need]}`;
   if (R.kind !== 'out' && bOut) text += R.go === 4 ? ', but is called out on the bases' : `, but is out trying for ${BASE[(R.go || 1) + 1]}`;
   else if (R.kind !== 'out' && bTo > R.go && bTo < 4) text += ` and takes ${BASE[bTo]}`;
-  else if (R.kind !== 'out' && bTo === 4 && R.go < 4) text += ' and comes all the way home';
+  else if (R.kind !== 'out' && bTo === 4 && R.go < 4) text += ` and comes all the way home${need === 4 ? ' with the winning run' : ''}`;
   else if (R.kind === 'out' && !bOut && bTo > 0) text += ` but reaches ${BASE[bTo]}`;
   text += '.' + (bits.length ? ' ' + sentences(bits) + '.' : '');
   cell.text = text;
   S.text[S.i] = text;
-  S.plays.push({ i: S.i, inn: S.inn, half: side, text, kind: 'pa', runs, cell: cell.n, r: e.r });
+  S.plays.push({ i: S.i, inn: S.inn, half: side, text, kind: 'pa', runs, cell: cell.n, r: code });
 
   S.b = 0; S.s = 0; S.seq = ''; S.relief = null; S.ph = null;
   S.up[side] = (slot + 1) % S.size[side];
@@ -350,6 +362,13 @@ function pa(S, e) {
 // A play's sentences, joined. A sentence that lists everyone who scored is a function, written out once they're all
 // known.
 const sentences = bits => bits.map(b => (typeof b === 'function' ? b() : b)).join('. ');
+// Everyone who scored, in one sentence, with the one who brought in the winning run last (win): "Okafor scores, and
+// Brennan scores the winning run." why: what they scored on, " on a wild pitch".
+function scorers(names, win, why = '') {
+  const n = win ? names.slice(0, -1) : names, words = n.length ? `${list(n)} ${n.length > 1 ? 'score' : 'scores'}${why}` : '';
+  if (!win) return words;
+  return words ? `${words}, and ${names.at(-1)} scores the winning run` : `${names.at(-1)} scores the winning run${why}`;
+}
 
 function fielderWords(code, f) {
   if (!f || !f.length) return '';
@@ -370,10 +389,15 @@ function runners(S, e) {
   const balk = moves.length && moves.every(m => m[2] === 'BK');
   // (From a file: a runner listed twice moves once, and nothing happens after the third out.)
   const moved = new Set();
-  for (const [from, to, how, f] of moves) {
+  // The run that puts the home team ahead in its last turn ends the game: nobody behind it gets further than the
+  // bases it took (need), and it's said last, as the winning run (win).
+  const live = !S.over && S.R[1] <= S.R[0];
+  let need = 0, win = null;
+  for (const [from, was, how, f] of moves) {
     const r = S.bases[from];
     if (!r || moved.has(from) || S.outs >= 3) continue;
     moved.add(from);
+    const to = need && was ? Math.min(was, from + need) : was;
     // Someone who didn't move is still on that base (the runners ahead go first): this runner stays put.
     if (to >= 1 && to <= 3 && to !== from && S.bases[to]) continue;
     S.bases[from] = null;
@@ -391,12 +415,15 @@ function runners(S, e) {
       reach(r.cell, from, to, m);
       const why = how === 'WP' ? ' on a wild pitch' : how === 'PB' ? ' on a passed ball' : how === 'E' ? ` on an error by the ${POS_NAME[f && f[0]] || 'fielder'}${f && f[0] ? ` (E${f[0]})` : ''}` : '';
       const said = balk ? '' : why;
-      if (to === 4 && how !== 'SB') {
-        if (!scored[said]) { const names = scored[said] = []; bits.push(() => `${list(names)} ${names.length > 1 ? 'score' : 'scores'}${said}`); }
-        scored[said].push(who);
-      } else bits.push(`${who} ${to === 4 ? 'steals home' : `${how === 'SB' ? 'steals' : 'moves to'} ${BASE[to]}`}${said}`);
-      r.cell.story.push(`${how === 'SB' && to === 4 ? 'Stole home' : to === 4 ? 'Scored' : how === 'SB' ? 'Stole ' + BASE[to] : 'Moved to ' + BASE[to]}${balk ? ' on a balk' : why}.`);
       if (to === 4) { score(S, r); runs++; } else S.bases[to] = r;
+      const winning = to === 4 && live && !need && won(S);
+      if (winning) need = 4 - from;
+      if (to === 4 && how !== 'SB') {
+        if (winning) win = said;
+        if (!scored[said]) { const names = scored[said] = []; bits.push(() => scorers(names, win === said, said)); }
+        scored[said].push(who);
+      } else bits.push(`${who} ${to === 4 ? `steals home${winning ? ' with the winning run' : ''}` : `${how === 'SB' ? 'steals' : 'moves to'} ${BASE[to]}`}${said}`);
+      r.cell.story.push(`${how === 'SB' && to === 4 ? 'Stole home' : to === 4 ? 'Scored' : how === 'SB' ? 'Stole ' + BASE[to] : 'Moved to ' + BASE[to]}${balk ? ' on a balk' : why}.`);
     }
   }
   // One wild throw is one error, and one wild pitch is one, however many runners move up on it (OBR 9.12).
@@ -427,8 +454,26 @@ function score(S, r) {
   pstat(S, 1 - side, r.pi).r++;
 }
 
+// The home team is ahead in its last turn (or an extra inning): the game is over (OBR 7.01(g)). Not while the scorer
+// plays out a half-inning after the final (Keep playing).
+const won = S => !S.hold && S.half === 1 && S.inn >= S.g.innings && S.R[1] > S.R[0];
 function walkoff(S) {
-  if (!S.hold && S.half === 1 && S.inn >= S.g.innings && S.R[1] > S.R[0]) S.over = true;
+  if (won(S)) S.over = true;
+}
+// On a play in the home team's last turn, how many bases the run that puts it ahead takes, from where it was (0 when
+// none does): the game ends as it scores, so nobody behind it gets further than that, and a hit counts for that many
+// bases (OBR 5.08(b), 9.06(f)). Not on a home run, when everyone scores (9.06(g)), nor when the runs on the play
+// don't count (x), nor in a half-inning played out after the final.
+export function winningRun(S, code, moves, x) {
+  if (S.over || S.hold || S.half !== 1 || S.inn < S.g.innings || S.R[1] > S.R[0] || code === 'HR' || x) return 0;
+  let runs = S.R[1];
+  const seen = new Set();
+  for (const [from, to] of moves.slice().sort((a, b) => b[0] - a[0])) {
+    if (seen.has(from) || (from && !S.bases[from])) continue;
+    seen.add(from);
+    if (to === 4 && ++runs > S.R[0]) return 4 - from;
+  }
+  return 0;
 }
 function endHalf(S, called) {
   const side = S.half;

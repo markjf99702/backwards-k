@@ -2,7 +2,7 @@
 // away on a phone) the scorecard, the box score and the play-by-play.
 import {
   replay, suggest, check, runsCount, scoredAs, now, RESULTS, BASE, POS, POS_NAME, halfLabel, label, player, teamName,
-  pitcherLabel, ord, runnersOn, mark, pitchStat, pitchWords, pitchDay, pitchWork, pitchCount,
+  pitcherLabel, ord, runnersOn, mark, pitchStat, pitchWords, pitchDay, pitchWork, pitchCount, winningRun,
 } from './engine.js';
 import { store } from './store.js';
 import { blank, takeBack, putBack, newer, plays } from './model.js';
@@ -544,14 +544,16 @@ function runnersSheet(code, f, moves, { st = S, editing = false, done = act } = 
     if (userSaid == null) counts.v = runsCount(st, code, m);
     let t = '';
     if (err) t = `<span class="err">${esc(err)}</span>`;
+    // The run that puts the home team ahead in its last turn ends the game: the runs behind it don't score.
+    else if (winningRun(st, code, m, third && !counts.v)) t = 'The winning run scores, and that’s the game.';
     else {
       const bits = [];
       if (runs) bits.push(`${runs} run${runs > 1 ? 's' : ''} ${third && !counts.v ? (runs > 1 ? 'cross' : 'crosses') : (runs > 1 ? 'score' : 'scores')}`);
       bits.push(`${st.outs + outs} out${st.outs + outs === 1 ? '' : 's'}${st.outs + outs >= 3 ? ', side retired' : ''}`);
       t = bits.join(' · ');
-      if (third) t += `<span class="third">That’s the third out. Did the run${runs > 1 ? 's' : ''} cross the plate before it?
-        <span class="chips"><button type="button" data-runs="1" aria-pressed="${counts.v}">Yes, ${runs > 1 ? 'they count' : 'it counts'}</button><button type="button" data-runs="0" aria-pressed="${!counts.v}">No</button></span></span>`;
     }
+    if (!err && third) t += `<span class="third">That’s the third out. Did the run${runs > 1 ? 's' : ''} cross the plate before it?
+        <span class="chips"><button type="button" data-runs="1" aria-pressed="${counts.v}">Yes, ${runs > 1 ? 'they count' : 'it counts'}</button><button type="button" data-runs="0" aria-pressed="${!counts.v}">No</button></span></span>`;
     const tally = body.querySelector('.tally');
     tally.innerHTML = t;
     body.querySelector('[data-x=save]').disabled = !!err;

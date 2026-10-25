@@ -1,7 +1,7 @@
 // The rules of scoring, without a browser:  node --test test/unit.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { replay, suggest, check, runsCount, scoredAs, mark, now, columns, halfLabel, RESULTS, runnersOn, pitchDay, pitchStat, pitchWork, pitchCount } from '../js/engine.js';
+import { replay, suggest, check, runsCount, scoredAs, mark, now, columns, halfLabel, RESULTS, runnersOn, pitchDay, pitchStat, pitchWork, pitchCount, winningRun } from '../js/engine.js';
 import { newGame, cleanGame, cleanDoc, parseLineup, parsePaste, takeBack, putBack, carryLineup, newer, merge, seenOf } from '../js/model.js';
 import { sampleGame } from '../js/sample.js';
 // The card is drawn with ui.js, which looks for the page's sheet as it loads: here there's no page, so no sheet.
@@ -188,6 +188,60 @@ test('a walk-off’s last box gets the red line under it, like the end of any in
   assert.equal(S.over, true);
   assert.equal(S.cells.at(-1).end, true);
   assert.equal(S.cells.at(-2).end, false);
+});
+
+test('a hit that wins the game: the winning run is the last to score, and the hit counts for the bases it needed (OBR 9.06(f))', () => {
+  // Tied in the bottom of the last with the bases loaded: a double is a single, one run scores, everyone moves up one.
+  let S = play(game({ innings: 1 }), ...threeK, '1B', '1B', '1B', '2B');
+  const c = S.cells.at(-1);
+  assert.equal(S.over, true);
+  assert.deepEqual(S.R, [0, 1]);
+  assert.deepEqual([c.r, c.mark, c.reach, c.rbi], ['1B', '1B', 1, 1]);
+  assert.equal(S.text.at(-1), 'Batter 4 doubles, but it counts as a single: the winning run needed only one base. Batter 1 scores the winning run. Batter 2 to third. Batter 3 to second.');
+  assert.deepEqual([1, 2, 3].map(b => S.bases[b] && S.bases[b].slot), [3, 2, 1]);
+  assert.deepEqual(S.lob[1], [3], 'the three still on are left on base');
+  assert.equal(Object.values(S.bat).reduce((a, b) => a + b.d, 0), 0, 'no double in the box score');
+  assert.doesNotMatch(boxHtml(S), /Doubles/);
+  assert.deepEqual(scorersProof(S, 1), [4, 4]);
+  // Down one with runners on second and third: a triple brings in the tying run and then the winning one, and counts
+  // as a double.
+  const g = game({ innings: 1 });
+  play(g, 'HR', ...threeK, '2B', { t: 'pa', r: '2B', m: [[2, 3], [0, 2]] });
+  S = play(g, '3B');
+  assert.deepEqual(S.R, [1, 2]);
+  assert.equal(S.cells.at(-1).r, '2B');
+  assert.equal(S.text.at(-1), 'Batter 3 triples, but it counts as a double: the winning run needed only two bases. Batter 1 scores, and Batter 2 scores the winning run.');
+  // A home run: everyone scores (9.06(g)).
+  S = play(game({ innings: 1 }), ...threeK, '1B', '1B', '1B', 'HR');
+  assert.deepEqual(S.R, [0, 4]);
+  assert.equal(S.cells.at(-1).r, 'HR');
+  // A walk with the bases loaded forces in one run, and a single the batter came all the way home on is still a single.
+  S = play(game({ innings: 1 }), ...threeK, '1B', '1B', '1B', 'BB');
+  assert.deepEqual([S.R[1], S.text.at(-1)], [1, 'Batter 4 walks. Batter 1 scores the winning run. Batter 2 to third. Batter 3 to second.']);
+  S = play(game({ innings: 1 }), ...threeK, { t: 'pa', r: '1B', m: [[0, 4]] });
+  assert.deepEqual([S.R[1], S.cells.at(-1).r, S.text.at(-1)], [1, '1B', 'Batter 1 singles and comes all the way home with the winning run.']);
+  // Runners moving up without a hit: the winning run scores, and the one behind it stops a base on.
+  S = play(game({ innings: 1 }), ...threeK, '2B', '1B', { t: 'r', m: [[3, 4, 'WP'], [1, 3, 'WP']] });
+  assert.deepEqual(S.R, [0, 1]);
+  assert.equal(S.text.at(-1), 'Batter 1 scores the winning run on a wild pitch. Batter 2 moves to second on a wild pitch.');
+  assert.equal(S.bases[2].slot, 1);
+  S = play(game({ innings: 1 }), ...threeK, '3B', { t: 'r', m: [[3, 4, 'SB']] });
+  assert.equal(S.text.at(-1), 'Batter 1 steals home with the winning run.');
+  // Before the last inning, or after Keep playing past a final, everyone scores as before.
+  S = play(game({ innings: 2 }), ...threeK, '1B', '1B', '1B', '2B');
+  assert.deepEqual(S.R, [0, 2]);
+  assert.equal(S.cells.at(-1).r, '2B');
+  S = play(game({ innings: 1 }), ...threeK, 'HR', { t: 'on' }, '1B', '1B', '2B');
+  assert.deepEqual([S.R, S.cells.at(-1).r], [[0, 2], '2B']);
+});
+
+test('the runners sheet knows a hit that wins it: how many bases the winning run took', () => {
+  const S = play(game({ innings: 1 }), ...threeK, '1B', '1B', '1B');
+  assert.equal(winningRun(S, '2B', suggest(S, '2B')), 1);
+  assert.equal(winningRun(S, 'HR', suggest(S, 'HR')), 0, 'a home run');
+  assert.equal(winningRun(S, '2B', suggest(S, '2B'), 1), 0, 'runs that don’t count');
+  assert.equal(winningRun(S, 'GO', suggest(S, 'GO')), 1, 'a run forced in on a ground out');
+  assert.equal(winningRun(play(game({ innings: 2 }), ...threeK, '1B'), '2B', [[1, 4], [0, 2]]), 0, 'not the last inning');
 });
 
 test('the marks in a box don’t print over each other', () => {
