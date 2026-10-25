@@ -2031,6 +2031,31 @@ for (const [width, height] of [[360, 640], [390, 844], [768, 1024], [1024, 768]]
   await p.context().close();
 }
 
+step('zoomed in to 200%: a tap on a runner, the batter or the pitcher is on that one, not on the one beside it');
+for (const width of [195, 210, 260]) {
+  // The bases loaded, and long names, so the chips are as wide as they get.
+  const g = sampleUntil(7, S => S.bases[1] && S.bases[2] && S.bases[3]), S = replay(g);
+  for (const b of [1, 2, 3]) { const r = S.bases[b]; g.teams[r.side].lineup[r.slot][r.p].name = ['', 'Fitzgerald-Montgomery', 'Abernathy-Longfellow', 'Vanderhoeven-Castellanos'][b]; }
+  const p = await playing(g, { width, height: Math.round(width * 844 / 390) });
+  const wrong = await p.evaluate(() => {
+    const sel = '.field .runner, .field .batter, .field .pitcher', name = el => el.className.split(' ')[0] + (el.dataset.runner || ''), out = new Set();
+    for (const el of document.querySelectorAll(sel)) {
+      // Points all over each chip as it's drawn, rounded corners and all.
+      const b = el.getBoundingClientRect(), r = Math.min(parseFloat(getComputedStyle(el).borderTopLeftRadius), b.width / 2, b.height / 2);
+      for (let i = 0; i <= 12; i++) for (let j = 0; j <= 6; j++) {
+        const x = b.left + b.width * i / 12, y = b.top + b.height * j / 6;
+        const cx = Math.min(Math.max(x, b.left + r), b.right - r), cy = Math.min(Math.max(y, b.top + r), b.bottom - r);
+        if (Math.hypot(x - cx, y - cy) > r - 1.5 || x < b.left + 1 || x > b.right - 1 || y < b.top + 1 || y > b.bottom - 1) continue;
+        const hit = document.elementFromPoint(x, y)?.closest(sel);
+        if (hit && hit !== el) out.add(`${name(el)} -> ${name(hit)}`);
+      }
+    }
+    return [...out];
+  });
+  assert.deepEqual(wrong, [], `${width}: a tap on one lands on another`);
+  await p.context().close();
+}
+
 step('a phone in Safari (390 by 664): no green strip, a shorter field and buttons, and the outs down to Fly out in sight');
 {
   const p = await playing(seventh(), { width: 390, height: 664 });

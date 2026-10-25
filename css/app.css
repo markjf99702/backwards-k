@@ -792,6 +792,8 @@ html:has(dialog.sheet[open]) { overflow: hidden; scrollbar-gutter: stable; }
   .deck { top: calc(100% + 6px); bottom: auto; left: 0; max-width: 40%; }
   .pitcher { top: calc(100% + 6px); left: auto; right: 0; transform: none; max-width: 58%; }
   .runner, .batter { font-size: 13px; padding: 3px 8px; min-height: 30px; }
+  /* (No taller places to tap here: on a field this small they'd reach over the chip next to it.) */
+  .runner::before, .batter::before, .pitcher::before { content: none; }
 }
 @media (max-width: 240px) {
   .pitches, .row4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
