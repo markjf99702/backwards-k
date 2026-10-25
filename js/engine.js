@@ -128,6 +128,7 @@ export function replay(g, upTo = g.ev.length) {
     plays: [], text: [], bat: {}, pitching: [[], []],
     over: false, ended: false, hold: false, between: false, batted: [false, false],
     why: '', // why the scorer ended it: 'rule' (a run rule) or 'time' (a time limit), else '' (called: rain, darkness)
+    mercy: null, // the league's mercy rule ended it: { by: runs ahead, inn: innings played, '4' or '3½' }
     delayed: false, // play is stopped for a delay: the game waits, and goes on as it was
 
     fresh: false, // a half-inning has just started and nothing has happened in it yet
@@ -196,7 +197,7 @@ function step(S, e) {
       return note(S, `${teamName(g, e.s)} add a batter to the order.`, 'sub');
     case 'eoh':
       S.text[S.i] = `Ended the ${S.half ? 'bottom' : 'top'} of the ${ord(S.inn)} early.`;
-      return endHalf(S, true);
+      return endHalf(S, 'early');
     case 'end':
       if (S.fresh) unstart(S);
       // (A reason from a newer version reads as called.)
@@ -224,7 +225,7 @@ export const ENDS = {
 // going ahead doesn't end it again) and the game ends when it's over; a game ended by hand goes on as usual.
 function resume(S) {
   S.hold = S.over && !S.ended;
-  S.over = false; S.ended = false; S.why = '';
+  S.over = false; S.ended = false; S.why = ''; S.mercy = null;
   if (S.between) nextHalf(S);
 }
 
@@ -306,9 +307,11 @@ function pa(S, e) {
   const batterName = label(player(g, side, slot, p), slot);
   // Everyone who scores is in one sentence, where the first of them would be: "Okafor, Brennan and Castillo score."
   // The same for runs that don't count. The winning run, when a runner brings it in, is said last.
-  const bits = [], scored = [], waved = [];
+  const bits = [], scored = [], waved = [], past = [];
   const together = (names, one, more) => { if (!names.length) bits.push(() => `${list(names)} ${names.length > 1 ? more : one}`); };
   let runs = 0, bOut = false, bTo = R.go, handed = null;
+  // A league's run limit: the runs that can still count this half-inning, on this play.
+  const cap = room(S);
   // (A play from a file that lists someone twice moves them once: the first time.)
   const moved = new Set();
   for (const [from, was] of moves) {
@@ -341,6 +344,9 @@ function pa(S, e) {
       together(waved, 'crosses the plate, but the run doesn’t count', 'cross the plate, but the runs don’t count');
       waved.push(who);
       r.cell.story.push('Crossed the plate, but the run doesn’t count.');
+    } else if (to === 4 && runs >= cap) {
+      // Past the league's run limit for a half-inning: the run doesn't count, and the runner is left on base.
+      overLimit(S, r, from, who, past, together);
     } else {
       reach(r.cell, from, to, from ? String(slot + 1) : '');
       if (to === 4) {
@@ -366,6 +372,8 @@ function pa(S, e) {
   else if (R.kind === 'out' && !bOut && bTo > 0) text += ` but reaches ${BASE[bTo]}`;
   text += '.' + (bits.length ? ' ' + sentences(bits) + '.' : '');
   if (code !== e.r) text += ` ${credit(e.r, code)}`;
+  const full = (runs || past.length) && S.outs < 3 && limited(S);
+  if (full) text += ' ' + limitWords(S);
   cell.text = text;
   S.text[S.i] = text;
   S.plays.push({ i: S.i, inn: S.inn, half: side, text, kind: 'pa', runs, cell: cell.n, r: code });
@@ -374,7 +382,58 @@ function pa(S, e) {
   S.up[side] = (slot + 1) % S.size[side];
   S.last = cell;
   walkoff(S);
-  if (S.outs >= 3) endHalf(S);
+  if (S.outs >= 3 || (full && !S.over)) endHalf(S, S.outs >= 3 ? '' : 'limit');
+}
+
+// ---------- league rules ----------
+// A game's league rules (g.rules, see model.js), when it has them: runs, the most a team can score in a half-inning
+// (0 for no limit), and last, whether that holds in the last inning (and extra innings) too; all, whether every run
+// on the play that reaches it counts (else the run that reaches it is the last); mercy, [[innings, runs ahead]]: the
+// game is over when a team is that far ahead after that many innings (half an inning sooner when it's the home team,
+// which doesn't need its turn).
+// How many more runs can count this half-inning (Infinity with no limit, or when every run on the play counts).
+function room(S) {
+  const r = S.g.rules;
+  if (!r || !r.runs || r.all || (!r.last && S.inn >= S.g.innings)) return Infinity;
+  return Math.max(0, r.runs - (S.line[S.half][S.inn - 1] || 0));
+}
+// The batting team has its limit of runs for the half-inning.
+function limited(S) {
+  const r = S.g.rules;
+  return !!r && r.runs > 0 && (r.last || S.inn < S.g.innings) && (S.line[S.half][S.inn - 1] || 0) >= r.runs;
+}
+// "That's 5 runs: the half-inning is over." (Past the limit, when every run on the play counts.)
+function limitWords(S) {
+  const n = S.line[S.half][S.inn - 1], max = S.g.rules.runs;
+  return `That’s ${n} runs${n > max ? `, past the ${max}-run limit` : ''}: the half-inning is over.`;
+}
+// A runner who crosses the plate after the run that reached the limit: the run doesn't count, and he counts as left
+// on base. His box shows the way round, without the run.
+function overLimit(S, r, from, who, past, together) {
+  S.waved++;
+  reach(r.cell, from, 4, '');
+  together(past, `crosses the plate too, but the ${S.g.rules.runs}-run limit was reached, so the run doesn’t count`, `cross the plate too, but the ${S.g.rules.runs}-run limit was reached, so the runs don’t count`);
+  past.push(who);
+  r.cell.story.push(`Crossed the plate after the ${S.g.rules.runs}-run limit was reached: the run doesn’t count.`);
+}
+// The game is over on the league's mercy rule: after the top of an inning, the home team that far ahead; after the
+// bottom, or the moment the home team gets that far ahead in it, either team (Little League 4.10(e)). Not while a
+// half-inning after the final is played out (Keep playing) until it ends. Returns { by, inn } or null.
+function mercy(S, ended) {
+  const r = S.g.rules;
+  if (!r || !r.mercy || (!ended && (S.hold || S.half !== 1))) return null;
+  const lead = S.half === 0 || !ended ? S.R[1] - S.R[0] : Math.abs(S.R[1] - S.R[0]);
+  for (const [n, by] of r.mercy) if (S.inn >= n && lead >= by) return { by, inn: S.half === 0 ? `${S.inn - 1}½` : String(S.inn) };
+  return null;
+}
+// The game ends on it, and the play that ended it and the play-by-play say so: "That's the game on the 10-run rule:
+// the Comets lead 11–1 after 4 innings."
+function mercyEnds(S) {
+  const w = S.R[1] > S.R[0] ? 1 : 0, m = S.mercy;
+  const text = `That’s the game on the ${m.by}-run rule: the ${teamName(S.g, w)} lead ${S.R[w]}–${S.R[1 - w]} after ${m.inn} inning${m.inn === '1' ? '' : 's'}.`;
+  S.over = true;
+  S.text[S.i] += ' ' + text;
+  S.plays.push({ i: S.i, inn: S.inn, half: S.half, text, kind: 'end', runs: 0 });
 }
 
 // A play's sentences, joined. A sentence that lists everyone who scored is a function, written out once they're all
@@ -406,7 +465,7 @@ function runners(S, e) {
   let runs = 0, err = null;
   const balk = moves.length && moves.every(m => m[2] === 'BK');
   // (From a file: a runner listed twice moves once, and nothing happens after the third out.)
-  const moved = new Set();
+  const moved = new Set(), past = [], cap = room(S);
   // The run that puts the home team ahead in its last turn ends the game: nobody behind it gets further than the
   // bases it took (need), and it's said last, as the winning run (win).
   const live = !S.over && S.R[1] <= S.R[0];
@@ -434,6 +493,7 @@ function runners(S, e) {
       reach(r.cell, from, to, m);
       const why = how === 'WP' ? ' on a wild pitch' : how === 'PB' ? ' on a passed ball' : how === 'E' ? ` on an error by the ${POS_NAME[f && f[0]] || 'fielder'}${f && f[0] ? ` (E${f[0]})` : ''}` : '';
       const said = balk ? '' : why;
+      if (to === 4 && runs >= cap) { overLimit(S, r, from, who, past, (names, one, more) => { if (!names.length) bits.push(() => `${list(names)} ${names.length > 1 ? more : one}`); }); continue; }
       if (to === 4) { score(S, r); runs++; } else S.bases[to] = r;
       const winning = to === 4 && live && !need && won(S) && !goesOn(S);
       if (winning) need = 4 - from;
@@ -449,11 +509,12 @@ function runners(S, e) {
   if (err) { S.E[fld]++; S.eInn[side][S.inn - 1]++; S.errs[fld].push(err[0]); }
   if (moves.some(m => m[2] === 'WP')) pstat(S).wp++;
   if (balk) pstat(S).bk++;
-  const text = (balk ? 'Balk. ' : '') + (bits.length ? sentences(bits) + '.' : '');
+  const full = (runs || past.length) && S.outs < 3 && limited(S);
+  const text = (balk ? 'Balk. ' : '') + (bits.length ? sentences(bits) + '.' : '') + (full ? ' ' + limitWords(S) : '');
   S.text[S.i] = text;
   S.plays.push({ i: S.i, inn: S.inn, half: side, text, kind: 'run', runs, mark: mk });
   walkoff(S);
-  if (S.outs >= 3) endHalf(S);
+  if (S.outs >= 3 || (full && !S.over)) endHalf(S, S.outs >= 3 ? '' : 'limit');
 }
 
 function reach(cell, from, to, how) {
@@ -478,6 +539,8 @@ function score(S, r) {
 const won = S => !S.hold && S.half === 1 && S.inn >= S.g.innings && S.R[1] > S.R[0];
 function walkoff(S) {
   if (won(S)) S.over = true;
+  // Or the home team, batting, gets far enough ahead for the league's mercy rule.
+  else if (!S.over && (S.mercy = mercy(S, false))) mercyEnds(S);
 }
 // The hit a batter gets when it wins the game: no more bases than the winning run took (need), when he made it that
 // far (OBR 9.06(f)). A home run is still a home run.
@@ -510,12 +573,14 @@ function goesOn(S) {
   for (let j = S.i + 1; j < S.upTo; j++) if (S.g.ev[j].t === 'on' || PLAY.has(S.g.ev[j].t)) return true;
   return false;
 }
-function endHalf(S, called) {
+// how: '' after three outs, 'early' when the scorer ended it, 'limit' on the league's run limit.
+function endHalf(S, how = '') {
   const side = S.half;
   S.lob[side][S.inn - 1] = [1, 2, 3].filter(b => S.bases[b]).length + S.waved;
   S.waved = 0;
   if (S.last) S.last.end = true;
-  const text = `End of the ${side ? 'bottom' : 'top'} of the ${ord(S.inn)}${called ? ', ended early' : ''}: ${teamName(S.g, 0)} ${S.R[0]}, ${teamName(S.g, 1)} ${S.R[1]}.`;
+  const why = how === 'early' ? ', ended early' : how === 'limit' ? `, on the ${S.g.rules.runs}-run limit` : '';
+  const text = `End of the ${side ? 'bottom' : 'top'} of the ${ord(S.inn)}${why}: ${teamName(S.g, 0)} ${S.R[0]}, ${teamName(S.g, 1)} ${S.R[1]}.`;
   // The half-inning in numbers, as a broadcaster gives it: 0 runs, 2 hits, no errors, 3 left on base.
   const n = S.inn - 1, few = (k, w) => `${k} ${w}${k === 1 ? '' : 's'}`, err = S.eInn[side][n] || 0;
   const sum = `${few(S.line[side][n] || 0, 'run')}, ${few(S.hInn[side][n] || 0, 'hit')}, ${err ? few(err, 'error') : 'no errors'}, ${S.lob[side][n]} left on base.`;
@@ -524,6 +589,7 @@ function endHalf(S, called) {
     if (side === 0 && S.R[1] > S.R[0]) S.over = true;
     if (side === 1 && S.R[0] !== S.R[1]) S.over = true;
   }
+  if (!S.over && (S.mercy = mercy(S, true))) mercyEnds(S);
   S.hold = false;
   S.bases = [null, null, null, null];
   S.outs = 0; S.b = 0; S.s = 0; S.seq = ''; S.relief = null; S.ph = null;
@@ -719,9 +785,10 @@ export function winner(S) {
   if (!S.over || S.R[0] === S.R[1] || (S.ended && !S.why && !official(S))) return null;
   return S.R[1] > S.R[0] ? 1 : 0;
 }
-// Why a game ended before its last out, for after the score: "run rule", "time limit", or for a called game that
-// didn't count, "before it was official". '' otherwise.
+// Why a game ended before its last out, for after the score: "run rule", "time limit", the league's "10-run rule, 4
+// innings", or for a called game that didn't count, "before it was official". '' otherwise.
 export function endNote(S) {
+  if (S.over && S.mercy) return `${S.mercy.by}-run rule, ${S.mercy.inn} inning${S.mercy.inn === '1' ? '' : 's'}`;
   if (!S.over || !S.ended) return '';
   return S.why ? ENDS[S.why].short : official(S) ? '' : 'before it was official';
 }

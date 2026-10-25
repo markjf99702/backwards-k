@@ -4,6 +4,7 @@ import { newGame, blank, starters, today, parsePaste } from './model.js';
 import { store } from './store.js';
 import { $, $$, esc, openSheet, closeSheet, go, nextName } from './ui.js';
 import { drive } from './sync.js';
+import { rulesRow } from './rules.js';
 
 // Teams from earlier games, newest first, with the order they started with. Each player's name and number, and
 // nothing else: anything a newer Backwards K saved on a player belongs to that game, and in a new one would make it
@@ -25,10 +26,14 @@ function pastTeams() {
 export function showSetup(el) {
   const past = pastTeams();
   const T = [0, 1].map(() => ({ name: '', lineup: Array.from({ length: 9 }, blank), pitcher: blank() }));
-  // The innings and the pitch counting start as they were for the last game on this device: a league that plays six
-  // innings without counting pitches doesn't have to say so every week.
+  // The innings, the pitch counting and the league rules start as they were for the last game on this device: a
+  // league that plays six innings without counting pitches, under Little League's rules, doesn't have to say so
+  // every week.
   const last = store.all()[0], INN = [9, 7, 6, 5, 4, 3];
-  const opt = { innings: last && INN.includes(last.innings) ? last.innings : 9, pitches: last ? last.pitches !== false : true, date: today(), place: '' };
+  const opt = {
+    innings: last && INN.includes(last.innings) ? last.innings : 9, pitches: last ? last.pitches !== false : true,
+    rules: last && last.rules ? structuredClone(last.rules) : null, date: today(), place: '',
+  };
 
   el.innerHTML = `<header class="bar">
       <div class="bar-in">
@@ -43,6 +48,7 @@ export function showSetup(el) {
         <fieldset class="opts card-box">
           <legend class="sr">The game</legend>
           <div class="opt"><span class="lbl">Innings</span><span class="chips" role="group" aria-label="Innings">${INN.map(n => `<button type="button" data-inn="${n}" aria-pressed="${n === opt.innings}">${n}</button>`).join('')}</span></div>
+          <div class="rules-row"></div>
           <label class="switch"><input type="checkbox" name="pitches"${opt.pitches ? ' checked' : ''}><span>Count balls and strikes<small>Keeps the count and each pitcher’s pitch count. Turn it off to only tap what each batter did.</small></span></label>
           <div class="two-sm">
             <label><span>Date</span><input type="date" name="date" value="${opt.date}"></label>
@@ -90,6 +96,7 @@ export function showSetup(el) {
     $('.from-order', fs(side)).innerHTML = list.length ? `<p class="pick-row" role="group" aria-label="From the order"><span>From the order:</span>${list.map(([i, p]) => `<button type="button" class="chip" data-pick="${i}" aria-pressed="${same(p, t.pitcher)}">${esc(p.name ? p.name + (p.num ? ' #' + p.num : '') : '#' + p.num)}</button>`).join('')}</p>` : '';
   }
   [0, 1].forEach(rows);
+  rulesRow($('.rules-row', el), () => opt.rules, r => { opt.rules = r; });
 
   el.addEventListener('input', e => {
     const f = e.target.closest('.team-set');
@@ -139,7 +146,7 @@ export function showSetup(el) {
   form.addEventListener('submit', e => { e.preventDefault(); start(); });
   el.querySelector('[data-go]').addEventListener('click', start);
   function start() {
-    const g = newGame({ away: T[0].name, home: T[1].name, innings: opt.innings, pitches: form.pitches.checked, date: form.date.value || today(), place: form.place.value.trim() });
+    const g = newGame({ away: T[0].name, home: T[1].name, innings: opt.innings, pitches: form.pitches.checked, rules: opt.rules, date: form.date.value || today(), place: form.place.value.trim() });
     T.forEach((t, s) => {
       g.teams[s].lineup = t.lineup.map(p => [{ ...p }]);
       g.teams[s].pitchers = [{ ...t.pitcher }];

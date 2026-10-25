@@ -37,7 +37,7 @@ const canon = v => JSON.stringify(sorted(v));
 
 // ---------- a game, and the game screen's steps (js/game.js) ----------
 function makeGame(setup) {
-  const g = M.newGame({ away: 'Foxes', home: 'Comets', innings: setup.innings, pitches: setup.pitches, date: '2026-10-25', place: 'Fuzz' });
+  const g = M.newGame({ away: 'Foxes', home: 'Comets', innings: setup.innings, pitches: setup.pitches, rules: setup.rules || null, date: '2026-10-25', place: 'Fuzz' });
   g.id = 'gfuzz' + setup.seed; g.created = g.updated = 1;
   g.teams.forEach((t, s) => {
     t.lineup = Array.from({ length: setup.size[s] }, (_, i) => [i % 4 === 3 ? M.blank() : { name: `${s ? 'H' : 'V'}${i + 1}`, num: String(i + 1) }]);
@@ -334,15 +334,22 @@ function rules(C, fresh) {
       const lob = now && !S.over ? runnersOn(S).length + S.waved : S.lob[side][inn - 1];
       if (here.length !== (S.line[side][inn - 1] || 0) + lob + here.filter(c => c.outN).length) bad('proof', `side ${side}, inning ${inn}: ${here.length} trips, ${S.line[side][inn - 1] || 0} runs, ${lob} left on, ${here.filter(c => c.outN).length} out`);
     }
-    for (const p of S.plays) if (p.kind === 'end' && p.half === side && /^End of the .*\d\.$/.test(p.text) && !/ended early/.test(p.text) && cells.filter(c => c.inn === p.inn && c.outN).length !== 3) bad('three-outs', p.text);
+    for (const p of S.plays) if (p.kind === 'end' && p.half === side && /^End of the .*\d\.$/.test(p.text) && !/ended early|run limit/.test(p.text) && cells.filter(c => c.inn === p.inn && c.outN).length !== 3) bad('three-outs', p.text);
   }
   // The game ends when the home team goes ahead in its last turn, and the winning run is the last to count, unless
   // it came on a home run (OBR 5.08(b), 7.01(g), 9.06(f)); a half that ends with it decided ends it.
   if (!S.over && !S.hold && S.half === 1 && S.inn >= g.innings && S.R[1] > S.R[0]) bad('rule-walkoff', `bottom ${S.inn}, the home team ahead ${S.R[1]}-${S.R[0]}, and the game goes on`);
-  if (S.over && !S.ended && !S.between) {
+  if (S.over && !S.ended && !S.between && !S.mercy) {
     const p = S.plays.findLast(x => x.runs), e = p && g.ev[p.i];
     if (!(e && e.t === 'pa' && e.r === 'HR') && S.R[1] - S.R[0] !== 1) bad('rule-walkoff-run', `a walk-off that ends ${S.R[0]}-${S.R[1]}: only the winning run counts`);
   }
+  // A league's rules: no more runs in a half-inning than its limit (unless every run on the play counts), and the game
+  // over when a half ends with a team far enough ahead (Little League 4.10(e)).
+  const r = g.rules;
+  if (r && r.runs && !r.all) for (const side of [0, 1]) S.line[side].forEach((n, i) => { if (n > r.runs && (r.last || i + 1 < g.innings)) bad('rule-limit', `side ${side}, inning ${i + 1}: ${n} runs, past the ${r.runs}-run limit`); });
+  const ended = S.plays.findLast(p => p.kind === 'end' && /^End of /.test(p.text));
+  if (r && ended && ended.i === g.ev.length - 1 && !S.over && S.plays.at(-1) === ended
+    && r.mercy.some(([n, by]) => ended.inn >= n && (ended.half === 0 ? S.R[1] - S.R[0] : Math.abs(S.R[1] - S.R[0])) >= by)) bad('rule-mercy', `${ended.text} and the game goes on`);
   const last = S.plays.at(-1);
   if (last && last.kind === 'end' && last.i === g.ev.length - 1 && last.inn >= g.innings && !S.over && !S.hold && ((last.half === 0 && S.R[1] > S.R[0]) || (last.half === 1 && S.R[0] !== S.R[1]))) bad('rule-end', `${last.text} and the game goes on`);
   // What the runners sheet lets through: a play no scorer would write.
@@ -473,12 +480,17 @@ function say(a) {
 }
 
 // ---------- the run ----------
+const LEAGUE = { ll: { set: 'll', runs: 0, last: false, all: false, mercy: [[3, 15], [4, 10]] } };
+LEAGUE.minors = { ...LEAGUE.ll, set: 'minors', runs: 5 };
 const t0 = Date.now(), found = new Map();
 let taps = 0, events = 0;
 for (let n = 0; n < GAMES; n++) {
   const seed = SEED + n, rnd = dice(seed * 7919 + 13);
   const size = weighed(rnd, [[8, 9], [2, 10], [2, 12], [1, 3], [1, 1], [1, 5]]);
   const setup = { seed, innings: weighed(rnd, [[4, 9], [2, 7], [2, 6], [1, 5], [1, 3], [1, 2], [1, 1]]), size: [size, rnd() < 0.8 ? size : pick(rnd, [9, 11, 4])], pitches: rnd() < 0.8 };
+  // League rules in some: Little League's mercy rule, the Minors' run limit, and limits of every kind.
+  setup.rules = weighed(rnd, [[6, null], [1, LEAGUE.ll], [1, LEAGUE.minors],
+    [1, { set: 'custom', runs: 1 + Math.floor(rnd() * 4), last: rnd() < 0.5, all: rnd() < 0.5, mercy: rnd() < 0.5 ? [[1 + Math.floor(rnd() * 3), 2 + Math.floor(rnd() * 5)]] : [] }]]);
   // Make up the game a step at a time, keeping the steps the screen would take.
   const C = { setup, g: makeGame(setup), redo: [], kept: null, tapped: { e: null, r: '' } };
   save(C);
@@ -502,7 +514,7 @@ console.log(`fuzz: ${GAMES} games from seed ${SEED}, ${found.size} thing(s) brok
 for (const [key, f] of found) {
   const s = await shrink(f.setup, f.steps, key), r = await play(s.setup, s.steps, { full: false });
   console.log(`== ${key}: ${(r.broke.get(key) || f).msg}`);
-  console.log(`   seed ${f.setup.seed}: ${s.setup.innings} inning(s), ${s.setup.size.join('/')} batters, ${s.setup.pitches ? 'counting pitches' : 'no pitch count'}. ${s.steps.length} taps:`);
+  console.log(`   seed ${f.setup.seed}: ${s.setup.innings} inning(s), ${s.setup.size.join('/')} batters, ${s.setup.pitches ? 'counting pitches' : 'no pitch count'}${s.setup.rules ? `, rules ${JSON.stringify(s.setup.rules)}` : ''}. ${s.steps.length} taps:`);
   console.log('   ' + s.steps.map(say).join(' · '));
   console.log('   Plays: ' + JSON.stringify(r.C.g.ev) + '\n');
 }

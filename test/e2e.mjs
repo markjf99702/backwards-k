@@ -432,6 +432,39 @@ step('the next new game starts with the last game’s innings and pitch counting
   await p.context().close();
 }
 
+step('league rules: the Minors end a half at five runs, and the next new game starts with them; Custom changes as it’s typed');
+{
+  const p = await phone();
+  await p.goto(base + '#/new');
+  assert.equal(await p.getAttribute('[data-rules=none]', 'aria-pressed'), 'true', 'none on a new device');
+  await p.click('[data-inn="6"]');
+  await p.click('[data-rules=minors]');
+  assert.match(await p.textContent('.rules-words'), /^A half-inning ends at 5 runs, except in the last inning/);
+  await p.click('[data-go]');
+  await p.waitForSelector('.live .field');
+  const id = await p.evaluate(() => location.hash.slice(4));
+  for (let i = 0; i < 4; i++) await p.click('[data-r=HR]');
+  for (let i = 0; i < 3; i++) await p.click('[data-r=BB]');
+  await p.click('[data-r="2B"]');
+  await p.click('.sheet [data-x=save]');
+  assert.match(await p.textContent('.ticker p'), /crosses the plate too, but the 5-run limit was reached, so the run doesn’t count\. Batter 7 to third\. That’s 5 runs: the half-inning is over\.$/);
+  assert.match(await p.textContent('.bar .title'), /5\s*–\s*0.*Bottom 1st/s);
+  // Game settings: the Minors are picked, and Custom's numbers change the game as they're typed.
+  await p.click('[data-a=menu]');
+  await p.click('.sheet [data-y=settings]');
+  assert.equal(await p.getAttribute('.sheet [data-rules=minors]', 'aria-pressed'), 'true');
+  await p.click('.sheet [data-rules=custom]');
+  await p.fill('.sheet [data-rk=runs]', '7');
+  assert.match(await p.textContent('.sheet .rules-words'), /^A half-inning ends at 7 runs/);
+  await p.keyboard.press('Escape');
+  assert.deepEqual((await stored(p, id)).rules, { set: 'custom', runs: 7, last: false, all: false, mercy: [[4, 10]] });
+  assert.match(await p.textContent('.bar .title'), /6\s*–\s*0.*Top 1st/s, 'six runs count now, one short of seven, and the half goes on');
+  await p.goto(base + '#/new');
+  assert.equal(await p.getAttribute('[data-rules=custom]', 'aria-pressed'), 'true', 'the next game starts with them');
+  assert.equal(await p.inputValue('[data-rk=runs]'), '7');
+  await p.context().close();
+}
+
 step('the end of the order the first time through: a warning on deck, and a batter added from the batter sheet');
 {
   const p = await phone(), id = await startGame(p);

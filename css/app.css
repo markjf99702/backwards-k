@@ -317,6 +317,13 @@ details.lineup summary small { color: var(--muted); font-weight: 400; }
 .two-sm { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .two-sm label, .form label { display: grid; gap: 4px; font-weight: 700; font-size: 15px; min-width: 0; }
 .two-sm input, .form input, .form select { width: 100%; min-height: 46px; padding: 8px 12px; border-radius: 10px; border: 1.5px solid var(--line-2); background: var(--paper); font-weight: 400; }
+/* League rules: the four choices, Custom's numbers, and the rules in words under them. */
+.rules-row { display: grid; gap: 10px; }
+.rules-row .rules-words { margin: 0; }
+.custom-rules { display: grid; gap: 12px; padding: 12px; border-radius: 12px; background: var(--soft); }
+.rule-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 0; font-weight: 700; }
+.rule-row small { flex-basis: 100%; color: var(--muted); font-weight: 400; font-size: 14px; }
+.rule-row input, .form .rule-row input { width: 3.4em; min-height: 44px; padding: 6px 8px; text-align: center; border-radius: 10px; border: 1.5px solid var(--line-2); background: var(--paper); font-weight: 700; }
 .setup .btn.big { justify-self: center; min-width: 240px; }
 
 /* ---------- the game screen ---------- */

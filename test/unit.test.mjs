@@ -531,6 +531,92 @@ function proof(S, side, inn) {
   return [cells.length, (S.line[side][inn - 1] || 0) + (S.lob[side][inn - 1] || 0) + cells.filter(c => c.outN).length];
 }
 
+// League rules: Little League's mercy rule (4.10(e)), and the Minors' five runs a half-inning, not in the last inning.
+const LL = { set: 'll', runs: 0, last: false, all: false, mercy: [[3, 15], [4, 10]] };
+const MINORS = { ...LL, set: 'minors', runs: 5 };
+
+test('league rules: the mercy rule ends the game, Final, with the reason (Little League 4.10(e))', async () => {
+  const { summary } = await import('../js/share.js');
+  // The visitors ten ahead after four innings.
+  const g = game({ innings: 6, rules: LL });
+  let S = play(g, ...Array(10).fill('HR'), ...threeK, ...Array(20).fill('K'));
+  assert.deepEqual([S.over, S.inn, S.half], [false, 4, 1], 'ten ahead after three and a half: the home team bats');
+  S = play(g, 'K');
+  assert.deepEqual([S.over, halfLabel(S), winner(S), endNote(S)], [true, 'Final', 0, '10-run rule, 4 innings']);
+  assert.match(S.text.at(-1), / That’s the game on the 10-run rule: the Foxes lead 10–0 after 4 innings\.$/);
+  assert.equal(S.plays.at(-1).text, 'That’s the game on the 10-run rule: the Foxes lead 10–0 after 4 innings.');
+  assert.match(summary(g), /^Foxes 10, Comets 0 \(Final, 10-run rule, 4 innings\)\n/);
+  // The home team ten ahead after the top of the 4th doesn't need its turn: three and a half, with an X.
+  const h = game({ innings: 6, rules: LL });
+  S = play(h, ...threeK, ...Array(10).fill('HR'), ...threeK, ...Array(15).fill('K'));
+  assert.deepEqual([S.over, endNote(S), lineRow(S, 1).slice(0, 5)], [true, '10-run rule, 3½ innings', ['10', '0', '0', 'X', '']]);
+  // Fifteen ahead after three.
+  S = play(game({ innings: 6, rules: LL }), ...Array(15).fill('HR'), ...Array(18).fill('K'));
+  assert.deepEqual([S.over, S.inn, endNote(S)], [true, 3, '15-run rule, 3 innings']);
+  // Without league rules the game goes on, as before.
+  S = play(game({ innings: 6 }), ...Array(15).fill('HR'), ...Array(18).fill('K'));
+  assert.deepEqual([S.over, S.inn, S.half], [false, 4, 0]);
+});
+
+test('league rules: the home team getting ten ahead in its half ends it there, and Keep playing finishes the half', () => {
+  const g = game({ innings: 6, rules: LL });
+  let S = play(g, ...threeK, ...Array(9).fill('HR'), ...threeK, ...Array(15).fill('K'), 'BB', 'HR');
+  assert.deepEqual([S.over, S.between, S.R, endNote(S)], [true, false, [0, 11], '10-run rule, 4 innings']);
+  assert.equal(S.text.at(-1), 'Batter 2 hits a home run. Batter 1 scores. That’s the game on the 10-run rule: the Comets lead 11–0 after 4 innings.');
+  // Keep playing: the rest of the half is played out (no mercy in the middle of it), and then it's over again.
+  S = play(g, { t: 'on' }, 'HR', 'K', 'K');
+  assert.deepEqual([S.over, S.R[1]], [false, 12]);
+  S = play(g, 'K');
+  assert.deepEqual([S.over, S.inn, S.half, halfLabel(S)], [true, 4, 1, 'Final']);
+  // The visitors that far ahead in the middle of the bottom half don't end it: the home team bats.
+  S = play(game({ innings: 6, rules: LL }), ...Array(10).fill('HR'), ...Array(21).fill('K'), 'K', 'K');
+  assert.equal(S.over, false);
+});
+
+test('league rules: five runs a half-inning, not in the last inning, and a run past the limit doesn’t count', async () => {
+  const g = game({ innings: 6, rules: MINORS });
+  let S = play(g, 'HR', 'HR', 'HR', 'HR', 'BB', 'BB', 'BB', '2B');
+  assert.equal(S.text.at(-1), 'Batter 8 doubles. Batter 5 scores. Batter 6 crosses the plate too, but the 5-run limit was reached, so the run doesn’t count. Batter 7 to third. That’s 5 runs: the half-inning is over.');
+  assert.deepEqual([S.R, S.inn, S.half, S.lob[0]], [[5, 0], 1, 1, [3]]);
+  assert.deepEqual(proof(S, 0, 1), [8, 8]);
+  assert.equal(S.plays.findLast(p => p.kind === 'end').text, 'End of the top of the 1st, on the 5-run limit: Foxes 5, Comets 0.');
+  assert.deepEqual([S.cells[5].scored, S.cells[5].reach], [false, 4], 'the way round, without the run');
+  assert.match(S.cells[5].story.join(' '), /after the 5-run limit was reached: the run doesn’t count/);
+  // On a wild pitch too.
+  S = play(game({ innings: 6, rules: MINORS }), 'HR', 'HR', 'HR', 'HR', 'BB', 'BB', { t: 'r', m: [[2, 3, 'SB'], [1, 2, 'SB']] }, { t: 'r', m: [[3, 4, 'WP'], [2, 4, 'WP']] });
+  assert.deepEqual([S.R[0], S.half, S.lob[0]], [5, 1, [1]]);
+  assert.equal(S.text.at(-1), 'Batter 5 scores on a wild pitch. Batter 6 crosses the plate too, but the 5-run limit was reached, so the run doesn’t count. That’s 5 runs: the half-inning is over.');
+  // In the last inning there's no limit.
+  S = play(game({ innings: 1, rules: MINORS }), ...Array(7).fill('HR'));
+  assert.deepEqual([S.R[0], S.half], [7, 0]);
+  // A league where every run on the play that reaches the limit counts.
+  S = play(game({ innings: 6, rules: { ...MINORS, set: 'custom', all: true } }), 'HR', 'HR', 'HR', 'HR', 'BB', 'BB', 'BB', '2B');
+  assert.deepEqual([S.R[0], S.half], [6, 1]);
+  assert.match(S.text.at(-1), /Batter 5 and Batter 6 score\. Batter 7 to third\. That’s 6 runs, past the 5-run limit: the half-inning is over\.$/);
+  // And one where it holds in the last inning too.
+  S = play(game({ innings: 1, rules: { ...MINORS, set: 'custom', last: true } }), ...Array(5).fill('HR'));
+  assert.deepEqual([S.R[0], S.half], [5, 1]);
+});
+
+test('league rules are kept from a file, a link and Drive, and the copy changed last has the say', () => {
+  const g = game({ rules: MINORS });
+  play(g, 'HR');
+  assert.deepEqual(cleanGame(JSON.parse(JSON.stringify(g))), g);
+  assert.equal(newer(g), false);
+  assert.deepEqual(game().rules, null);
+  const t = (rules) => cleanGame({ ...g, rules }).rules;
+  assert.deepEqual(t({ runs: 'x', mercy: [[4], [4, 10], 'a', [0, 5], [5.5, 3]] }), { set: 'custom', runs: 0, last: false, all: false, mercy: [[4, 10]] });
+  assert.equal(t(5), null);
+  assert.equal(t([1]), null);
+  // Something a newer version adds to the rules is kept, and the game opens look-only.
+  const later = cleanGame({ ...g, rules: { ...MINORS, pitchesAt: 3 } });
+  assert.deepEqual([later.rules.pitchesAt, newer(later)], [3, true]);
+  const a = JSON.parse(JSON.stringify(g)), b = JSON.parse(JSON.stringify(g));
+  a.updated = 1000; b.updated = 2000; b.rules = LL;
+  play(a, 'K');
+  assert.deepEqual(merge(a, b).game.rules, LL);
+});
+
 test('a play that makes the third out leaves the other runners where they were', () => {
   const marks = S => S.cells.slice(0, 3).map(c => c.notes.join('')).join('|');
   // Bases loaded, two out, a ground out: nobody moves up and nobody scores.

@@ -14,6 +14,7 @@ import { $, $$, esc, openSheet, closeSheet, sheetOpen, reveal, toast, KL, markHt
 import { drive } from './sync.js';
 import { shareSheet, saveFile } from './share.js';
 import { helpSheet } from './help.js';
+import { rulesRow } from './rules.js';
 
 // redo: what Undo took back, latest last. kept: what it took back before a new play went in, to put back after it
 // (see moved()).
@@ -446,9 +447,11 @@ function liveHtml() {
   // so after the score.
   if (S.over) {
     const lead = S.R[1] > S.R[0] ? 1 : 0, n = regulation(g.innings);
+    const tag = S.why ? ENDS[S.why].short : S.mercy ? `${S.mercy.by}-run rule` : '';
     const head = S.R[0] === S.R[1] ? `Tied, ${S.R[0]}–${S.R[1]}`
-      : `${esc(teamName(g, lead))} ${winner(S) == null ? 'ahead' : 'win'}, ${S.R[lead]}–${S.R[1 - lead]}${S.why ? ` <small>(${ENDS[S.why].short})</small>` : ''}`;
-    const says = !S.ended ? 'That’s the ballgame.' : S.why ? `${ENDS[S.why].text}` : official(S) ? 'The game was called, and it counts.'
+      : `${esc(teamName(g, lead))} ${winner(S) == null ? 'ahead' : 'win'}, ${S.R[lead]}–${S.R[1 - lead]}${tag ? ` <small>(${tag})</small>` : ''}`;
+    const says = S.mercy ? `That’s the ballgame, on the ${S.mercy.by}-run rule after ${S.mercy.inn} inning${S.mercy.inn === '1' ? '' : 's'}.`
+      : !S.ended ? 'That’s the ballgame.' : S.why ? `${ENDS[S.why].text}` : official(S) ? 'The game was called, and it counts.'
       : `The game was called before it was official: that takes ${n} innings, or ${n - 1}½ with the home team ahead. Keep playing picks it up where it stopped.`;
     return `${bug}<div class="field-col">${field}${ticker}</div><div class="final">
         <h2>${head}</h2>
@@ -1074,7 +1077,7 @@ function menuSheet() {
     <div class="list">
       <button type="button" class="li" data-y="lineup"><b>Lineups and substitutions</b><span>Names, numbers, pinch hitters, new pitchers.</span></button>
       <button type="button" class="li" data-y="share"><b>Share this game</b><span>A link to the scorecard, the score as text, or a printout.</span></button>
-      <button type="button" class="li" data-y="settings"><b>Game settings</b><span>Teams, innings, counting pitches, date and place.</span></button>
+      <button type="button" class="li" data-y="settings"><b>Game settings</b><span>Teams, innings, league rules, counting pitches, date and place.</span></button>
       <button type="button" class="li" data-y="help"><b>How to read the card</b><span>What 6-3, F8 and the backwards K mean.</span></button>
       ${S.over ? '<button type="button" class="li" data-y="on"><b>Keep playing</b><span>Carry on scoring past the end.</span></button>'
         : S.delayed ? '<button type="button" class="li" data-y="on"><b>Resume play</b><span>Pick the game up where it stopped.</span></button><button type="button" class="li" data-y="end"><b>End the game here</b><span>A run rule, the time limit, or called for rain or darkness.</span></button>'
@@ -1119,12 +1122,15 @@ function settingsSheet() {
       <label><span>Visitors</span><input data-t="0" maxlength="40" value="${esc(G.teams[0].name)}" placeholder="Visitors" autocapitalize="words" autocorrect="off" spellcheck="false"></label>
       <label><span>Home team</span><input data-t="1" maxlength="40" value="${esc(G.teams[1].name)}" placeholder="Home" autocapitalize="words" autocorrect="off" spellcheck="false"></label>
       <label><span>Innings</span><select data-g="innings">${[...new Set([3, 4, 5, 6, 7, 8, 9, 10, 12, G.innings])].sort((a, b) => a - b).map(n => `<option${n === G.innings ? ' selected' : n < S.inn || (n === S.inn && led) ? ' disabled' : ''}>${n}</option>`).join('')}</select>${notes ? `<small>${esc(notes)}</small>` : ''}</label>
+      <div class="rules-row"></div>
       <label><span>Date</span><input type="date" data-g="date" value="${esc(G.date)}"></label>
       <label><span>Where</span><input data-g="place" maxlength="80" value="${esc(G.place)}" placeholder="Optional" autocapitalize="words" autocorrect="off" spellcheck="false"></label>
       <label class="switch"><input type="checkbox" data-g="pitches"${G.pitches ? ' checked' : ''}><span>Count balls and strikes<small>Keeps the count and each pitcher’s pitch count.</small></span></label>
     </div>
     <div class="row"><button type="button" class="btn primary" data-close>Done</button></div>`);
   $$('[data-t]', body).forEach(i => i.addEventListener('input', () => { G.teams[+i.dataset.t].name = i.value.trim(); saveSoon(); draw(); }));
+  // The league's rules change how the game is played back, so each change is saved and the game drawn again.
+  rulesRow($('.rules-row', body), () => G && G.rules, r => { if (!G) return; G.rules = r; save(); });
   $$('[data-g]', body).forEach(i => i.addEventListener(i.type === 'checkbox' || i.tagName === 'SELECT' ? 'change' : 'input', () => {
     const k = i.dataset.g;
     if (k === 'date' && !i.value) return; // (see below)

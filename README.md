@@ -50,6 +50,12 @@ written out in plain words.
   limit)" after the score. **Called: rain or darkness** reads Called, and until the game has gone far enough to count
   (five innings, or four and a half with the home team ahead; four of six in Little League), the team in front is
   ahead, not the winner (OBR 7.01(c)).
+- **League rules that run themselves.** Pick Little League (the game is over with a team 15 runs ahead after three
+  innings or 10 after four, half an inning sooner for the home team: rule 4.10(e)), LL Minors (that, and five runs a
+  half-inning, except in the last inning), or your league's own (Custom). A half-inning ends itself at the limit
+  ("That's 5 runs: the half-inning is over.", and a run after that on the same play doesn't count, unless your league
+  counts every run on it), and the game ends itself on the mercy rule, Final, with "(Final, 10-run rule, 4 innings)"
+  in the score you send. The next new game starts with the same rules.
 - **Phone or tablet.** On a phone the buttons, the card, the box score and the play-by-play are tabs. On a tablet
   held sideways (or any screen 1000 pixels wide or more) the buttons and the card sit side by side, and the card
   fills in while you watch; on one held upright, the card is under the buttons.
@@ -117,6 +123,8 @@ To put it online with GitHub Pages: **Settings → Pages → Build and deploymen
 - `js/card.js`: the scorecard and the line score. `js/box.js`: the box score, the play-by-play and a batter's day.
 - `js/field.js`: the field drawings. `js/help.js`: how to read the card.
 - `js/home.js`, `js/setup.js`: the first screen, and starting a game.
+- `js/rules.js`: league rules (Little League's, the Minors', or a league's own), picked in New game and Game
+  settings.
 - `js/share.js`: share links, the score as text, printing. `js/sync.js`: Google Drive.
 - `js/sample.js`: a made-up game played with seeded dice, for the sample, the pictures and the tests.
 - `js/ui.js`: the sheet, the toast, saving and opening files, and the other small helpers every screen uses.
