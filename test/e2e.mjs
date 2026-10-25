@@ -1002,8 +1002,13 @@ step('a phone in the 7th: the Card tab opens on the batter’s box');
   await p.click('.sheet [data-x=save]');
   assert.equal(await p.locator('[data-a=fixlast]').count(), 1);
   assert.equal(await ball(), at, 'after a single with a runner on, and Fix runners');
-  await p.click('.bar .undo');
-  assert.equal(await p.locator('[data-a=redo]').count(), 1);
+  // Undo is under the field too, first, where the thumb is, and every link there is a thumb's height.
+  const links = () => p.$$eval('.ticker .acts button', b => b.map(x => `${x.textContent} ${x.getBoundingClientRect().height >= 44 && x.getBoundingClientRect().width >= 44}`));
+  assert.deepEqual(await links(), ['Undo true', 'Fix runners true']);
+  const was = await p.textContent('.ticker p');
+  await p.click('.ticker [data-a=undo]');
+  assert.notEqual(await p.textContent('.ticker p'), was, 'the single is taken back');
+  assert.deepEqual(await links(), ['Undo true', 'Fix runners true', 'Redo true']);
   assert.equal(await ball(), at, 'after Undo, and Redo');
   await p.context().close();
 }
@@ -1576,6 +1581,11 @@ step('the keyboard stays where it was after each tap, and comes back when a shee
   await p.focus('.sheet [data-k=SB]');
   await p.keyboard.press('Enter');
   assert.equal(await on('[data-p=b]'), true, 'the runner went home: on to the first pitch button');
+  // Undo under the field keeps the keyboard there, not in the bar.
+  await p.focus('.ticker [data-a=undo]');
+  await p.keyboard.press('Enter');
+  assert.equal(await p.locator('[data-runner="3"]').count(), 1, 'the steal of home is taken back');
+  assert.equal(await on('.ticker [data-a=undo]'), true, 'still on Undo under the field');
   await p.click('[data-v=card]');
   await p.focus('[data-cs="1"]');
   await p.keyboard.press('Enter');

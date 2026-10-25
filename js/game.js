@@ -243,7 +243,8 @@ const KEYS = ['p', 'r', 'a', 'runner', 'cs', 'cell', 'v'];
 function keepFocus(paint) {
   const a = document.activeElement, had = !!root && !!a && a !== document.body && root.contains(a);
   const k = had && KEYS.find(x => a.dataset && a.dataset[x] !== undefined);
-  const sel = k ? `[data-${k}="${a.dataset[k]}"]` : null;
+  // (Undo is in the bar and under the field: the one that had the keyboard keeps it.)
+  const sel = k ? `${a.closest('.ticker') ? '.ticker ' : ''}[data-${k}="${a.dataset[k]}"]` : null;
   paint();
   if (!had || (a.isConnected && document.activeElement === a)) return;
   const el = [sel && $(sel, root), $('.live [data-p]', root), $('.live [data-r]:not(:disabled)', root), $('.final [data-a]', root)].find(x => x && !x.disabled);
@@ -362,11 +363,12 @@ function liveHtml() {
       ${S.over ? '' : `<button type="button" class="pitcher" data-a="pitcher" aria-label="Pitching: ${esc(n.pitcherName)}${g.pitches ? ', ' + n.pitches + ' pitches' : ''}. Tap to change pitchers."><span>${esc(n.pitcherName)}</span>${g.pitches ? `<b>${n.pitches}</b><small>pitch${n.pitches === 1 ? '' : 'es'}</small>` : ''}</button>`}
     </div>`;
   const last = G.ev.length ? S.text[G.ev.length - 1] : '';
-  // The links have a column of their own, and the line a fixed height, so the buttons below never move.
-  const k = fixable(), fix = k < 0 ? '' : `Fix runners: ${S.text[k]}`;
+  // The links have a row of their own (beside the play, on a big screen), each a thumb's height, and the line a fixed
+  // height, so the buttons below never move. Undo comes first: it takes back the play just above it.
+  const k = fixable(), fix = k < 0 ? '' : `Fix runners: ${S.text[k]}`, back = last && `Undo: ${last}`;
   const ticker = `<div class="ticker">
       <p>${last ? esc(last) : 'Tap what happens. Every tap can be undone.'}</p>
-      <div class="acts">${fix ? `<button type="button" class="link-btn" data-a="fixlast" title="${esc(fix)}" aria-label="${esc(fix)}">Fix runners</button>` : ''}${redo.length ? '<button type="button" class="link-btn" data-a="redo">Redo</button>' : ''}</div>
+      <div class="acts">${back ? `<button type="button" class="link-btn" data-a="undo" title="${esc(back)}" aria-label="${esc(back)}">Undo</button>` : ''}${fix ? `<button type="button" class="link-btn" data-a="fixlast" title="${esc(fix)}" aria-label="${esc(fix)}">Fix runners</button>` : ''}${redo.length ? '<button type="button" class="link-btn" data-a="redo">Redo</button>' : ''}</div>
     </div>`;
   if (S.over) {
     const w = S.R[0] === S.R[1] ? null : S.R[1] > S.R[0] ? 1 : 0;

@@ -380,11 +380,20 @@ details.lineup summary small { color: var(--muted); font-weight: 400; }
 }
 .deck span { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; opacity: .85; }
 .deck small { display: block; font-size: 12px; color: var(--lamp-s); }
-/* The last play: always two lines high, with Fix runners and Redo in a column kept for them, so nothing moves. */
-.ticker { display: flex; align-items: center; gap: 10px; height: 52px; padding: 4px 12px; border-radius: 10px; background: var(--card); border: 1px solid var(--line); }
-.ticker p { flex: 1; min-width: 0; margin: 0; font-size: 15px; line-height: 1.35; color: var(--ink-2); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-.ticker .acts { flex: none; align-self: stretch; width: 5.8em; display: grid; grid-auto-rows: 1fr; font-size: 14px; }
-.ticker .link-btn { padding: 0; font-size: 14px; line-height: 1.2; text-align: right; white-space: nowrap; }
+/* The last play: always two lines high, with Undo, Fix runners and Redo in a row under it, each a thumb's height, so
+   nothing moves. On a big screen the row is beside it, to leave the buttons their room. */
+.ticker {
+  display: grid; grid-template-rows: 2.7em 44px; height: calc(2.7em + 52px); padding: 6px 12px 0; font-size: 15px;
+  border-radius: 10px; background: var(--card); border: 1px solid var(--line);
+}
+.ticker p { min-width: 0; margin: 0; line-height: 1.35; color: var(--ink-2); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.ticker .acts { display: flex; gap: 2px; margin: 0 -8px; }
+.ticker .link-btn { min-width: 44px; min-height: 44px; padding: 0 8px; font-size: 14px; line-height: 1.2; white-space: nowrap; }
+@media (min-width: 1000px) {
+  .ticker { display: flex; align-items: center; gap: 4px; height: 52px; padding: 3px 4px 3px 12px; }
+  .ticker p { flex: 1; }
+  .ticker .acts { flex: none; margin: 0; }
+}
 
 /* The buttons. */
 .pads { display: grid; gap: 8px; }
@@ -723,6 +732,8 @@ html:has(dialog.sheet[open]) { overflow: hidden; scrollbar-gutter: stable; }
   .pt span, .res span { overflow-wrap: break-word; }
   .mv .chips { flex-wrap: wrap; }
   .mv .chips button { flex: 1 0 auto; }
+  .ticker .acts { gap: 0; }
+  .ticker .link-btn { white-space: normal; padding: 0 6px; }
   .two-sm { grid-template-columns: minmax(0, 1fr); }
   .two-sm input { min-width: 0; }
   fieldset { min-width: 0; }

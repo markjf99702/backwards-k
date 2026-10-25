@@ -29,9 +29,10 @@ written out in plain words.
   and a strikeout looking gets its backwards K. Tap any box to read what happened. A box can also be switched to
   another kind of out or another way of reaching base, and have its fielders changed; anything else is a job for
   Undo, or for Fix runners, which stays until the next batter's turn is over.
-- **Undo anything.** A game is a list of what happened, so Undo takes plays back, latest first, as many as you like,
-  and says which one it took (with Redo) when the line under the field is out of sight. A change made in a box has
-  its own Undo, right after it.
+- **Undo anything.** A game is a list of what happened, so Undo takes plays back, latest first, as many as you like.
+  It's at the top of the screen, and under the field beside the play it would take back, and it says which one it
+  took (with Redo) when the line under the field is out of sight. A change made in a box has its own Undo, right
+  after it.
 - **It knows when the game is over.** Final comes when the last inning is decided, or the moment the home team goes
   ahead in it. That run is the last to count, and a hit that brings it in counts for the bases it needed, as an
   official scorer has it: with the bases loaded, a double that wins the game is a single (a home run still scores
