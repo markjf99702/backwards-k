@@ -506,7 +506,9 @@ function runnersSheet(code, f, moves, { st = S, editing = false, done = act } = 
       </div>`;
     });
     body.querySelector('.moves').innerHTML = rows.join('');
-    const err = check(st, m), outs = m.filter(x => x[1] === 0).length, runs = m.filter(x => x[1] === 4).length;
+    // (In Fix runners the play is in the game already, so changing what it was is a job for Undo.)
+    const said = check(st, m, code), err = editing ? said.replace('Cancel and', 'Undo back to that play and') : said;
+    const outs = m.filter(x => x[1] === 0).length, runs = m.filter(x => x[1] === 4).length;
     const third = st.outs + outs >= 3 && runs > 0;
     if (userSaid == null) counts.v = runsCount(st, code, m);
     let t = '';
@@ -936,6 +938,8 @@ function cantBe(c, e) {
   why.SAC = (nobody && 'Nobody was on base.') || two;
   why.SF = (!(e.m || []).some(x => x[0] === 3 && x[1] === 4) && 'Nobody scored from third on it.') || two;
   why.KD = (G.pitches && st.s !== 2 && 'There weren’t two strikes yet.') || (st.bases[1] && st.outs < 2 && 'First base was taken with fewer than two out.');
+  // A batter who was safe wasn't out: only a sacrifice (with everyone safe on an error) leaves him on base.
+  if ((e.m || []).some(x => x[0] === 0 && x[1] !== 0)) for (const k of ['K', 'KL', 'GO', 'FO', 'LO', 'PU', 'SF']) why[k] ||= 'The batter was safe on it.';
   return why;
 }
 function cellSheet(c) {

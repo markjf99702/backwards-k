@@ -488,8 +488,10 @@ export function suggest(S, code) {
   return m;
 }
 
-// What's wrong with a set of moves, in words, or '' if they could have happened.
-export function check(S, moves) {
+// What's wrong with a set of moves, in words, or '' if they could have happened. code: the play they're for, when
+// it's known: a caught fly ball can't leave the batter safe, and nor can a strikeout with first base taken and fewer
+// than two out (OBR 5.09(a)(3)). A sacrifice can: a bunt with everyone safe on an error is still a sacrifice (9.08(b)).
+export function check(S, moves, code) {
   const want = [0, ...runnersOn(S)];
   for (const b of want) if (!moves.some(m => m[0] === b)) return `Say where the ${b ? 'runner on ' + BASE[b] : 'batter'} ended up.`;
   const taken = {};
@@ -504,6 +506,9 @@ export function check(S, moves) {
     if (behind > ahead || (behind === ahead && ahead !== 4)) return 'A runner can’t pass the runner ahead of them.';
   }
   if (S.outs + moves.filter(m => m[1] === 0).length > 3) return 'That’s more than three outs.';
+  const batterSafe = moves.some(m => m[0] === 0 && m[1] !== 0);
+  if (batterSafe && ['FO', 'LO', 'PU', 'SF'].includes(code)) return 'A caught fly ball is an out. If it was dropped, that’s an error: Cancel and tap E.';
+  if (batterSafe && (code === 'K' || code === 'KL') && S.bases[1] && S.outs < 2) return 'No dropped third strike with a runner on first and fewer than two out.';
   return '';
 }
 
@@ -520,12 +525,20 @@ export function runsCount(S, code, moves) {
 // What a play really was, from where everyone ended up. A fly ball or line drive caught in the outfield that brings
 // the runner home from third with fewer than two out is a sacrifice fly, and a sacrifice fly the runner didn't score
 // on is a fly out (OBR 9.08(d)). A bunt that puts out a runner but not the batter is a fielder's choice (9.08(c)).
+// A double play is two outs and a triple play three: with one fewer, a triple play is a double play, and a double
+// play that got only the batter is a ground out (with an RBI for a run that scored on it, 9.04(a)(2)), and one that
+// got only a runner, or nobody, is a fielder's choice. A strikeout the batter reached base on is a dropped third
+// strike, and a ground ball he was safe on a fielder's choice.
 export function scoredAs(S, code, f, moves) {
   const batterOut = moves.some(m => m[0] === 0 && m[1] === 0), home = moves.some(m => m[0] === 3 && m[1] === 4);
-  const deep = !f || !f.length || f[0] >= 7;
+  const deep = !f || !f.length || f[0] >= 7, outs = moves.filter(m => m[1] === 0).length;
   if (code === 'SF' && !home) return 'FO';
   if ((code === 'FO' || ((code === 'LO' || code === 'PU') && deep)) && S.outs < 2 && home && batterOut) return 'SF';
   if (code === 'SAC' && !batterOut && moves.some(m => m[0] > 0 && m[1] === 0)) return 'FC';
+  if (code === 'TP' && outs === 2) return 'DP';
+  if ((code === 'DP' || code === 'TP') && outs < 2) return outs && batterOut ? 'GO' : 'FC';
+  if ((code === 'K' || code === 'KL') && !batterOut && (!S.bases[1] || S.outs >= 2)) return 'KD';
+  if (code === 'GO' && !batterOut) return 'FC';
   return code;
 }
 

@@ -1,7 +1,7 @@
 // The rules of scoring, without a browser:  node --test test/unit.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { replay, suggest, check, runsCount, scoredAs, mark, now, columns, halfLabel, RESULTS, pitchDay, pitchStat, pitchWork, pitchCount } from '../js/engine.js';
+import { replay, suggest, check, runsCount, scoredAs, mark, now, columns, halfLabel, RESULTS, runnersOn, pitchDay, pitchStat, pitchWork, pitchCount } from '../js/engine.js';
 import { newGame, cleanGame, cleanDoc, parseLineup, parsePaste, takeBack, putBack, carryLineup } from '../js/model.js';
 import { sampleGame } from '../js/sample.js';
 // The card is drawn with ui.js, which looks for the page's sheet as it loads: here there's no page, so no sheet.
@@ -439,6 +439,46 @@ test('sacrifices are scored from where everyone ended up (OBR 9.08)', () => {
   assert.equal(scoredAs(S, 'SAC', [1], [[0, 1], [1, 2]]), 'SAC', 'everyone safe on a throw to second is still a sacrifice');
 });
 
+test('a double or triple play with fewer outs, an out with the batter safe: scored from where everyone ended up', () => {
+  // A runner on first, nobody out.
+  let S = play(game(), '1B');
+  assert.equal(scoredAs(S, 'DP', [6, 4, 3], [[0, 0], [1, 0]]), 'DP');
+  assert.equal(scoredAs(S, 'DP', [6, 4, 3], [[0, 0], [1, 2]]), 'GO', 'only the batter out: a ground out');
+  assert.equal(scoredAs(S, 'DP', [6, 4], [[0, 1], [1, 0]]), 'FC', 'only the runner out: a fielder’s choice');
+  assert.equal(scoredAs(S, 'DP', [6, 4, 3], [[0, 1], [1, 2]]), 'FC', 'nobody out');
+  assert.equal(scoredAs(S, 'GO', [6, 4], [[0, 1], [1, 0]]), 'FC', 'a ground ball the batter was safe on');
+  assert.equal(scoredAs(S, 'GO', [6, 3], [[0, 0], [1, 2]]), 'GO');
+  // A strikeout the batter reached on is a dropped third strike, when first base was open or there were two out.
+  assert.equal(scoredAs(S, 'K', null, [[0, 1], [1, 2]]), 'K', 'first base taken: he can’t be safe (check() refuses it)');
+  assert.match(check(S, [[0, 1], [1, 2]], 'K'), /^No dropped third strike with a runner on first and fewer than two out\.$/);
+  assert.match(check(S, [[0, 1], [1, 2]], 'KL'), /No dropped third strike/);
+  assert.equal(check(S, [[0, 0], [1, 2]], 'K'), '');
+  // A caught fly is an out.
+  for (const code of ['FO', 'LO', 'PU', 'SF']) assert.equal(check(S, [[0, 1], [1, 2]], code), 'A caught fly ball is an out. If it was dropped, that’s an error: Cancel and tap E.', code);
+  assert.equal(check(S, [[0, 1], [1, 2]], 'SAC'), '', 'a sacrifice with everyone safe on an error (OBR 9.08(b))');
+  assert.equal(check(S, [[0, 1], [1, 2]]), '', 'without a code, only the bases are checked');
+  // Two runners on, nobody out: a triple play that got two is a double play; one that got one, as a double play would be.
+  S = play(game(), '1B', '1B');
+  assert.equal(scoredAs(S, 'TP', [5, 4, 3], [[0, 0], [1, 0], [2, 0]]), 'TP');
+  assert.equal(scoredAs(S, 'TP', [5, 4, 3], [[0, 0], [1, 0], [2, 3]]), 'DP');
+  assert.equal(scoredAs(S, 'TP', [5, 4, 3], [[0, 0], [1, 2], [2, 3]]), 'GO');
+  assert.equal(scoredAs(S, 'TP', [5, 4], [[0, 1], [1, 0], [2, 3]]), 'FC');
+  // With two out, or first base open, a strikeout the batter reached on is a dropped third strike.
+  S = play(game(), '2B');
+  assert.equal(scoredAs(S, 'KL', null, [[0, 1], [2, 3]]), 'KD');
+  assert.equal(check(S, [[0, 1], [2, 3]], 'KL'), '');
+  S = play(game(), 'K', 'K', '1B');
+  assert.equal(scoredAs(S, 'K', null, [[0, 1], [1, 2]]), 'KD');
+  assert.equal(check(S, [[0, 1], [1, 2]], 'K'), '');
+  // Saved as scored, a run on a one-out "double play" earns the batter an RBI (OBR 9.04(a)(2)).
+  const g = game();
+  S = play(g, '1B', '1B');
+  const m = [[0, 0], [1, 2], [2, 4]];
+  S = play(g, { t: 'pa', r: scoredAs(S, 'DP', [6, 4, 3], m), f: [6, 4, 3], m });
+  assert.equal(S.text.at(-1), 'Batter 3 grounds out, short to first (6-4-3). Batter 1 scores. Batter 2 to second.');
+  assert.deepEqual([S.outs, S.R[0], S.cells[2].rbi], [1, 1, 1]);
+});
+
 test('a pitching change starts a new pitch count; runs go to the pitcher who let the runner on', () => {
   const g = game();
   g.teams[1].pitchers.push({ name: 'Bishop', num: '37' });
@@ -804,6 +844,14 @@ test('every suggested set of runner moves passes check()', () => {
       if (e.t === 'pa') {
         const S = replay(part);
         assert.equal(check(S, e.m), '', `seed ${seed}, event ${part.ev.length}: ${JSON.stringify(e)}`);
+        // And what the pad suggests for every button it allows here passes for that play, and is scored as tapped.
+        const on = runnersOn(S).length;
+        const can = { SF: S.bases[3] && S.outs < 2, SAC: on && S.outs < 2, DP: on && S.outs < 2, FC: on, TP: on >= 2 && S.outs === 0, KD: !(S.bases[1] && S.outs < 2) };
+        for (const code of Object.keys(RESULTS).filter(k => !(k in can) || can[k])) {
+          const m = suggest(S, code);
+          assert.equal(check(S, m, code), '', `seed ${seed}, event ${part.ev.length}: ${code}`);
+          assert.equal(scoredAs(S, code, null, m), code, `seed ${seed}, event ${part.ev.length}: ${code}`);
+        }
       }
       part.ev.push(e);
     }

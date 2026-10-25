@@ -887,6 +887,50 @@ step('fewer taps: a double play with one runner on, and a triple play with two, 
   await p.context().close();
 }
 
+step('the runners sheet scores what happened: a double play that got one out is a ground out');
+{
+  const p = await phone(), id = await startGame(p);
+  await p.click('[data-r="1B"]');
+  await p.click('[data-r=DP]');
+  for (const n of [6, 4, 3]) await p.click(`.sheet [data-pos="${n}"]`);
+  await p.click('.sheet [data-x=done]');
+  await p.click('[data-a=fixlast]');
+  await p.waitForSelector('.sheet .moves');
+  await p.click('.mv[data-from="1"] [data-to="2"]');
+  assert.equal(await p.textContent('.sheet .tally'), '1 out');
+  await p.click('.sheet [data-x=save]');
+  assert.equal(await p.textContent('.ticker p'), 'Batter 2 grounds out, short to first (6-4-3). Batter 1 to second.');
+  assert.equal(await p.locator('.outs .o.on').count(), 1);
+  assert.equal((await stored(p, id)).ev[1].r, 'GO');
+
+  step('a caught fly can’t leave the batter safe, and a strikeout he reached first on is a dropped third strike');
+  await p.click('[data-r=FO]');
+  await p.click('.sheet [data-pos="8"]');
+  await p.waitForSelector('.sheet .moves');
+  await p.click('.mv[data-from="0"] [data-to="1"]');
+  assert.equal(await p.textContent('.sheet .tally'), 'A caught fly ball is an out. If it was dropped, that’s an error: Cancel and tap E.');
+  assert.equal(await p.locator('.sheet [data-x=save]').isDisabled(), true);
+  await p.click('.mv[data-from="0"] [data-to="0"]');
+  await p.click('.sheet [data-x=save]');
+  assert.equal(await p.textContent('.ticker p'), 'Batter 3 flies out to center (F8).');
+  // In Fix runners the fly is in the game already: Undo takes it back.
+  await p.click('[data-a=fixlast]');
+  await p.click('.mv[data-from="0"] [data-to="1"]');
+  assert.equal(await p.textContent('.sheet .tally'), 'A caught fly ball is an out. If it was dropped, that’s an error: Undo back to that play and tap E.');
+  await p.click('.sheet [data-close]');
+  // With two out, a strikeout the batter reached first on is a dropped third strike.
+  await p.click('[data-r=K]');
+  assert.match(await p.textContent('.bar .title'), /Bottom 1st/);
+  await p.click('[data-a=fixlast]');
+  await p.waitForSelector('.sheet .moves');
+  await p.click('.mv[data-from="0"] [data-to="1"]');
+  await p.click('.sheet [data-x=save]');
+  assert.equal(await p.textContent('.ticker p'), 'Batter 4 strikes out but reaches on a dropped third strike.');
+  assert.match(await p.textContent('.bar .title'), /Top 1st/);
+  assert.equal(await plays(p, id), 'pa1B paGO paFO paKD');
+  await p.context().close();
+}
+
 step('Fix runners after the next pitch: the fix goes in, and the pitch stays');
 {
   const p = await phone(), id = await startGame(p);
