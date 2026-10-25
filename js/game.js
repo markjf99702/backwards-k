@@ -51,6 +51,7 @@ export function leaveGame() {
 let told = '';
 store.onChange(why => {
   if (!G || readOnly) return;
+  if (why === 'saved') return trouble();
   const fresh = store.get(G.id);
   if (why === 'reload' && soon && soon.g === G) {
     // A name typed a moment ago isn't saved yet: it goes in, unless the game changed somewhere else meanwhile.

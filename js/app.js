@@ -100,7 +100,7 @@ document.addEventListener('click', e => {
   const h = a.getAttribute('href');
   if (location.hash !== h) go(h); else route(h);
 });
-store.onChange(() => { if (screen === 'home') showHome(app.firstElementChild); });
+store.onChange(why => { if (screen === 'home' && why !== 'saved') showHome(app.firstElementChild); });
 route();
 
 if ('serviceWorker' in navigator && !('single' in document.documentElement.dataset) && location.protocol !== 'file:') {

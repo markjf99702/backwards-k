@@ -1,4 +1,5 @@
-// Games on this device, in localStorage. Every change is saved straight away; nothing waits for Google Drive.
+// Games on this device, in localStorage. Every change is saved as soon as the screen has been drawn (see writeSoon());
+// nothing waits for Google Drive.
 import { cleanDoc, cleanGame } from './model.js';
 
 export const KEY = 'backwards-k.v1';
@@ -28,27 +29,46 @@ function text() {
   });
   return `{"app":${JSON.stringify(doc.app)},"v":${JSON.stringify(doc.v)},"games":{${games.join(',')}},"gone":${JSON.stringify(doc.gone)}}`;
 }
+// A save is written just after the screen is drawn (the next frame, and a moment after), so a tap shows straight away
+// and the write comes after; several saves in one frame are one write. Leaving the page, or putting the phone away,
+// writes anything still waiting, and so does a save while the page can't be seen (it has no frames).
+let due = false, leaving = false;
+function writeSoon() {
+  if (due) return;
+  due = true;
+  if (leaving || typeof requestAnimationFrame !== 'function' || document.hidden) flush();
+  else requestAnimationFrame(() => setTimeout(flush, 0));
+}
+// Writes a save that's waiting, now. When that changes whether this device can save, listeners hear 'saved'.
+function flush() {
+  if (!due) return;
+  due = false;
+  const was = problem;
+  write();
+  if (problem !== was) tell('saved');
+}
 const isFull = e => !!e && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED' || e.code === 22 || e.code === 1014);
 const tell = why => listeners.forEach(f => { try { f(why); } catch (e) { console.error(e); } });
 
 export const store = {
   all: () => Object.values(doc.games).sort((a, b) => b.updated - a.updated),
   get: id => doc.games[id] || null,
-  // Save a game that changed. Returns false if it couldn't be stored (problem() says why); it's kept in memory anyway.
+  // Save a game that changed: it's written just after the screen is drawn (see writeSoon()). If it can't be stored,
+  // problem() says why (and listeners hear 'saved'); it's kept in memory anyway.
   save(g) {
     g.updated = Math.max(Date.now(), (g.updated || 0) + 1);
     doc.games[g.id] = g;
     json.delete(g.id);
     delete doc.gone[g.id];
-    const ok = write();
+    writeSoon();
     tell();
-    return ok;
   },
-  // Returns false if that couldn't be stored.
+  // Written straight away. Returns false if that couldn't be stored.
   remove(id) {
     delete doc.games[id];
     json.delete(id);
     doc.gone[id] = Date.now();
+    due = false;
     const ok = write();
     tell();
     return ok;
@@ -68,9 +88,10 @@ export const store = {
       n++;
     }
     let ok = true;
-    if (n) { ok = write(); tell(); }
+    if (n) { due = false; ok = write(); tell(); }
     return { n, ok };
   },
+  flush,
   problem: () => problem,
   doc: () => doc,
   // Drive (or another tab) changed what's stored: read it again. A game changed here that's newer than the stored
@@ -86,8 +107,12 @@ export const store = {
     }
     tell('reload');
   },
-  // f(why) runs after every change; why is 'reload' when it came from Drive or another tab.
+  // f(why) runs after every change; why is 'reload' when it came from Drive or another tab, and 'saved' when a save
+  // written after the screen was drawn changed whether this device can save.
   onChange(f) { listeners.push(f); },
 };
 
 window.addEventListener('storage', e => { if (e.key === KEY) store.reload(); });
+window.addEventListener('pagehide', () => { leaving = true; flush(); });
+window.addEventListener('pageshow', () => { leaving = false; });
+globalThis.document?.addEventListener?.('visibilitychange', () => { if (document.hidden) flush(); });

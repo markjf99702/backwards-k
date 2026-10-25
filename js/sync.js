@@ -171,6 +171,7 @@ async function run(g) {
   // Put what came from Drive into this device's games, unless something here changed meanwhile.
   let changed = false;
   if (Object.keys(incoming).length) {
+    store.flush(); // a save still waiting goes in first, so it isn't written over
     let cur;
     try { cur = JSON.parse(localStorage.getItem(KEY) || 'null') || { app: 'backwards-k', v: 1, games: {}, gone: {} }; } catch { cur = null; }
     if (cur) {

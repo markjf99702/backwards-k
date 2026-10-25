@@ -274,7 +274,9 @@ async function startGame(p, away = 'Owls') {
   await p.waitForSelector('.live .field');
   return p.evaluate(() => location.hash.slice(4));
 }
-const stored = (p, id) => p.evaluate(id => JSON.parse(localStorage.getItem('backwards-k.v1')).games[id], id);
+// A save is written just after the screen is drawn: wait for that, then read what's stored.
+const written = p => p.evaluate(() => new Promise(r => requestAnimationFrame(() => setTimeout(r, 0))));
+const stored = async (p, id) => { await written(p); return p.evaluate(id => JSON.parse(localStorage.getItem('backwards-k.v1')).games[id], id); };
 const plays = async (p, id) => (await stored(p, id)).ev.map(e => e.t + (e.r || '')).join(' ');
 const shown = p => p.evaluate(() => [...document.querySelectorAll('.toast')].map(t => t.textContent).join(''));
 const tickerOf = p => p.textContent('.ticker p');
@@ -288,6 +290,7 @@ step('saving the sample twice keeps one copy, and the second Save says so');
     await p.waitForSelector('.live .field');
   }
   assert.equal(await seen(p), 'You already have the sample in your games.');
+  await written(p);
   const ids = await p.evaluate(() => Object.keys(JSON.parse(localStorage.getItem('backwards-k.v1')).games));
   assert.equal(ids.length, 1);
   assert.match(ids[0], /^gsample7-/);
@@ -772,6 +775,7 @@ step('a device that’s out of room: one line says so, and nothing claims it was
   assert.equal(await p.locator('.trouble').isVisible(), false);
   await p.evaluate(() => sessionStorage.setItem('full', '1'));
   await p.click('[data-p=b]');
+  await written(p);
   assert.match(await p.textContent('.trouble'), /out of room, so the latest plays aren’t saved yet/);
   assert.equal(await shown(p), '', 'no toast as well');
   await p.click('[data-p=b]');
@@ -786,6 +790,7 @@ step('a device that’s out of room: one line says so, and nothing claims it was
   await p.evaluate(() => sessionStorage.removeItem('full'));
   await p.waitForSelector('.live .field');
   await p.click('[data-p=b]');
+  await written(p);
   assert.equal(await p.locator('.trouble').isVisible(), false);
   await p.context().close();
 }
@@ -816,6 +821,24 @@ step('out of room, storage read again (another tab saved, or Google Drive) leave
   assert.equal(await shown(p), '');
   await p.click('[data-p=b]');
   assert.equal(await tickerOf(p), 'Ball (1-0)');
+  await p.context().close();
+}
+
+step('a tap is stored just after the screen is drawn, and the page going away stores whatever is waiting');
+{
+  const p = await phone(), id = await startGame(p);
+  const now = () => p.evaluate(id => JSON.parse(localStorage.getItem('backwards-k.v1')).games[id], id);
+  // In the same moment as the tap, nothing is written yet; once the screen has been drawn, it is.
+  const before = await p.evaluate(id => { document.querySelector('.live [data-p=b]').click(); return JSON.parse(localStorage.getItem('backwards-k.v1')).games[id].ev.length; }, id);
+  assert.equal(before, 0);
+  assert.equal((await stored(p, id)).ev.length, 1);
+  // A tap, and a name typed, with the page going away straight after: both are written as it goes.
+  await p.click('[data-a=batter]');
+  await p.fill('.sheet [data-f=name]', 'Ruiz');
+  await p.click('.sheet [data-close]');
+  await p.evaluate(() => { document.querySelector('.live [data-p=b]').click(); window.dispatchEvent(new PageTransitionEvent('pagehide')); });
+  const g = await now();
+  assert.deepEqual([g.ev.length, g.teams[0].lineup[0][0].name], [2, 'Ruiz']);
   await p.context().close();
 }
 
@@ -1632,7 +1655,7 @@ step('saving a link to a game this device has: the link’s new plays come in, a
   const mine = { ...structuredClone(g), updated: g.updated + 5000 };
   mine.teams[1].name = 'Comets II';
   const sent = { ...structuredClone(g), ev: sampleGame(7).ev.slice(0, n + 3), updated: g.updated + 1000 };
-  const mineNow = () => p.evaluate(id => JSON.parse(localStorage.getItem('backwards-k.v1')).games[id], g.id);
+  const mineNow = () => stored(p, g.id);
   const save = async x => {
     await p.evaluate(async x => (await import('./js/store.js')).store.add([x]), x);
     const link = await p.evaluate(async x => (await import('./js/share.js')).linkFor(x), x === mine ? sent : x);
@@ -1655,6 +1678,7 @@ step('saving a link to a game this device has: the link’s new plays come in, a
   await p.click('[data-a=keep]');
   await p.waitForSelector('.live .field');
   assert.equal(await seen(p), 'You already have this game, with plays this link doesn’t have, so both are kept. The link’s is marked (second copy).');
+  await written(p);
   const all = await p.evaluate(() => Object.values(JSON.parse(localStorage.getItem('backwards-k.v1')).games));
   assert.deepEqual(all.map(x => [x.id === g.id, x.place, x.ev.at(-1).k]).sort(), [[false, 'Riverside Park (second copy)', 's'], [true, 'Riverside Park', 'b']]);
   assert.match(p.url(), /#\/g\//);
@@ -1675,7 +1699,7 @@ for (const [n, e] of [[1, { t: 'pa', r: 'ZZ', m: [[0, 1]] }], [2, { t: 'xr', b: 
   assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'a look-only game scrolls sideways');
   // Saving another game writes this one back as it came.
   await p.evaluate(async () => { const { store } = await import('./js/store.js'), { newGame } = await import('./js/model.js'); store.save(newGame({ away: 'A', home: 'B' })); });
-  assert.deepEqual(await p.evaluate(id => JSON.parse(localStorage.getItem('backwards-k.v1')).games[id].ev.at(-1), g.id), e);
+  assert.deepEqual((await stored(p, g.id)).ev.at(-1), e);
   // Reload brings the newest version there is (here, still this one).
   await Promise.all([p.waitForEvent('load'), p.click('[data-a=reload]')]);
   await p.waitForSelector('.shared-bar');
