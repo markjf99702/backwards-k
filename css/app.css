@@ -494,6 +494,12 @@ details.lineup summary small { color: var(--muted); font-weight: 400; }
 .card tr.up .who { background: var(--now); }
 .card td { width: 62px; height: 62px; min-width: 62px; vertical-align: middle; text-align: center; }
 .card td.cur { background: color-mix(in srgb, var(--now) 45%, transparent); }
+/* A computer or a big tablet on its side: the card has room, so the boxes are bigger. (Not on a smaller tablet on
+   its side, where it would show fewer innings.) */
+@media (min-width: 1200px) {
+  .card td { width: 72px; height: 72px; min-width: 72px; }
+  .card tbody .who { height: 72px; }
+}
 .card td.next { box-shadow: inset 0 0 0 2px var(--red); }
 .card td.end { box-shadow: inset 0 -3px 0 var(--red); }
 /* A new pitcher (a heavy line along the top) and a substitute's first time up (down the left), drawn on the grid. */
@@ -517,10 +523,10 @@ details.lineup summary small { color: var(--muted); font-weight: 400; }
 .cs .sub { font-size: 8px; text-anchor: middle; paint-order: stroke; stroke: var(--paper); stroke-width: 3px; }
 .cs .mk { font-size: 11px; text-anchor: end; }
 .cs .mk.sm { font-size: 8.5px; }
-.cs .nt { font-size: 9px; fill: var(--red); }
+.cs .nt { font-size: 10px; fill: var(--red); }
 .cs .on { fill: none; stroke: var(--pencil); stroke-width: 1.1; }
-.cs .onn { font-size: 8.5px; text-anchor: middle; font-family: var(--sans); font-weight: 700; }
-.cs .ct { font-size: 7.5px; text-anchor: end; fill: var(--muted); font-family: var(--sans); }
+.cs .onn { font-size: 9px; text-anchor: middle; font-family: var(--sans); font-weight: 700; }
+.cs .ct { font-size: 8.5px; text-anchor: end; fill: var(--muted); font-family: var(--sans); }
 .cs .rbi { fill: var(--red); }
 
 .box-grid { display: grid; gap: 14px; }
