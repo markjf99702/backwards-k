@@ -357,7 +357,7 @@ function liveHtml() {
     const w = S.R[0] === S.R[1] ? null : S.R[1] > S.R[0] ? 1 : 0;
     return `${bug}<div class="field-col">${field}${ticker}</div><div class="final">
         <h2>${w == null ? `Tied, ${S.R[0]}–${S.R[1]}` : `${esc(teamName(g, w))} win, ${S.R[w]}–${S.R[1 - w]}`}</h2>
-        <p>${S.ended ? 'The game was called.' : 'That’s the ballgame.'} The whole card is ${wide() ? 'beside this' : 'under <b>Card</b>'}, and the box score under <b>Box score</b>.</p>
+        <p>${S.ended ? 'The game was called.' : 'That’s the ballgame.'} The whole card is ${sideBySide() ? 'beside this' : wide() ? 'below' : 'under <b>Card</b>'}, and the box score under <b>Box score</b>.</p>
         <div class="row"><button type="button" class="btn primary" data-a="share">Share this game</button><button type="button" class="btn" data-a="on">Keep playing</button></div>
       </div>`;
   }

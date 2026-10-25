@@ -1519,6 +1519,15 @@ for (const [width, height, size] of [[1280, 800, 62], [1366, 768, 68], [1440, 90
   await p.context().close();
 }
 
+step('after the final, the words say where the card is: under Card, below, or beside');
+for (const [width, height, where] of [[390, 844, 'under Card'], [768, 1024, 'below'], [1024, 768, 'beside this']]) {
+  const g = sampleGame(7);
+  g.id = 'gsample7final';
+  const p = await playing(g, { width, height });
+  assert.match(await p.textContent('.final p'), new RegExp(`The whole card is ${where}, and the box score under Box score`), `${width} wide`);
+  await p.context().close();
+}
+
 step('on paper, the line score’s R H E are in black');
 {
   const p = await playing(seventh(), { width: 800, height: 1100 });
