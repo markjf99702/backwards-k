@@ -761,6 +761,38 @@ step('a phone in the 7th: the Card tab opens on the batter’s box');
   await p.context().close();
 }
 
+step('a long order: the Card tab opens with the 12th batter’s box on screen, and beside the buttons the 9th’s is too');
+{
+  const p = await phone();
+  await startGame(p);
+  // A youth team that bats everyone: three more spots, and eleven up before the 12th.
+  for (let i = 0; i < 3; i++) { await p.click('[data-a=batter]'); await p.click('.sheet [data-y=add]'); }
+  for (const r of ['K', 'K', 'BB', 'BB', 'BB', 'BB', 'BB', 'BB', 'BB', 'BB', 'BB']) await p.click(`[data-r=${r}]`);
+  assert.match(await p.textContent('.batter'), /^12/);
+  await p.click('[data-v=card]');
+  await p.waitForTimeout(150);
+  const next = await box(p, '.pane[data-p=card] td.next'), tabs = await box(p, '.vtabs'), ih = await p.evaluate(() => innerHeight);
+  assert.ok(next.bottom <= ih && next.top >= tabs.bottom, `the 12th batter’s box is at ${next.top}-${next.bottom}, under tabs ending at ${tabs.bottom}, on a screen ${ih} high`);
+  assert.ok(inside(next, await box(p, '.pane[data-p=card] .card-wrap')), 'and in his inning, across');
+  await p.context().close();
+}
+{
+  // The 8th batter up: on a tablet on its side, his box is below the screen until the page moves.
+  const p = await playing(sampleUntil(7, S => S.half === 0 && S.up[0] === 7 && S.b + S.s === 0), { width: 1024, height: 768 });
+  const onScreen = async what => {
+    await p.waitForTimeout(150);
+    const next = await box(p, '.pane[data-p=card] td.next'), bar = await box(p, '.bar'), ih = await p.evaluate(() => innerHeight);
+    assert.ok(next.top >= bar.bottom && next.bottom <= ih, `${what}: the box is at ${next.top}-${next.bottom}, under a bar ending at ${bar.bottom}, on a screen ${ih} high`);
+  };
+  await onScreen('the 8th, when the game opens');
+  await p.evaluate(() => window.scrollTo(0, 0));
+  await p.click('[data-r=BB]');
+  assert.match(await p.textContent('.batter'), /^9/);
+  await onScreen('the 9th, after the play that brings him up');
+  assert.ok((await box(p, '[data-a=more]')).bottom <= await p.evaluate(() => innerHeight), 'and the buttons stay where they were');
+  await p.context().close();
+}
+
 step('extra innings on a small phone: the line score shows the 15th and R H E, and who’s who');
 {
   const p = await playing(sampleUntil(130, S => S.inn === 15), { width: 360, height: 740 });

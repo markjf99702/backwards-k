@@ -9,7 +9,7 @@ import { blank, takeBack, putBack } from './model.js';
 import { cardHtml, lineHtml, cellSvg } from './card.js';
 import { boxHtml, playsHtml, dayOf } from './box.js';
 import { infieldSvg, fieldSvg, BASE_AT } from './field.js';
-import { $, $$, esc, openSheet, closeSheet, toast, KL, markHtml, fmtDate, go, inFrame, nextName } from './ui.js';
+import { $, $$, esc, openSheet, closeSheet, sheetOpen, toast, KL, markHtml, fmtDate, go, inFrame, nextName } from './ui.js';
 import { drive } from './sync.js';
 import { shareSheet, saveFile } from './share.js';
 import { helpSheet } from './help.js';
@@ -227,6 +227,8 @@ function paint() {
   wake(!S.over && !readOnly);
 }
 const wide = () => matchMedia('(min-width: 700px)').matches;
+// The buttons and the card side by side (a tablet on its side, a computer).
+const sideBySide = () => matchMedia('(min-width: 1000px)').matches;
 
 // Drawing again replaces the buttons, so the one that had the keyboard (or that a sheet just gave it back to, as a
 // sheet does when it closes) gets it again, found by what it is: the same pitch, result, runner, box or link. If it's
@@ -273,25 +275,39 @@ function drawSide() {
     <div class="card-wrap">${cardHtml(S, side, { live: !readOnly })}</div>`;
   const w = card.querySelector('.card-wrap');
   w.scrollLeft = keepX;
-  // Keep the inning being played in view as the game moves along. (On a phone the card is a tab away and has no
-  // size while hidden, so this waits until it's shown.)
-  const key = `${side}:${S.inn}:${S.half}`;
+  // Keep the inning being played in view as the game moves along, and beside the buttons on a big screen, the
+  // batter's box as each one comes up. (On a phone the card is a tab away and has no size while hidden, so this waits
+  // until it's shown.)
+  const key = `${side}:${S.inn}:${S.half}${sideBySide() ? ':' + S.up[side] : ''}`;
   if (key !== lastInn && card.offsetParent) {
     lastInn = key;
-    requestAnimationFrame(() => {
-      const cur = w.querySelector('td.next') || w.querySelector('th.cur');
-      if (!cur) return;
-      const first = w.querySelector('tbody th.who'), left = first ? first.offsetWidth : 0;
-      if (cur.offsetLeft - left >= w.scrollLeft && cur.offsetLeft + cur.offsetWidth <= w.scrollLeft + w.clientWidth) return;
-      // The box before it shows too, starting right where the names end.
-      const prev = cur.previousElementSibling;
-      w.scrollLeft = prev && !prev.classList.contains('who') ? prev.offsetLeft - left : 0;
-    });
+    requestAnimationFrame(() => scrollCard(w));
   }
   $('.pane[data-p=box]', root).innerHTML = `<div class="line-wrap">${lineHtml(S)}</div>${boxHtml(S)}`;
   // A line score wider than the screen (extra innings on a phone) shows its end: the latest innings and R H E.
   for (const lw of $$('.line-wrap', root)) lw.scrollLeft = lw.scrollWidth;
   $('.pane[data-p=plays]', root).innerHTML = `<div class="plays">${playsHtml(S)}</div>`;
+}
+// The batter's box on screen: the card scrolls sideways to his inning, with the box before it showing, right where the
+// names end. And on a phone's Card tab, or beside the buttons on a big screen, the page scrolls when his row is below
+// the screen or under the tabs (or the bar): his row just under them, with the row before it showing. (Not on a
+// tablet held upright, where the card is under the buttons, nor while a sheet is open.)
+function scrollCard(w) {
+  if (!w.isConnected) return;
+  const cur = w.querySelector('td.next') || w.querySelector('th.cur');
+  if (!cur) return;
+  const first = w.querySelector('tbody th.who'), left = first ? first.offsetWidth : 0;
+  if (cur.offsetLeft - left < w.scrollLeft || cur.offsetLeft + cur.offsetWidth > w.scrollLeft + w.clientWidth) {
+    const prev = cur.previousElementSibling;
+    w.scrollLeft = prev && !prev.classList.contains('who') ? prev.offsetLeft - left : 0;
+  }
+  if (!cur.matches('td') || sheetOpen() || (wide() && !sideBySide())) return;
+  // (scrollIntoView would move the card sideways too, and the box under the names.)
+  const lid = $(sideBySide() ? '.bar' : '.vtabs', root), r = cur.getBoundingClientRect();
+  const under = getComputedStyle(lid).position === 'sticky' ? Math.max(0, lid.getBoundingClientRect().bottom) : 0;
+  if (r.bottom <= innerHeight - 12 && r.top >= under) return;
+  const above = cur.parentElement.previousElementSibling || cur.closest('table').querySelector('thead tr');
+  window.scrollBy(0, (above ? above.getBoundingClientRect().top : r.top) - under - 6);
 }
 
 function liveHtml() {
@@ -377,9 +393,9 @@ function onClick(e) {
   if (t.dataset.v) {
     view = t.dataset.v;
     if (view !== 'live') pane = view;
-    if (view === 'card') lastInn = ''; // the card opens on the inning being played
-    draw();
+    if (view === 'card') lastInn = ''; // the card opens on the batter's box (see scrollCard)
     if (!wide()) window.scrollTo({ top: 0 });
+    draw();
     return;
   }
   if (t.dataset.cs) { cardSide = +t.dataset.cs; keepFocus(drawSide); return; }
