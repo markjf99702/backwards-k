@@ -2136,10 +2136,11 @@ step('a first visit: four boxes from a card under Score a new game, each with wh
   await p.context().close();
 }
 
-step('the home: a game going on today comes first, with Keep scoring; one from yesterday, or over, doesn’t');
-for (const [what, age, over] of [['today', 3600e3, false], ['yesterday', 13 * 3600e3, false], ['over', 0, true]]) {
+step('the home: a game going on today comes first, with Keep scoring (Start scoring, before the first pitch); one from yesterday, or over, doesn’t');
+for (const [what, age, over] of [['today', 3600e3, false], ['not started', 600e3, false], ['yesterday', 13 * 3600e3, false], ['over', 0, true]]) {
   const g = over ? Object.assign(sampleGame(7), { id: 'gsample7final' }) : seventh();
   g.updated = Date.now() - age;
+  if (what === 'not started') g.ev = []; // (set up before leaving for the field)
   // (Stored from a page of the site's own that isn't the app, before the app opens.)
   const p = await phone();
   await p.goto(base + 'icon.svg');
@@ -2149,14 +2150,17 @@ for (const [what, age, over] of [['today', 3600e3, false], ['yesterday', 13 * 36
   const home = await p.evaluate(() => ({
     first: document.querySelector('main.home').firstElementChild.className, said: document.querySelector('.back-to .sr')?.textContent,
     up: document.querySelector('.back-row p')?.textContent, words: !!document.querySelector('.hero p'), red: document.querySelector('.hero .btn').classList.contains('primary'),
+    go: document.querySelector('.back-to .btn')?.textContent,
   }));
   if (what === 'today') {
     const S = replay(g), n = upNow(S);
-    assert.deepEqual(home, { first: 'back-to card-box', said: `Foxes ${S.R[0]}, Comets ${S.R[1]} · Top 7th`, up: `${n.name} up · Riverside Park`, words: false, red: false });
+    assert.deepEqual(home, { first: 'back-to card-box', said: `Foxes ${S.R[0]}, Comets ${S.R[1]} · Top 7th`, up: `${n.name} up · Riverside Park`, words: false, red: false, go: 'Keep scoring' });
     await p.click('.back-to .btn');
     await p.waitForSelector('.live .field');
     assert.equal(await p.evaluate(() => location.hash), '#/g/' + g.id);
-  } else assert.deepEqual(home, { first: 'hero', said: undefined, up: undefined, words: true, red: true }, what);
+  } else if (what === 'not started') {
+    assert.deepEqual(home, { first: 'back-to card-box', said: 'Foxes 0, Comets 0 · Top 1st', up: `${upNow(replay(g)).name} up · Riverside Park`, words: false, red: false, go: 'Start scoring' }, what);
+  } else assert.deepEqual(home, { first: 'hero', said: undefined, up: undefined, words: true, red: true, go: undefined }, what);
   await p.context().close();
 }
 

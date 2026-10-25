@@ -24,7 +24,8 @@ function going(games) {
   }
   return null;
 }
-// It comes first, as the scoreboard shows it: "Foxes 1, Comets 3 · Top 6th · Delgado up", with Keep scoring.
+// It comes first, as the scoreboard shows it: "Foxes 1, Comets 3 · Top 6th · Delgado up", with Keep scoring (or
+// Start scoring, for a game set up but not started yet).
 function backHtml({ g, S }) {
   const n = now(S), inn = `${S.half ? 'Bottom' : 'Top'} ${ord(S.inn)}`;
   return `<section class="back-to card-box" aria-labelledby="backTo">
@@ -34,7 +35,7 @@ function backHtml({ g, S }) {
         <div class="bug-state"><div class="inn"><span class="arrow">${S.half ? '▼' : '▲'}</span><b>${ord(S.inn)}</b></div></div>
       </div>
       <p class="sr">${esc(`${teamName(g, 0)} ${S.R[0]}, ${teamName(g, 1)} ${S.R[1]} · ${inn}`)}</p>
-      <div class="back-row"><p><b>${esc(n.name)}</b> up${g.place ? ` · ${esc(g.place)}` : ''}</p><a class="btn primary" href="#/g/${esc(g.id)}">Keep scoring</a></div>
+      <div class="back-row"><p><b>${esc(n.name)}</b> up${g.place ? ` · ${esc(g.place)}` : ''}</p><a class="btn primary" href="#/g/${esc(g.id)}">${g.ev.length ? 'Keep' : 'Start'} scoring</a></div>
     </section>`;
 }
 
