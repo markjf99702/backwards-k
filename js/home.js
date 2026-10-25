@@ -1,8 +1,8 @@
 // The first screen: start a game, pick up one already going, the sample, Google Drive and backups.
-import { replay, teamName, halfLabel } from './engine.js';
+import { replay, teamName, halfLabel, now, ord } from './engine.js';
 import { store } from './store.js';
 import { $, esc, fmtDate, toast, download, pickFile, inFrame, ICON, whyNot } from './ui.js';
-import { today, cleanGame } from './model.js';
+import { today, cleanGame, newer } from './model.js';
 import { cellSvg } from './card.js';
 import { drive } from './sync.js';
 import { helpSheet, FIRST } from './help.js';
@@ -11,8 +11,35 @@ import { helpSheet, FIRST } from './help.js';
 const FEW = 20;
 let everyGame = false;
 
+// The game to go back to: the one changed last, if it isn't over and changed in the last 12 hours (a game being
+// scored today), and isn't one only a newer Backwards K can score. With the game itself as it stands.
+const LATELY = 12 * 3600 * 1000;
+function going(games) {
+  for (const g of games) {
+    if (!(Date.now() - g.updated <= LATELY)) return null;
+    if (newer(g)) continue;
+    let S;
+    try { S = replay(g); } catch { continue; }
+    if (!S.over) return { g, S };
+  }
+  return null;
+}
+// It comes first, as the scoreboard shows it: "Foxes 1, Comets 3 · Top 6th · Delgado up", with Keep scoring.
+function backHtml({ g, S }) {
+  const n = now(S), inn = `${S.half ? 'Bottom' : 'Top'} ${ord(S.inn)}`;
+  return `<section class="back-to card-box" aria-labelledby="backTo">
+      <h2 id="backTo">Back to the game</h2>
+      <div class="bug" aria-hidden="true">
+        <div class="bug-teams">${[0, 1].map(s => `<div class="bt${S.half === s ? ' bat' : ''}"><span class="nm">${esc(teamName(g, s))}</span><span class="r">${S.R[s]}</span></div>`).join('')}</div>
+        <div class="bug-state"><div class="inn"><span class="arrow">${S.half ? '▼' : '▲'}</span><b>${ord(S.inn)}</b></div></div>
+      </div>
+      <p class="sr">${esc(`${teamName(g, 0)} ${S.R[0]}, ${teamName(g, 1)} ${S.R[1]} · ${inn}`)}</p>
+      <div class="back-row"><p><b>${esc(n.name)}</b> up${g.place ? ` · ${esc(g.place)}` : ''}</p><a class="btn primary" href="#/g/${esc(g.id)}">Keep scoring</a></div>
+    </section>`;
+}
+
 export function showHome(el) {
-  const games = store.all(), listed = everyGame ? games : games.slice(0, FEW);
+  const games = store.all(), listed = everyGame ? games : games.slice(0, FEW), back = going(games);
   const item = g => {
     let S;
     try { S = replay(g); } catch { return ''; }
@@ -34,10 +61,11 @@ export function showHome(el) {
       </div>
     </header>
     <main class="home">
-      <section class="hero">
+      ${back ? backHtml(back) : ''}
+      <section class="hero${back ? ' short' : ''}">
         <h1>Keep score at the ballpark.</h1>
-        <p>Tap what happened. Backwards K moves the runners, keeps the count, the outs and the score, and fills in a real scorecard as you go.</p>
-        <a class="btn primary big" href="#/new">Score a new game</a>
+        ${back ? '' : '<p>Tap what happened. Backwards K moves the runners, keeps the count, the outs and the score, and fills in a real scorecard as you go.</p>'}
+        <a class="btn ${back ? '' : 'primary '}big" href="#/new">Score a new game</a>
       </section>
       ${games.length ? '' : `<figure class="first-look">
         <div>${FIRST.map(([c, t]) => `<div><div class="cell-pic">${cellSvg(c, { count: false })}</div><span>${t}</span></div>`).join('')}</div>

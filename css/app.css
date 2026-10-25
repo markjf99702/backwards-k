@@ -215,6 +215,15 @@ h1[tabindex="-1"]:focus { outline: none; } /* a screen's heading, given the keyb
 .hero h1 { font: 900 44px/.95 var(--board-font); letter-spacing: .01em; text-transform: uppercase; margin-bottom: 12px; }
 .hero p { font-size: 18px; color: var(--ink-2); max-width: 34em; margin-bottom: 18px; }
 .home section + section { margin-top: 26px; }
+/* A game being scored today, first: its scoreboard, who's up, and Keep scoring. The headline and Score a new game
+   follow it, without the words between them. */
+.back-to { margin-top: 8px; display: grid; gap: 10px; }
+.back-to h2 { margin: 0; }
+.back-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 14px; }
+.back-row p { margin: 0; color: var(--ink-2); }
+.back-row p b { color: var(--ink); }
+.hero.short { padding-top: 0; }
+.hero.short h1 { font-size: 34px; }
 /* No games yet: four boxes from a card, each with what it says. */
 .first-look { margin: 6px 2px 26px; }
 .first-look > div { display: grid; grid-template-columns: repeat(4, minmax(0, 76px)); gap: 12px; }
