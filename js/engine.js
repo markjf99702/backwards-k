@@ -330,14 +330,20 @@ function pa(S, e) {
   const batterName = label(player(g, side, slot, p), slot);
   // Everyone who scores is in one sentence, where the first of them would be: "Okafor, Brennan and Castillo score."
   // The same for runs that don't count. The winning run, when a runner brings it in, is said last.
-  const bits = [], scored = [], waved = [], past = [];
+  const bits = [], scored = {}, waved = [], past = [];
   const together = (names, one, more) => { if (!names.length) bits.push(() => `${list(names)} ${names.length > 1 ? more : one}`); };
-  let runs = 0, bOut = false, bTo = R.go, bAt = 0, handed = null;
+  let runs = 0, bOut = false, bTo = R.go, bAt = 0, bWhy = '', handed = null;
   // A league's run limit: the runs that can still count this half-inning, on this play.
   const cap = room(S);
+  // Where the play usually takes each runner, to tell one who got further on the throw or on an error.
+  const plan = suggest(S, e.r), usual = from => usualBase(S, e.r, from, plan);
+  // Errors on the way (a runner who took an extra base on one): one for each fielder who made one (OBR 9.12), besides
+  // the one the play itself was (E6).
+  const errBy = new Set();
   // (A play from a file that lists someone twice moves them once: the first time.)
   const moved = new Set();
-  for (const [from, was, how] of moves) {
+  let rbi = 0, lastWhy = null;
+  for (const [from, was, how, hf] of moves) {
     const r = from === 0 ? batter : S.bases[from];
     if (!r || moved.has(from)) continue;
     moved.add(from);
@@ -348,7 +354,11 @@ function pa(S, e) {
     if (from && to === 0 && handed == null && r.pi !== S.pit[fld]) handed = r.pi;
     if (!from && to && handed != null && R.kind !== 'hit') r.pi = handed;
     const who = label(player(g, side, r.slot, r.p), r.slot);
-    if (from === 0) bTo = to;
+    // Further than the play usually takes him, on the throw or on an error (by fielder ef, 0 when not said).
+    const u = usual(from), extra = to > u && (how === 'T' || how === 'E'), ef = extra && how === 'E' ? (hf && hf[0]) || 0 : null;
+    const why = !extra ? '' : how === 'T' ? ' on the throw' : ` on an error by the ${POS_NAME[ef] || 'fielder'}${ef ? ` (E${ef})` : ''}`;
+    if (ef != null) errBy.add(ef);
+    if (from === 0) { bTo = to; bWhy = why; }
     if (to === 0) {
       if (from === 0) {
         bOut = true;
@@ -374,28 +384,39 @@ function pa(S, e) {
       // Past the league's run limit for a half-inning: the run doesn't count, and the runner is left on base.
       overLimit(S, r, from, who, past, together);
     } else {
-      reach(r.cell, from, to, from ? String(slot + 1) : '');
+      // The extra base goes on the card as it's done on paper: the batter's number where the play took him, then T
+      // (on the throw) or the error, E9, at the base he went on to.
+      const num = from ? String(slot + 1) : '';
+      if (extra) { reach(r.cell, from, u, num); reach(r.cell, u, to, how === 'T' ? 'T' : 'E' + (ef || '')); }
+      else reach(r.cell, from, to, num);
+      const on = `${batterName}’s ${R.label.toLowerCase()}${why ? ',' + why : ''}`;
       if (to === 4) {
         score(S, r);
         runs++;
+        // A run that scores because of an error earns no RBI (OBR 9.04(a)).
+        if (ef == null) rbi++;
         if (from) {
-          if (!scored.length) bits.push(() => scorers(scored, need > 0 && need < 4));
-          scored.push(who);
-          r.cell.story.push(`Scored on ${batterName}’s ${R.label.toLowerCase()}.`);
+          // Everyone who scored the same way in one sentence: "Okafor and Brennan score on the throw."
+          if (!scored[why]) { const names = scored[why] = [], w = why; bits.push(() => scorers(names, need > 0 && need < 4 && w === lastWhy, w)); }
+          scored[why].push(who);
+          lastWhy = why;
+          r.cell.story.push(`Scored on ${on}.`);
         }
       } else {
         S.bases[to] = r;
-        if (from && to > from) { bits.push(`${who} to ${BASE[to]}`); r.cell.story.push(`To ${BASE[to]} on ${batterName}’s ${R.label.toLowerCase()}.`); }
+        if (from && to > from) { bits.push(`${who} to ${BASE[to]}${why}`); r.cell.story.push(`To ${BASE[to]} on ${on}.`); }
       }
     }
   }
-  if (runs && R.rbi !== 0) { cell.rbi = runs; B.rbi += runs; }
+  if (rbi && R.rbi !== 0) { cell.rbi = rbi; B.rbi += rbi; }
+  const own = R.err ? (e.r === 'CI' ? 'CI' : (e.f && e.f[0]) || 0) : null;
+  for (const f of errBy) if (f !== own) { S.E[fld]++; S.eInn[side][S.inn - 1]++; S.errs[fld].push(f); }
 
   let text = `${batterName} ${R.say}${fielderWords(code, e.f)}`;
   if (R.kind !== 'out' && bOut) text += R.go === 4 ? ', but is called out on the bases' : `, but is out trying for ${BASE[bAt]}`;
-  else if (R.kind !== 'out' && bTo > R.go && bTo < 4) text += ` and takes ${BASE[bTo]}`;
-  else if (R.kind !== 'out' && bTo === 4 && R.go < 4) text += ` and comes all the way home${need === 4 ? ' with the winning run' : ''}`;
-  else if (R.kind === 'out' && !bOut && bTo > 0) text += ` but reaches ${BASE[bTo]}`;
+  else if (R.kind !== 'out' && bTo > R.go && bTo < 4) text += ` and takes ${BASE[bTo]}${bWhy}`;
+  else if (R.kind !== 'out' && bTo === 4 && R.go < 4) text += ` and comes all the way home${bWhy}${need === 4 ? ' with the winning run' : ''}`;
+  else if (R.kind === 'out' && !bOut && bTo > 0) text += ` but reaches ${BASE[bTo]}${bWhy}`;
   text += '.' + (bits.length ? ' ' + sentences(bits) + '.' : '');
   if (code !== e.r) text += ` ${credit(e.r, code)}`;
   const full = (runs || past.length) && S.outs < 3 && limited(S);
@@ -727,6 +748,16 @@ export function suggest(S, code) {
   // The third out ends it: the other runners stay where they were, and nobody scores (OBR 5.08(a)).
   if (S.outs + m.filter(x => x[1] === 0).length >= 3) for (const x of m) if (x[0] && x[1]) x[1] = x[0];
   return m;
+}
+
+// Where a play usually takes someone, past which he took an extra base (on the throw, or on an error): the batter, the
+// base his hit or walk is for (first, on an out he was safe on); a runner, where suggest() has him, or when it has him
+// out, the next base if he was forced to it, else his own. plan: suggest()'s moves, when they're at hand.
+export function usualBase(S, code, from, plan = suggest(S, code)) {
+  const R = RESULTS[code];
+  if (!from) return R.kind === 'out' ? 1 : R.go;
+  const t = (plan.find(x => x[0] === from) || [])[1];
+  return t || (forced(S, from) ? from + 1 : from);
 }
 
 // What's wrong with a set of moves, in words, or '' if they could have happened. code: the play they're for, when

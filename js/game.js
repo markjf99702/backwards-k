@@ -3,7 +3,7 @@
 import {
   replay, suggest, check, runsCount, scoredAs, now, RESULTS, BASE, POS, POS_NAME, halfLabel, label, player, teamName,
   pitcherLabel, ord, runnersOn, mark, pitchStat, pitchWords, pitchDay, pitchWork, pitchCount, winningRun, creditedHit, credit, fits,
-  ENDS, regulation, official, winner, AUTO, limitState, restDays, restBand, noCatch, LIMIT_BY, sameSoFar, outAt, outBases,
+  ENDS, regulation, official, winner, AUTO, limitState, restDays, restBand, noCatch, LIMIT_BY, sameSoFar, outAt, outBases, usualBase,
 } from './engine.js';
 import { store } from './store.js';
 import { blank, takeBack, putBack, newer, plays } from './model.js';
@@ -672,17 +672,25 @@ function runnersSheet(code, f, moves, { st = S, editing = false, done = act } = 
     <div class="row"><button type="button" class="btn quiet" data-close>Cancel</button><button type="button" class="btn primary" data-x="save">${editing ? 'Save changes' : 'Save play'}</button></div>`);
   function draw() {
     // The chip that had the keyboard keeps it.
-    const had = body.querySelector('[data-to]:focus, [data-runs]:focus, [data-at]:focus');
-    const k = had && ['to', 'at'].find(x => had.dataset[x] != null);
+    const had = body.querySelector('[data-to]:focus, [data-runs]:focus, [data-at]:focus, [data-how]:focus, [data-ef]:focus');
+    const k = had && ['to', 'at', 'how', 'ef'].find(x => had.dataset[x] != null);
     const again = had && (had.dataset.runs ? `[data-runs="${had.dataset.runs}"]` : `[data-from="${had.closest('[data-from]').dataset.from}"] [data-${k}="${had.dataset[k]}"]`);
-    const rows = m.slice().sort((a, b) => b[0] - a[0]).map(([from, to, how]) => {
-      const opts = [0, ...[1, 2, 3, 4].filter(b => b >= Math.max(from, 1))];
+    // (What the play will be saved as, from where everyone is now: a fly ball that scored the run from third is a
+    // sacrifice fly, which takes him home.)
+    const as = scoredAs(st, code, f, m), plan = suggest(st, as);
+    const rows = m.slice().sort((a, b) => b[0] - a[0]).map(([from, to, how, hf]) => {
+      const opts = [0, ...[1, 2, 3, 4].filter(b => b >= Math.max(from, 1))], name = esc(who(from));
       // Out: at the next base, or further on (from first, thrown out at third or at home).
       const at = to === 0 ? outBases(from, R) : [], was = outAt(from, how, R);
+      // Further than the play usually takes him: on the play itself, on the throw, or on an error, and whose.
+      const extra = to > 0 && to > usualBase(st, as, from, plan), ef = how === 'E' && hf ? hf[0] : 0;
+      const chip = (k, v, words, on, more = '') => `<button type="button" data-${k}="${v}" aria-pressed="${on}"${more}>${words}</button>`;
       return `<div class="mv" data-from="${from}">
-        <p><b>${esc(who(from))}</b><span>${from ? `was on ${BASE[from]}` : 'at bat'}</span></p>
-        <div class="chips" role="group" aria-label="Where ${esc(who(from))} ended up">${opts.map(b => `<button type="button" data-to="${b}" aria-pressed="${b === to}" class="${b === 0 ? 'out' : b === 4 ? 'home' : ''}">${b === 0 ? 'Out' : b === from ? 'Stayed' : BASES[b]}</button>`).join('')}</div>
-        ${at.length ? `<div class="how"><span>Out at</span><span class="chips" role="group" aria-label="Where ${esc(who(from))} was put out">${at.map(b => `<button type="button" data-at="${b}" aria-pressed="${b === was}">${BASES[b]}</button>`).join('')}</span></div>` : ''}
+        <p><b>${name}</b><span>${from ? `was on ${BASE[from]}` : 'at bat'}</span></p>
+        <div class="chips" role="group" aria-label="Where ${name} ended up">${opts.map(b => `<button type="button" data-to="${b}" aria-pressed="${b === to}" class="${b === 0 ? 'out' : b === 4 ? 'home' : ''}">${b === 0 ? 'Out' : b === from ? 'Stayed' : BASES[b]}</button>`).join('')}</div>
+        ${at.length ? `<div class="how"><span class="lbl">Out at</span><span class="chips" role="group" aria-label="Where ${name} was put out">${at.map(b => chip('at', b, BASES[b], b === was)).join('')}</span></div>` : ''}
+        ${extra ? `<div class="how"><span class="chips" role="group" aria-label="How ${name} got to ${to === 4 ? 'home' : BASE[to]}">${[['', 'On the play'], ['T', 'On the throw'], ['E', 'Error']].map(([v, w]) => chip('how', v, w, (how === 'T' || how === 'E' ? how : '') === v)).join('')}</span></div>` : ''}
+        ${extra && how === 'E' ? `<div class="how ef"><span class="lbl">Error by</span><span class="chips" role="group" aria-label="Whose error">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(x => chip('ef', x, POS[x], x === ef, ` aria-label="${POS_NAME[x]}"`)).join('')}</span></div>` : ''}
       </div>`;
     });
     body.querySelector('.moves').innerHTML = rows.join('');
@@ -717,7 +725,8 @@ function runnersSheet(code, f, moves, { st = S, editing = false, done = act } = 
   draw();
   body.addEventListener('click', e => {
     const c = e.target.closest('[data-to]'), r = e.target.closest('[data-runs]'), s = e.target.closest('[data-x=save]'), a = e.target.closest('[data-at]');
-    const mv = (c || a) && m.find(x => x[0] === +(c || a).closest('.mv').dataset.from);
+    const h = e.target.closest('[data-how]'), ef = e.target.closest('[data-ef]'), x = c || a || h || ef;
+    const mv = x && m.find(y => y[0] === +x.closest('.mv').dataset.from);
     if (c) {
       // (Where he ended up changed: how he got there, or where he was put out, is asked again.)
       mv[1] = +c.dataset.to;
@@ -729,7 +738,13 @@ function runnersSheet(code, f, moves, { st = S, editing = false, done = act } = 
       mv.length = 2;
       if (b !== outAt(mv[0], '', R)) mv.push('@' + b);
       draw();
-    } else if (r) { userSaid = true; counts.v = r.dataset.runs === '1'; draw(); }
+    } else if (h) {
+      // On the play needn't be said either. An error's fielder is asked next.
+      mv.length = 2;
+      if (h.dataset.how) mv.push(h.dataset.how);
+      draw();
+    } else if (ef) { mv.length = 2; mv.push('E', [+ef.dataset.ef]); draw(); }
+    else if (r) { userSaid = true; counts.v = r.dataset.runs === '1'; draw(); }
     else if (s && !s.disabled) {
       const third = st.outs + m.filter(x => x[1] === 0).length >= 3;
       // A sacrifice fly or bunt, or not, from where everyone ended up.

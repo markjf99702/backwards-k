@@ -2374,6 +2374,24 @@ step('the runners sheet: a runner marked out says where, from the next base on (
   await p.click('.mv[data-from="2"] [data-to="3"]');
   assert.equal(await p.locator('.sheet .how').count(), 0);
   await p.click('.sheet [data-close]');
+
+  step('the runners sheet: one who got further than the play takes him did it on the play, on the throw, or on an error');
+  await p.click('[data-r="1B"]');
+  await p.waitForSelector('.sheet .moves');
+  assert.equal(await p.locator('.sheet .how').count(), 0, 'where a single takes him: nothing to ask');
+  await p.click('.mv[data-from="1"] [data-to="3"]');
+  assert.deepEqual(await p.$$eval('.mv[data-from="1"] [data-how]', b => b.map(x => x.textContent + ':' + x.getAttribute('aria-pressed'))), ['On the play:true', 'On the throw:false', 'Error:false']);
+  await p.click('.mv[data-from="1"] [data-how="T"]');
+  await p.click('.mv[data-from="0"] [data-to="2"]');
+  await p.click('.mv[data-from="0"] [data-how="E"]');
+  assert.equal(await p.locator('.mv[data-from="0"] [data-ef]').count(), 9);
+  await p.click('.mv[data-from="0"] [data-ef="9"]');
+  await p.click('.sheet [data-x=save]');
+  assert.equal(await tickerOf(p), 'Batter 3 singles and takes second on an error by the right fielder (E9). Batter 2 to third on the throw.');
+  assert.deepEqual((await stored(p, id)).ev[2].m, [[0, 2, 'E', [9]], [1, 3, 'T']]);
+  assert.match(await p.textContent('.bar .title'), /0–0/);
+  await p.click('[data-v=box]');
+  assert.match(await p.textContent('.pane[data-p=box]'), /Errors: right fielder\./);
   await p.context().close();
 }
 

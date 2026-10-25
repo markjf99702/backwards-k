@@ -134,6 +134,44 @@ test('a runner put out on a hit is out where the scorer says: from second, at ho
   assert.equal(newer(g), false);
 });
 
+test('an extra base on the throw or on an error: said so, drawn so, and an error is charged and earns no RBI (OBR 9.04, 9.12)', () => {
+  // From first to third on a single, on the throw: the batter's number at second, T at third.
+  let S = play(game(), '1B', { t: 'pa', r: '1B', m: [[0, 1], [1, 3, 'T']] });
+  assert.equal(S.text.at(-1), 'Batter 2 singles. Batter 1 to third on the throw.');
+  assert.deepEqual([S.cells[0].notes, S.cells[0].story], [['', '', '2', 'T', ''], ['To third on Batter 2’s single, on the throw.']]);
+  assert.equal(S.E[1], 0);
+  // From first, home on the right fielder's error: an error, the run, and no RBI for it.
+  S = play(game(), '3B', 'BB', { t: 'pa', r: '1B', m: [[0, 1], [1, 4, 'E', [9]], [3, 4]] });
+  assert.equal(S.text.at(-1), 'Batter 3 singles. Batter 1 scores. Batter 2 scores on an error by the right fielder (E9).');
+  assert.deepEqual([S.R[0], S.cells[2].rbi, S.bat['0.2.0'].rbi, S.E[1], S.errs[1], S.eInn[0]], [2, 1, 1, 1, [9], [1]]);
+  assert.deepEqual(S.cells[1].notes, ['', '', '3', '', 'E9']);
+  // The batter takes second on the throw, or comes all the way home on errors; the fielder needn't be said.
+  S = play(game(), { t: 'pa', r: '1B', m: [[0, 2, 'T']] });
+  assert.equal(S.text.at(-1), 'Batter 1 singles and takes second on the throw.');
+  assert.deepEqual([S.cells[0].reach, S.cells[0].notes[2], S.bases[2].cell.n], [2, 'T', 0]);
+  S = play(game(), { t: 'pa', r: '1B', m: [[0, 4, 'E']] });
+  assert.equal(S.text.at(-1), 'Batter 1 singles and comes all the way home on an error by the fielder.');
+  assert.deepEqual([S.R[0], S.cells[0].rbi, S.E[1], S.errs[1]], [1, 0, 1, [0]]);
+  // Reached on the shortstop's error, and the runner from second scored on it too: one error. On another fielder's
+  // throw after it, two.
+  S = play(game(), '2B', { t: 'pa', r: 'E', f: [6], m: [[0, 1], [2, 4, 'E', [6]]] });
+  assert.deepEqual([S.E[1], S.errs[1]], [1, [6]]);
+  S = play(game(), '2B', { t: 'pa', r: 'E', f: [6], m: [[0, 1], [2, 4, 'E', [2]]] });
+  assert.deepEqual([S.E[1], S.errs[1]], [2, [6, 2]]);
+  // Only past where the play takes him: a runner who went where a single takes him, or the batter on a double to
+  // second, is there on the play, whatever the move says.
+  S = play(game(), '1B', { t: 'pa', r: '2B', m: [[0, 2, 'E', [9]], [1, 3, 'T']] });
+  assert.equal(S.text.at(-1), 'Batter 2 doubles. Batter 1 to third.');
+  assert.equal(S.E[1], 0);
+  // Two who scored on the same throw, in one sentence; kept from a file and a link.
+  const g = game();
+  S = play(g, '1B', '1B', { t: 'pa', r: '1B', m: [[0, 1], [1, 4, 'T'], [2, 4, 'T']] });
+  assert.equal(S.text.at(-1), 'Batter 3 singles. Batter 1 and Batter 2 score on the throw.');
+  assert.deepEqual(cleanGame(JSON.parse(JSON.stringify(g))), g);
+  g.ev.push({ t: 'pa', r: '1B', m: [[0, 1], [1, 3, 'E', [8]]] });
+  assert.deepEqual(cleanGame(JSON.parse(JSON.stringify(g))).ev.at(-1).m, [[0, 1], [1, 3, 'E', [8]]]);
+});
+
 test('a fielder’s choice puts out the runner from first and leaves the batter on', () => {
   const g = game();
   let S = play(g, '1B');

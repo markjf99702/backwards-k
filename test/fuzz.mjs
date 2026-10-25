@@ -226,16 +226,19 @@ function fielders(rnd, code) {
   return Array.from({ length: R.f === 1 ? 1 : 1 + Math.floor(rnd() * 3) }, () => 1 + Math.floor(rnd() * 9));
 }
 // The sheet's chips, some changed: where the runners went if not where they usually do, and now and then, for one
-// marked out, where (the Out at row).
+// marked out, where (the Out at row), and for one who got further than the play takes him, how (on the throw, or on
+// an error, with or without the fielder).
 function changed(rnd, S, m, code) {
   for (let i = 0; i < 25; i++) {
     const t = m.map(x => x.slice());
     for (const x of t) if (rnd() < 0.5) x[1] = pick(rnd, opts(x[0]));
     if (check(S, t)) continue;
+    const as = code && scoredAs(S, code, null, t);
     for (const x of t) {
       x.length = 2;
       const at = x[1] === 0 && code ? E.outBases(x[0], RESULTS[code]) : [];
       if (at.length && rnd() < 0.4) x.push('@' + pick(rnd, at));
+      if (code && x[1] > E.usualBase(S, as, x[0]) && rnd() < 0.5) x.push(...(rnd() < 0.4 ? ['T'] : rnd() < 0.7 ? ['E', [1 + Math.floor(rnd() * 9)]] : ['E']));
     }
     return t;
   }
