@@ -683,6 +683,53 @@ test('a game survives being tidied (from a file or a link) unchanged', () => {
   assert.deepEqual(Object.keys(cleanDoc({ games: { x: g } }).games), [g.id]);
 });
 
+// A game with every kind of event the game screen makes, each the way it makes it: pitches, plays (with and without
+// fielders, and a run that doesn't count), runners moving (a steal, several on one wild pitch, a balk, an error by a
+// fielder, caught stealing with the throw, a pickoff, a passed ball, moved up, out on the bases), a pinch runner, a
+// pinch hitter, a change in the field and a starter back in, a new pitcher and the starter back, a batter added, a
+// half-inning ended early, and the game called and taken up again.
+function everyKind() {
+  const g = game({ innings: 3 });
+  g.place = 'Riverside Park';
+  g.teams[0].lineup[0][0] = { name: 'Ruiz', num: '2' };
+  g.teams[1].pitchers[0] = { name: 'Halvorsen', num: '21' };
+  // Whoever comes in is added to the game as they come in, as the game screen does it.
+  const sub = (s, slot, who, ty) => { g.teams[s].lineup[slot].push(who); return { t: 'sub', s, slot, i: g.teams[s].lineup[slot].length - 1, ty }; };
+  const reliever = (s, who) => { g.teams[s].pitchers.push(who); return { t: 'pch', s, i: g.teams[s].pitchers.length - 1 }; };
+  const add = s => { g.teams[s].lineup.push([{ name: '', num: '' }]); return { t: 'add', s }; };
+  play(g, P('b'), P('c'), P('f'), P('s'), '1B', { t: 'r', m: [[1, 2, 'SB']] }, 'BB', { t: 'r', m: [[2, 3, 'WP'], [1, 2, 'WP']] });
+  play(g, sub(0, 1, { name: 'Speedy', num: '0' }, 'pr'), { t: 'r', m: [[3, 4, 'BK'], [2, 3, 'BK']] }, { t: 'r', m: [[3, 4, 'E', [2]]] }, 'GO 6 3');
+  play(g, reliever(1, { name: 'Bishop', num: '37' }));
+  play(g, sub(0, 4, { name: 'Diaz', num: '' }, 'ph'), 'FO 8');
+  play(g, '1B', { t: 'r', m: [[1, 0, 'CS', [2, 6]]] }, '2B', { t: 'r', m: [[2, 3, 'PB']] }, 'SF 9', 'HBP', { t: 'r', m: [[1, 0, 'PO', [1, 3]]] });
+  play(g, sub(1, 0, { name: 'Glove', num: '' }, 'def'), { t: 'pch', s: 1, i: 0 });
+  play(g, add(0));
+  play(g, 'E 6', '1B', '1B', 'K', 'KL', { t: 'pa', r: 'FC', f: [6, 4], m: [[0, 1], [1, 0], [2, 3], [3, 4]], x: 1 });
+  play(g, 'PU 2', 'KD', { t: 'r', m: [[1, 2, 'OA']] }, { t: 'r', m: [[2, 0, 'OB']] }, { t: 'eoh' });
+  play(g, { t: 'sub', s: 0, slot: 1, i: 0, ty: 'def' }, 'IBB', 'CI', 'SAC 1 3', '3B', { t: 'end' }, { t: 'on' }, 'LO 6', '1B', 'DP 6 4 3');
+  return g;
+}
+
+test('a game with every kind of event comes back the same from a file, Drive, storage and a link', async () => {
+  const g = everyKind(), S = replay(g);
+  assert.deepEqual(new Set(g.ev.map(e => e.t)), new Set(['p', 'pa', 'r', 'sub', 'pch', 'add', 'eoh', 'end', 'on']));
+  assert.deepEqual([S.R, S.inn, S.half], [[5, 1], 3, 1]);
+  for (const t of S.text) assert.doesNotMatch(t, /undefined|NaN/);
+  const json = JSON.parse(JSON.stringify(g));
+  assert.deepEqual(cleanGame(json), g);
+  assert.deepEqual(cleanGame(cleanGame(json)), g, 'tidying again changes nothing');
+  assert.deepEqual(cleanDoc({ app: 'backwards-k', v: 1, games: { [g.id]: json }, gone: {} }).games, { [g.id]: g });
+  const { pack, unpack } = await import('../js/share.js');
+  const link = await pack(g);
+  assert.equal(link[0], 'z');
+  assert.deepEqual(await unpack(link), json);
+  assert.deepEqual(cleanGame(await unpack(link)), g);
+  // A link made where the browser can't compress: the game as plain JSON, in base64url.
+  const plain = 'j' + Buffer.from(JSON.stringify(g)).toString('base64url');
+  assert.deepEqual(cleanGame(await unpack(plain)), g);
+  assert.deepEqual(replay(cleanGame(await unpack(plain))).text, S.text);
+});
+
 test('each box on the card says its inning, what came after, the out and the count', () => {
   const g = game();
   play(g, P('b'), '2B', P('s'), P('s'), { t: 'pa', r: 'GO', f: [6, 3], m: [[0, 0], [2, 3]] }, 'K');
@@ -826,14 +873,56 @@ test('a game scored by hand: every batting and pitching line', () => {
   assert.match(cardHtml(S, 1), /title="Errors by the other team while these batters were up">E<\/th><td colspan="1">2<\/td><td colspan="1">0<\/td>/);
 });
 
-// Each event replayed from scratch gives what replaying it all at once gives (so undo is safe).
-test('undo is replaying one event fewer', () => {
-  const g = sampleGame(11);
-  const all = replay(g);
-  const back = { ...g, ev: g.ev.slice(0, -1) };
-  const before = replay(back);
-  assert.ok(before.cells.length <= all.cells.length);
-  assert.equal(replay({ ...g, ev: g.ev.slice() }).R.join(), all.R.join());
+// Everything replay() works out, written out to compare: the score, the count and outs, who's where, each box, the
+// batting and pitching lines, the plays and the line score.
+const state = S => JSON.stringify({
+  R: S.R, H: S.H, E: S.E, outs: S.outs, inn: S.inn, half: S.half, b: S.b, s: S.s, up: S.up, pl: S.pl, pit: S.pit, size: S.size,
+  over: S.over, ended: S.ended, hold: S.hold, line: S.line, lob: S.lob, errs: S.errs,
+  bases: S.bases.map(r => r && [r.side, r.slot, r.p, r.pi, r.cell.n]), cells: S.cells, bat: S.bat, pitching: S.pitching,
+  text: S.text, plays: S.plays,
+});
+// A game built up one tap at a time, the way the game screen builds it: each new player, pitcher and batting slot is
+// added to the teams when the event that brings them in is, and the game is replayed after every tap. The state after
+// each tap, from none to all of them.
+function tapByTap(g) {
+  const adds = [0, 1].map(s => g.ev.filter(e => e.t === 'add' && e.s === s).length);
+  const live = {
+    ...g, ev: [],
+    teams: g.teams.map((t, s) => ({ ...t, lineup: t.lineup.slice(0, t.lineup.length - adds[s]).map(slot => [slot[0]]), pitchers: [t.pitchers[0]] })),
+  };
+  const seen = [state(replay(live))];
+  for (const e of g.ev) {
+    const t = live.teams[e.s];
+    if (e.t === 'sub' && e.i === t.lineup[e.slot].length) t.lineup[e.slot].push(g.teams[e.s].lineup[e.slot][e.i]);
+    if (e.t === 'pch' && e.i === t.pitchers.length) t.pitchers.push(g.teams[e.s].pitchers[e.i]);
+    if (e.t === 'add') t.lineup.push([g.teams[e.s].lineup[t.lineup.length][0]]);
+    live.ev.push(structuredClone(e));
+    seen.push(state(replay(live)));
+  }
+  return seen;
+}
+
+// Undo is dropping the last event (and whoever it brought in), so after any number of Undos the game is exactly as
+// it was before those taps, and Redo brings it back exactly.
+test('undo is exact: replaying the first plays gives the game as it stood, tap by tap, and redo puts it all back', () => {
+  for (const [name, g] of [...Array.from({ length: 20 }, (_, i) => [`seed ${i + 1}`, sampleGame(i + 1)]), ['every kind', everyKind()]]) {
+    const seen = tapByTap(g), n = g.ev.length;
+    // Replaying the first k events (sample games add no batters, so the whole lineup is fine).
+    if (name !== 'every kind') for (let k = 0; k <= n; k++) assert.equal(state(replay({ ...g, ev: g.ev.slice(0, k) })), seen[k], `${name}: the first ${k} events`);
+    // Undo, all the way back, then Redo, all the way forward.
+    const copy = structuredClone(g), taken = [];
+    assert.equal(state(replay(copy)), seen[n], `${name}: all of it`);
+    for (let k = n - 1; k >= 0; k--) {
+      taken.push(takeBack(copy));
+      assert.equal(state(replay(copy)), seen[k], `${name}: undone back to ${k}`);
+    }
+    assert.deepEqual(copy.teams.map(t => [t.lineup.length, t.lineup.map(s => s.length).join(), t.pitchers.length]), [[9, '1,1,1,1,1,1,1,1,1', 1], [9, '1,1,1,1,1,1,1,1,1', 1]], `${name}: everyone brought in has gone`);
+    for (let k = 1; k <= n; k++) {
+      putBack(copy, taken.pop());
+      assert.equal(state(replay(copy)), seen[k], `${name}: redone to ${k}`);
+    }
+    assert.deepEqual(copy, g, `${name}: the game is as it was`);
+  }
 });
 
 test('every suggested set of runner moves passes check()', () => {

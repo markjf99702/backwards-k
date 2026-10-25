@@ -1043,6 +1043,18 @@ step('a box’s “Change what it was” offers only what could have happened');
   await p.click('#toast button');
   assert.equal(await plays(p, id), 'paK paE');
   assert.match(await p.locator('.card').innerHTML(), />E6</);
+
+  step('a sacrifice bunt with everyone safe can’t be switched to an out');
+  await p.click('[data-v=live]');
+  await p.click('[data-r=SAC]');
+  await p.click('.sheet [data-x=skip]');
+  await p.click('.mv[data-from="0"] [data-to="1"]');
+  await p.click('.sheet [data-x=save]');
+  assert.equal(await p.textContent('.ticker p'), 'Batter 3 lays down a sacrifice bunt but reaches first. Batter 2 to second.');
+  await p.click('[data-v=card]');
+  await p.click('[data-cell="2"]');
+  assert.equal(await off(), 'K KL GO FO LO PU SF');
+  assert.equal(await p.getAttribute('.sheet [data-sw=GO]', 'title'), 'The batter was safe on it.');
   await p.context().close();
 }
 
