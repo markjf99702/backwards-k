@@ -116,11 +116,22 @@ function cleanRules(r) {
   };
 }
 
-// A pitch limit (see above), or 0 for none. Its age is one of the table's, with Little League or Pitch Smart.
+// A pitch limit (see above), or 0 for none. A kind or a league age this version doesn't know (from a newer one) is
+// kept, and the game opens look-only (see newer()).
 function cleanLimit(v) {
   if (!v || typeof v !== 'object' || Array.isArray(v) || !(+v.max >= 1)) return 0;
-  const by = Object.hasOwn(LIMIT_BY, v.by) ? v.by : '';
-  return { by, age: by && Object.hasOwn(PITCH_AGES, v.age) ? v.age : '', max: int(v.max, 1, 300, 85), ...more(v, KNOWN.get('limit'), 300) };
+  const word = x => (typeof x === 'string' && /^[\w-]{1,12}$/.test(x) ? x : '');
+  const by = word(v.by);
+  return { by, age: by ? word(v.age) : '', max: int(v.max, 1, 300, 85), ...more(v, KNOWN.get('limit'), 300) };
+}
+// A limit by league age that this version has the table for (or a plain number).
+const knownLimit = L => !L.by || (Object.hasOwn(LIMIT_BY, L.by) && Object.hasOwn(PITCH_AGES, L.age));
+
+// The league rules and pitch limit a new game starts with, from the last one: only what this version knows. Anything a
+// newer Backwards K saved in them belongs to that game, and in a new one would make it look-only.
+export function carried(g) {
+  const only = (o, k) => Object.fromEntries(KNOWN.get(k).filter(x => x in o).map(x => [x, structuredClone(o[x])]));
+  return { rules: g && g.rules ? only(g.rules, 'rules') : null, limit: g && g.limit && knownLimit(g.limit) ? only(g.limit, 'limit') : 0 };
 }
 
 function cleanTeam(t, side) {
@@ -154,7 +165,7 @@ export function cleanGame(g) {
 // scoring on from a game this copy can't read all of would go wrong.
 export function newer(g) {
   const extra = (o, k) => Object.keys(o).some(x => !KNOWN.get(k).includes(x));
-  return extra(g, 'game') || (!!g.rules && extra(g.rules, 'rules')) || (!!g.limit && extra(g.limit, 'limit')) || g.teams.some(t => extra(t, 'team') || [...t.lineup.flat(), ...t.pitchers].some(p => extra(p, 'player')))
+  return extra(g, 'game') || (!!g.rules && extra(g.rules, 'rules')) || (!!g.limit && (extra(g.limit, 'limit') || !knownLimit(g.limit))) || g.teams.some(t => extra(t, 'team') || [...t.lineup.flat(), ...t.pitchers].some(p => extra(p, 'player')))
     || g.ev.some(e => !EVENTS.has(e.t) || extra(e, e.t) || (e.t === 'p' && !KINDS.includes(e.k))
       || (e.t === 'pa' && !Object.hasOwn(RESULTS, e.r)) || (e.t === 'sub' && !SUBS.includes(e.ty)) || (e.t === 'end' && 'why' in e && !Object.hasOwn(ENDS, e.why)));
 }

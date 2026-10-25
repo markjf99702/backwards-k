@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { replay, suggest, check, runsCount, scoredAs, mark, now, columns, halfLabel, RESULTS, runnersOn, pitchDay, pitchStat, pitchWork, pitchCount, winningRun, fits, official, winner, endNote, regulation, limitState, restDays, restBand, noCatch, sameSoFar } from '../js/engine.js';
-import { newGame, cleanGame, cleanDoc, parseLineup, parsePaste, takeBack, putBack, starters, newer, merge, seenOf } from '../js/model.js';
+import { newGame, cleanGame, cleanDoc, parseLineup, parsePaste, takeBack, putBack, starters, newer, merge, seenOf, carried } from '../js/model.js';
 import { sampleGame } from '../js/sample.js';
 // The card is drawn with ui.js, which looks for the page's sheet as it loads: here there's no page, so no sheet.
 globalThis.document ??= { readyState: 'complete', getElementById: () => null };
@@ -751,10 +751,28 @@ test('a pitch limit is kept from a file, a link and Drive', () => {
   assert.deepEqual(cleanGame(JSON.parse(JSON.stringify(g))), g);
   assert.deepEqual([game().limit, newer(g)], [0, false]);
   const t = limit => cleanGame({ ...g, limit }).limit;
-  assert.deepEqual([t(null), t(85), t({ max: 0 }), t({ by: 'll', age: '99-100', max: '70' }), t({ by: 'xx', age: '9-10', max: 500 })],
-    [0, 0, 0, { by: 'll', age: '', max: 70 }, { by: '', age: '', max: 300 }]);
+  assert.deepEqual([t(null), t(85), t({ max: 0 }), t({ by: '', age: '9-10', max: '70' }), t({ by: 7, age: '9-10', max: 500 }), t({ by: 'll', age: '<b>', max: 85 })],
+    [0, 0, 0, { by: '', age: '', max: 70 }, { by: '', age: '', max: 300 }, { by: 'll', age: '', max: 85 }]);
   const later = cleanGame({ ...g, limit: { ...L, warnAt: 3 } });
   assert.deepEqual([later.limit.warnAt, newer(later)], [3, true]);
+  // A kind of limit or a league age from a newer version is kept as it came, and the game opens look-only.
+  for (const limit of [{ by: 'nfhs', age: '9-10', max: 75 }, { by: 'll', age: '5-6', max: 40 }]) {
+    const h = cleanGame({ ...g, limit });
+    assert.deepEqual([h.limit, newer(h)], [limit, true]);
+  }
+});
+
+test('the next new game starts with the last one’s league rules and pitch limit, without what a newer version added', () => {
+  const g = game({ rules: { ...MINORS, pitchesAt: 3 }, limit: { by: 'll', age: '9-10', max: 75, warnAt: 70 } });
+  assert.equal(newer(g), true);
+  const c = carried(g), h = game(c);
+  assert.deepEqual(c, { rules: MINORS, limit: { by: 'll', age: '9-10', max: 75 } });
+  assert.equal(newer(h), false, 'the new game is a game this version can score');
+  assert.deepEqual(carried(game({ limit: { by: 'nfhs', age: '9-10', max: 75 } })).limit, 0, 'a kind of limit it doesn’t know isn’t carried');
+  assert.deepEqual(carried(game({ limit: { by: '', age: '', max: 60 } })).limit, { by: '', age: '', max: 60 });
+  assert.deepEqual(carried(undefined), { rules: null, limit: 0 });
+  c.rules.mercy[0][1] = 99;
+  assert.equal(MINORS.mercy[0][1], 15, 'a copy');
 });
 
 test('a play that makes the third out leaves the other runners where they were', () => {

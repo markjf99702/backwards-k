@@ -1,6 +1,6 @@
 // Starting a game: two team names and you're off. Lineups, innings and the rest are optional, and all of it can
 // be changed once the game is going.
-import { newGame, blank, starters, today, parsePaste } from './model.js';
+import { newGame, blank, starters, today, parsePaste, carried } from './model.js';
 import { store } from './store.js';
 import { $, $$, esc, openSheet, closeSheet, go, nextName } from './ui.js';
 import { drive } from './sync.js';
@@ -32,8 +32,7 @@ export function showSetup(el) {
   const last = store.all()[0], INN = [9, 7, 6, 5, 4, 3];
   const opt = {
     innings: last && INN.includes(last.innings) ? last.innings : 9, pitches: last ? last.pitches !== false : true,
-    rules: last && last.rules ? structuredClone(last.rules) : null, tie: !!(last && last.tie),
-    limit: last && last.limit ? structuredClone(last.limit) : 0, date: today(), place: '',
+    ...carried(last), tie: !!(last && last.tie), date: today(), place: '',
   };
 
   el.innerHTML = `<header class="bar">
