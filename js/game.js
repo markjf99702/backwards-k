@@ -896,11 +896,18 @@ function menuSheet() {
 }
 
 function settingsSheet() {
+  // In the bottom of an inning with the home team ahead after the top of it, that inning can't be made the last: the
+  // game would have been over before this half, and the plays in it would go on as if after a Final.
+  const led = S.half === 1 && !S.over && S.R[1] - (S.line[1][S.inn - 1] || 0) > S.R[0];
+  const notes = [
+    S.inn > 3 ? `Already in the ${ord(S.inn)}, so it can’t be shorter than that.` : '',
+    led ? `${G.teams[1].name ? `The ${G.teams[1].name} were` : 'The home team was'} already ahead after the top of the ${ord(S.inn)}: use End the game here.` : '',
+  ].filter(Boolean).join(' ');
   const body = openSheet(`<h2 id="sheetTitle">Game settings</h2>
     <div class="form">
       <label><span>Visitors</span><input data-t="0" maxlength="40" value="${esc(G.teams[0].name)}" placeholder="Visitors"></label>
       <label><span>Home team</span><input data-t="1" maxlength="40" value="${esc(G.teams[1].name)}" placeholder="Home"></label>
-      <label><span>Innings</span><select data-g="innings">${[3, 4, 5, 6, 7, 8, 9, 10, 12].map(n => `<option${n === G.innings ? ' selected' : n < S.inn ? ' disabled' : ''}>${n}</option>`).join('')}</select>${S.inn > 3 ? `<small>Already in the ${ord(S.inn)}, so it can’t be shorter than that.</small>` : ''}</label>
+      <label><span>Innings</span><select data-g="innings">${[3, 4, 5, 6, 7, 8, 9, 10, 12].map(n => `<option${n === G.innings ? ' selected' : n < S.inn || (n === S.inn && led) ? ' disabled' : ''}>${n}</option>`).join('')}</select>${notes ? `<small>${esc(notes)}</small>` : ''}</label>
       <label><span>Date</span><input type="date" data-g="date" value="${esc(G.date)}"></label>
       <label><span>Where</span><input data-g="place" maxlength="80" value="${esc(G.place)}" placeholder="Optional"></label>
       <label class="switch"><input type="checkbox" data-g="pitches"${G.pitches ? ' checked' : ''}><span>Count balls and strikes<small>Keeps the count and each pitcher’s pitch count.</small></span></label>

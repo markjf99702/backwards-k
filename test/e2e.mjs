@@ -603,6 +603,27 @@ step('after a walk-off, the runner left on is still drawn, and can’t be moved'
   await p.context().close();
 }
 
+step('Game settings won’t make the inning being played the last when the home team already led after the top of it');
+{
+  const p = await phone();
+  await startGame(p);
+  for (let i = 0; i < 3; i++) await p.click('[data-r=K]');
+  await p.click('[data-r=HR]');
+  for (let i = 0; i < 12; i++) await p.click('[data-r=K]');
+  assert.match(await p.textContent('.bar .title'), /Bottom 3rd/);
+  const innings = async () => { await p.click('[data-a=menu]'); await p.click('[data-y=settings]'); const r = await p.$$eval('.sheet [data-g=innings] option', o => o.filter(x => x.disabled).map(x => x.textContent).join()); const note = await p.textContent('.sheet [data-g=innings] + small'); return [r, note]; };
+  assert.deepEqual(await innings(), ['3', 'The home team was already ahead after the top of the 3rd: use End the game here.']);
+  await p.keyboard.press('Escape');
+  // In the top of the 4th it can be the last: the game ends when the half does.
+  for (let i = 0; i < 3; i++) await p.click('[data-r=K]');
+  assert.deepEqual(await innings(), ['3', 'Already in the 4th, so it can’t be shorter than that.']);
+  await p.selectOption('.sheet [data-g=innings]', '4');
+  await p.keyboard.press('Escape');
+  for (let i = 0; i < 3; i++) await p.click('[data-r=K]');
+  assert.match(await p.textContent('.final h2'), /Home win, 1–0/);
+  await p.context().close();
+}
+
 step('a device that’s out of room: one line says so, and nothing claims it was saved');
 {
   const p = await phone(() => {
