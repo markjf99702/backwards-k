@@ -55,7 +55,7 @@ export function helpSheet() {
       <li><b>Runners move themselves.</b> With runners on, you’ll see where everyone usually ends up. Tap anything that went differently.</li>
       <li><b>Tap a runner</b> on the field for a steal, a wild pitch or a pickoff.</li>
       <li><b>Tap the batter or the pitcher</b> to give them a name, or to make a substitution. Names can wait until later.</li>
-      <li><b>Undo</b> takes back the last tap, as many times as you need.</li>
+      <li><b>Undo</b> takes back plays, latest first, as many as you need. A change made in a box on the card has its own Undo, right after it.</li>
       <li><b>Tap any box on the card</b> to see what happened in words, or to fix it.</li>
     </ul>
     <div class="row"><button type="button" class="btn primary" data-close>Got it</button></div>`, { wide: true });

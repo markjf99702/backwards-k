@@ -112,12 +112,16 @@ function flush() {
   if (g === G) trouble();
 }
 function undo() {
-  const was = S.text[G.ev.length - 1];
+  const was = `Took back: ${tidy(S.text[G.ev.length - 1])}`;
   const r = takeBack(G);
   if (!r) return;
   redo.push(r);
   save();
-  say(`Took back: ${tidy(was)}`);
+  if (wide() || view === 'live') return say(was);
+  // On a phone's Card, Box score or Plays tab, the line under the field (and its Redo) is out of sight, so a message
+  // says which play went, with Redo on it. What a screen reader hears then only adds where things stand.
+  toast(was, { action: 'Redo', run: redoIt });
+  speak(situation());
 }
 function redoIt() {
   const r = redo.pop();
@@ -136,13 +140,17 @@ const few = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
 const countWords = () => `${few(S.b, 'ball')}, ${few(S.s, 'strike')}`;
 const tidy = t => String(t || '').replace(/ \(\d-\d\)$/, '.'); // "Ball (1-0)" is "Ball." once the count is said in words
 function say(lead) {
-  const el = root && $('#said', root);
-  if (!el) return;
+  if (!root || !$('#said', root)) return;
   const i = G.ev.length - 1, e = G.ev[i], box = S.cells[S.cells.length - 1];
   const play = S.plays.find(x => x.i === i && x.kind !== 'end');
   let t;
   if (!lead && e && e.t === 'p' && !(box && box.ev === i)) t = `${tidy(S.text[i])} ${countWords()}.`;
   else t = [lead || tidy(S.text[i]), !lead && play && play.runs && !S.over ? score() : '', situation()].filter(Boolean).join(' ');
+  speak(t);
+}
+function speak(t) {
+  const el = root && $('#said', root);
+  if (!el) return;
   clearTimeout(sayT);
   el.textContent = '';
   sayT = setTimeout(() => { el.textContent = t; }, 100);
@@ -920,6 +928,24 @@ function cellSheet(c) {
     ${group && e.t === 'pa' && (R.f || c.f) ? `<div class="row"><button type="button" class="btn quiet" data-y="f">Change the fielders${c.f ? ` (${esc(c.f.join('-'))})` : ''}</button></div>` : ''}
     ${!readOnly && e && !group ? '<p class="hint">This one can’t be changed here. Undo takes plays back, latest first, and until the next batter’s turn is over, Fix runners changes where everyone ended up on the play before.</p>' : ''}
     <div class="row"><button type="button" class="btn primary" data-close>Done</button></div>`);
+  // Undo takes back plays, not a change made here, so each change has its own Undo, in a message right after it.
+  const old = { r: e && e.r, f: e && e.f, k: e && e.k };
+  const changed = () => {
+    const cell = S.cells[c.n];
+    cellSheet(cell);
+    if (!cell || (e.r === old.r && e.k === old.k && String(e.f) === String(old.f))) return;
+    const what = RESULTS[cell.r].label.toLowerCase();
+    toast(`Changed to ${cell.f ? `${what} (${cell.mark})` : what}.`, {
+      action: 'Undo',
+      run: () => {
+        if (!G || G.ev[c.ev] !== e) return; // the game changed somewhere else meanwhile
+        if (e.t === 'p') e.k = old.k;
+        else { e.r = old.r; if (old.f) e.f = old.f; else delete e.f; }
+        save();
+        cellSheet(S.cells[c.n]);
+      },
+    });
+  };
   body.addEventListener('click', ev => {
     const sw = ev.target.closest('[data-sw]'), y = ev.target.closest('[data-y]');
     if (sw && !sw.disabled) {
@@ -928,9 +954,9 @@ function cellSheet(c) {
       else { e.r = sw.dataset.sw; if (!RESULTS[e.r].f) delete e.f; }
       save();
       // Now an error or a ground out, say, with nobody named: who fielded it? (Skip leaves it blank.)
-      if (e.t === 'pa' && e.r !== was && RESULTS[e.r].f && !e.f) return pickFielders(e.r, null, f => { if (f && f.length) { e.f = f; save(); } cellSheet(S.cells[c.n]); });
-      cellSheet(S.cells[c.n]);
+      if (e.t === 'pa' && e.r !== was && RESULTS[e.r].f && !e.f) return pickFielders(e.r, null, f => { if (f && f.length) { e.f = f; save(); } changed(); });
+      changed();
     }
-    if (y) pickFielders(e.r, e.f, f => { if (f && f.length) e.f = f; else delete e.f; save(); cellSheet(S.cells[c.n]); });
+    if (y) pickFielders(e.r, e.f, f => { if (f && f.length) e.f = f; else delete e.f; save(); changed(); });
   });
 }

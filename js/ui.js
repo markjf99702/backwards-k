@@ -121,14 +121,17 @@ export function toast(msg, { action, run, ms = 3200, focus = false } = {}) {
   }
 }
 const hideIn = ms => { clearTimeout(toastT); toastT = setTimeout(() => toastHide && toastHide(), ms); };
-// In a sheet, the message sits just above the sheet's last row of buttons (Save play, Close, Done), so the button the
-// scorer wants next isn't under it. If that row is scrolled out of sight, it sits at the sheet's bottom edge.
+// In a sheet, the message sits just above the rows of buttons that end it (Save play, Close, Done, and Change the
+// fielders over Done), so the button the scorer wants next isn't under it. If they're scrolled out of sight, it sits
+// at the sheet's bottom edge.
 function placeInSheet(t) {
   t.style.bottom = '';
-  const d = dlg(), row = d.querySelector('.sheet-body').lastElementChild;
+  const d = dlg();
+  let row = d.querySelector('.sheet-body').lastElementChild;
   if (!row || !row.matches('.row')) return;
+  while (row.previousElementSibling && row.previousElementSibling.matches('.row')) row = row.previousElementSibling;
   const box = d.getBoundingClientRect(), r = row.getBoundingClientRect();
-  if (r.height && r.top >= box.top && r.bottom <= box.bottom + 1) t.style.bottom = `${Math.round(box.bottom - r.top + 8)}px`;
+  if (r.height && r.top >= box.top && r.top <= box.bottom) t.style.bottom = `${Math.round(box.bottom - r.top + 8)}px`;
 }
 // While the toast has the keyboard or the pointer it stays, and it goes 4 seconds after both have left. Escape
 // closes it.

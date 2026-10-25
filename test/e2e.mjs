@@ -859,6 +859,7 @@ step('a box’s “Change what it was” offers only what could have happened');
   await p.click('.sheet [data-pos="6"]');
   assert.match(await p.textContent('.sheet .cell-big'), /E6 Error/);
   assert.equal((await stored(p, id)).ev[1].f.join(), '6');
+  assert.equal(await seen(p), 'Changed to error (E6).Undo');
   await p.keyboard.press('Escape');
   assert.match(await p.locator('.card').innerHTML(), />E6</);
   // Skip leaves the fielders blank.
@@ -868,6 +869,22 @@ step('a box’s “Change what it was” offers only what could have happened');
   assert.match(await p.textContent('.sheet .cell-big'), /G Ground out/);
   assert.equal((await stored(p, id)).ev[0].r, 'GO');
   assert.equal((await stored(p, id)).ev[0].f, undefined);
+
+  step('a change made in a box has its own Undo, and Undo on the Card tab says which play it took');
+  assert.equal(await seen(p), 'Changed to ground out.Undo');
+  await p.click('.sheet-toast button');
+  assert.match(await p.textContent('.sheet .cell-big'), /K Strikeout swinging/);
+  assert.equal(await p.getAttribute('.sheet [data-sw=K]', 'aria-pressed'), 'true');
+  assert.equal((await stored(p, id)).ev[0].r, 'K');
+  assert.equal(await plays(p, id), 'paK paE', 'no play was taken back');
+  await p.keyboard.press('Escape');
+  assert.match(await p.locator('.card').innerHTML(), />E6</);
+  await p.click('.bar .undo');
+  assert.equal(await seen(p), 'Took back: Batter 2 reaches on an error by the shortstop (E6).Redo');
+  assert.equal(await plays(p, id), 'paK');
+  await p.click('#toast button');
+  assert.equal(await plays(p, id), 'paK paE');
+  assert.match(await p.locator('.card').innerHTML(), />E6</);
   await p.context().close();
 }
 
