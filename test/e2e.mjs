@@ -281,6 +281,22 @@ step('naming a lineup: Enter goes to the next batter’s name, past the number')
   await p.context().close();
 }
 
+step('the next new game starts with the last game’s innings and pitch counting');
+{
+  const p = await phone();
+  await p.goto(base + '#/new');
+  assert.equal(await p.getAttribute('[data-inn="9"]', 'aria-pressed'), 'true', 'nine on a new device');
+  await p.click('[data-inn="6"]');
+  await p.uncheck('input[name=pitches]');
+  await p.click('[data-go]');
+  await p.waitForSelector('.live .field');
+  await p.goto(base + '#/new');
+  await p.waitForSelector('.setup');
+  assert.equal(await p.getAttribute('[data-inn="6"]', 'aria-pressed'), 'true');
+  assert.equal(await p.isChecked('input[name=pitches]'), false);
+  await p.context().close();
+}
+
 step('a pinch runner, and then the starter back in from Lineups: the same player, not a new one');
 {
   const p = await phone(), id = await startGame(p);

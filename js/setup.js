@@ -25,7 +25,10 @@ function pastTeams() {
 export function showSetup(el) {
   const past = pastTeams();
   const T = [0, 1].map(() => ({ name: '', lineup: Array.from({ length: 9 }, blank), pitcher: blank() }));
-  const opt = { innings: 9, pitches: true, date: today(), place: '' };
+  // The innings and the pitch counting start as they were for the last game on this device: a league that plays six
+  // innings without counting pitches doesn't have to say so every week.
+  const last = store.all()[0], INN = [9, 7, 6, 5, 4, 3];
+  const opt = { innings: last && INN.includes(last.innings) ? last.innings : 9, pitches: last ? last.pitches !== false : true, date: today(), place: '' };
 
   el.innerHTML = `<header class="bar">
       <div class="bar-in">
@@ -39,8 +42,8 @@ export function showSetup(el) {
         <div class="two">${[0, 1].map(teamHtml).join('')}</div>
         <fieldset class="opts card-box">
           <legend class="sr">The game</legend>
-          <div class="opt"><span class="lbl">Innings</span><span class="chips" role="group" aria-label="Innings">${[9, 7, 6, 5, 4, 3].map(n => `<button type="button" data-inn="${n}" aria-pressed="${n === opt.innings}">${n}</button>`).join('')}</span></div>
-          <label class="switch"><input type="checkbox" name="pitches" checked><span>Count balls and strikes<small>Keeps the count and each pitcher’s pitch count. Turn it off to only tap what each batter did.</small></span></label>
+          <div class="opt"><span class="lbl">Innings</span><span class="chips" role="group" aria-label="Innings">${INN.map(n => `<button type="button" data-inn="${n}" aria-pressed="${n === opt.innings}">${n}</button>`).join('')}</span></div>
+          <label class="switch"><input type="checkbox" name="pitches"${opt.pitches ? ' checked' : ''}><span>Count balls and strikes<small>Keeps the count and each pitcher’s pitch count. Turn it off to only tap what each batter did.</small></span></label>
           <div class="two-sm">
             <label><span>Date</span><input type="date" name="date" value="${opt.date}"></label>
             <label><span>Where</span><input name="place" maxlength="80" placeholder="Optional"></label>
