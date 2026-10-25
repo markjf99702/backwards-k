@@ -260,7 +260,7 @@ function drawSide() {
   const card = $('.pane[data-p=card]', root);
   const wrap = card.querySelector('.card-wrap'), keepX = wrap ? wrap.scrollLeft : 0;
   card.innerHTML = `<div class="pane-top">
-      <div class="seg" role="group" aria-label="Whose card">${[0, 1].map(s => `<button type="button" data-cs="${s}" aria-pressed="${s === side}">${esc(teamName(G, s))}${!S.over && S.half === s ? ' <i class="batting" title="Batting">●</i>' : ''}</button>`).join('')}</div>
+      <div class="seg" role="group" aria-label="Whose card">${[0, 1].map(s => `<button type="button" data-cs="${s}" aria-pressed="${s === side}">${esc(teamName(G, s))}${!S.over && S.half === s ? ' <i class="batting" title="Batting" aria-hidden="true">●</i><span class="sr">, batting</span>' : ''}</button>`).join('')}</div>
       <button type="button" class="link-btn" data-a="help">What the marks mean</button>
     </div>
     <div class="line-wrap">${lineHtml(S)}</div>

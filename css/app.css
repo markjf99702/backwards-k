@@ -466,7 +466,8 @@ details.lineup summary small { color: var(--muted); font-weight: 400; }
   .linescore tbody th { max-width: 4.2em; padding: 6px 5px 6px 8px; }
 }
 
-.card-wrap { background: var(--paper); border: 1.5px solid var(--grid); box-shadow: var(--shadow); scroll-padding-left: 140px; } /* a box the keyboard reaches stops clear of the names */
+/* A box the keyboard reaches stops clear of the names; words for screen readers stay inside the scrolling card. */
+.card-wrap { position: relative; background: var(--paper); border: 1.5px solid var(--grid); box-shadow: var(--shadow); scroll-padding-left: 140px; }
 .card { border-collapse: collapse; font-size: 14px; }
 .card th, .card td { border: 1px solid var(--grid-2); padding: 0; }
 .card thead th { background: var(--soft); font: 800 15px/1 var(--board-font); padding: 6px 4px; color: var(--ink-2); }
@@ -491,6 +492,7 @@ details.lineup summary small { color: var(--muted); font-weight: 400; }
 .card td.next.end { box-shadow: inset 0 0 0 2px var(--red), inset 0 -3px 0 var(--red); }
 .card .tot { width: 34px; min-width: 34px; font: 700 16px/1 var(--board-font); color: var(--ink-2); background: var(--soft); }
 .card thead .tot { font-size: 13px; }
+.card abbr, .stats abbr { text-decoration: none; }
 .card tfoot th, .card tfoot td { height: 26px; font: 700 15px/1 var(--board-font); background: var(--soft); }
 .card tfoot .who { height: 26px; font-size: 13px; color: var(--muted); display: table-cell; background: var(--soft); text-align: right; padding-right: 10px; }
 .box { display: block; width: 100%; height: 100%; padding: 0; border: 0; background: transparent; }

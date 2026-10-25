@@ -1,6 +1,7 @@
 // The box score (batting and pitching lines for both teams) and the play-by-play.
 import { batKey, pitchStat, pitcherLabel, ip, teamName, label, player, ord, pitchWords, POS } from './engine.js';
 import { esc, KL } from './ui.js';
+import { abbr } from './card.js';
 
 function batting(S, side) {
   const g = S.g, team = g.teams[side];
@@ -15,7 +16,7 @@ function batting(S, side) {
       for (const x in tot) tot[x] += b[x];
     }
   }
-  return `<table class="stats"><thead><tr><th scope="col">${esc(teamName(g, side))}</th><th scope="col">AB</th><th scope="col">R</th><th scope="col">H</th><th scope="col">RBI</th><th scope="col">BB</th><th scope="col">K</th></tr></thead>
+  return `<table class="stats"><thead><tr><th scope="col">${esc(teamName(g, side))}</th>${['AB', 'R', 'H', 'RBI', 'BB', 'K'].map(k => `<th scope="col">${abbr(k)}</th>`).join('')}</tr></thead>
     <tbody>${rows.join('')}</tbody><tfoot><tr><th scope="row">Totals</th><td>${tot.ab}</td><td>${tot.r}</td><td>${tot.h}</td><td>${tot.rbi}</td><td>${tot.bb}</td><td>${tot.k}</td></tr></tfoot></table>`;
 }
 
@@ -26,7 +27,7 @@ function pitching(S, side) {
     const p = pitchStat(S, side, i);
     return `<tr><th scope="row">${esc(pitcherLabel(g, side, i))}</th><td>${ip(p.outs)}</td><td>${p.h}</td><td>${p.r}</td><td>${p.bb}</td><td>${p.k}</td>${g.pitches ? `<td>${p.np}${p.np ? ` <small>${p.str} strike${p.str === 1 ? '' : 's'}</small>` : ''}</td>` : ''}</tr>`;
   });
-  return `<table class="stats"><thead><tr><th scope="col">${esc(teamName(g, side))} pitching</th><th scope="col">IP</th><th scope="col">H</th><th scope="col">R</th><th scope="col">BB</th><th scope="col">K</th>${g.pitches ? '<th scope="col">Pitches</th>' : ''}</tr></thead><tbody>${rows.join('')}</tbody></table>`;
+  return `<table class="stats"><thead><tr><th scope="col">${esc(teamName(g, side))} pitching</th>${['IP', 'H', 'R', 'BB', 'K'].map(k => `<th scope="col">${abbr(k)}</th>`).join('')}${g.pitches ? '<th scope="col">Pitches</th>' : ''}</tr></thead><tbody>${rows.join('')}</tbody></table>`;
 }
 
 // Names in game order, each once, with how many times when it's more than one: "Velez 2, Brennan".

@@ -82,6 +82,17 @@ function changes(S, side) {
   return { pch, sub };
 }
 
+// A box in words, the way it reads on paper: the inning, the play, what happened after, the out, the RBIs and the
+// count. "1st inning. Brennan doubles. To third on Lindqvist's ground out. Count: 1 ball, 2 strikes."
+function boxWords(c, count) {
+  const few = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+  return [`${ord(c.inn)} inning.`, c.text, ...c.story, c.outN ? `${ord(c.outN)} out.` : '', c.rbi ? `${c.rbi} RBI.` : '',
+    count ? `Count: ${few(c.count[0], 'ball')}, ${few(c.count[1], 'strike')}.` : ''].filter(Boolean).join(' ');
+}
+// A heading's short form, with its words for a screen reader and a mouse pointer.
+const WORDS = { AB: 'At bats', R: 'Runs', H: 'Hits', RBI: 'Runs batted in', BB: 'Walks', K: 'Strikeouts', IP: 'Innings pitched' };
+export const abbr = k => `<abbr title="${WORDS[k]}">${k}</abbr>`;
+
 // The card for one team. live: mark where the next batter goes.
 export function cardHtml(S, side, { live = true } = {}) {
   const g = S.g, cols = columns(S, side), subs = subsOf(g, side), marks = changes(S, side);
@@ -100,8 +111,8 @@ export function cardHtml(S, side, { live = true } = {}) {
   const curInn = !S.over && S.half === side ? S.inn : 0;
 
   let h = '<table class="card"><thead><tr><th class="who" scope="col">Batter</th>';
-  for (const [inn, n] of Object.entries(span)) h += `<th scope="col" colspan="${n}"${+inn === curInn ? ' class="cur"' : ''}>${inn}</th>`;
-  h += '<th class="tot" scope="col">AB</th><th class="tot" scope="col">R</th><th class="tot" scope="col">H</th><th class="tot" scope="col">RBI</th></tr></thead><tbody>';
+  for (const [inn, n] of Object.entries(span)) h += `<th scope="col" colspan="${n}"${+inn === curInn ? ' class="cur"' : ''}><span class="sr">Inning </span>${inn}</th>`;
+  h += `${['AB', 'R', 'H', 'RBI'].map(k => `<th class="tot" scope="col">${abbr(k)}</th>`).join('')}</tr></thead><tbody>`;
 
   for (let slot = 0; slot < S.size[side]; slot++) {
     const players = g.teams[side].lineup[slot] || [{ name: '', num: '' }];
@@ -113,12 +124,13 @@ export function cardHtml(S, side, { live = true } = {}) {
       const inn = e && innOf.get(g.ev.indexOf(e));
       h += `<span class="pl${j < shown.length - 1 ? ' was' : ''}">${e ? `<i>${TYPE[e.ty]}${inn ? ' ' + ord(inn) : ''}</i> ` : ''}${esc(label(p, slot))}</span>`;
     });
-    h += '</span></th>';
+    h += `</span>${nowAt ? '<span class="sr">, at bat</span>' : ''}</th>`;
     for (const col of cols) {
       const k = `${slot}:${col.inn}:${col.k}`, c = at.get(k);
       const who = c && marks.pch.get(c.n), from = who ? `${who} pitching from here` : '';
       const cls = [c && who ? 'pch' : '', c && marks.sub.has(c.n) ? 'sub' : '', c && c.end ? 'end' : '', k === next ? 'next' : '', col.inn === curInn ? 'cur' : ''].filter(Boolean).join(' ');
-      h += `<td${cls ? ` class="${cls}"` : ''}${from ? ` title="${esc(from)}"` : ''}>${c ? `<button type="button" class="box" data-cell="${c.n}" aria-label="${esc(c.text + (from ? ` ${from}.` : ''))}">${cellSvg(c, { count: g.pitches })}</button>` : ''}</td>`;
+      const up = k === next ? `<span class="sr">${esc(label(player(g, side, slot, S.pl[side][slot] || 0), slot))} is up</span>` : '';
+      h += `<td${cls ? ` class="${cls}"` : ''}${from ? ` title="${esc(from)}"` : ''}>${c ? `<button type="button" class="box" data-cell="${c.n}" aria-label="${esc(boxWords(c, g.pitches) + (from ? ` ${from}.` : ''))}">${cellSvg(c, { count: g.pitches })}</button>` : up}</td>`;
     }
     const t = { ab: 0, r: 0, h: 0, rbi: 0 };
     shown.forEach(pi => { const b = S.bat[batKey(side, slot, pi)]; if (b) for (const x in t) t[x] += b[x]; });

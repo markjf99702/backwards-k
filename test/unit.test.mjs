@@ -559,8 +559,8 @@ test('the card marks where a new pitcher took over and where a substitute first 
     { t: 'sub', s: 0, slot: 0, i: 1, ty: 'pr' }, 'K', 'K', ...threeK, 'GO 6 3', '1B', '1B', '1B', 'K');
   const h = cardHtml(S, 0);
   const td = n => h.match(new RegExp(`<td([^>]*)><button type="button" class="box" data-cell="${n}" aria-label="([^"]*)"`)).slice(1);
-  assert.deepEqual(td(2), [' class="pch sub" title="Bishop pitching from here"', 'Diaz doubles. Batter 1 to third. Bishop pitching from here.']);
-  assert.deepEqual(td(1), ['', 'Batter 2 strikes out swinging.']);
+  assert.deepEqual(td(2), [' class="pch sub" title="Bishop pitching from here"', '1st inning. Diaz doubles. Batter 1 to third. Count: 1 ball, 0 strikes. Bishop pitching from here.']);
+  assert.deepEqual(td(1), ['', '1st inning. Batter 2 strikes out swinging. 1st out. Count: 0 balls, 0 strikes.']);
   assert.match(td(12)[0], /class="sub/, 'the pinch runner’s first time up, in the 2nd');
   assert.match(h, /<i>PH 1st<\/i> Diaz/);
   assert.match(h, /<i>PR 1st<\/i> Speedy/);
@@ -619,6 +619,18 @@ test('a game survives being tidied (from a file or a link) unchanged', () => {
   assert.deepEqual(replay(c).R, replay(g).R);
   assert.equal(cleanGame({ nope: 1 }), null);
   assert.deepEqual(Object.keys(cleanDoc({ games: { x: g } }).games), [g.id]);
+});
+
+test('each box on the card says its inning, what came after, the out and the count', () => {
+  const g = game();
+  play(g, P('b'), '2B', P('s'), P('s'), { t: 'pa', r: 'GO', f: [6, 3], m: [[0, 0], [2, 3]] }, 'K');
+  const h = cardHtml(replay(g), 0);
+  assert.match(h, /aria-label="1st inning\. Batter 1 doubles\. To third on Batter 2’s ground out\. Count: 1 ball, 0 strikes\."/);
+  assert.match(h, /aria-label="1st inning\. Batter 2 grounds out, short to first \(6-3\)\. Batter 1 to third\. 1st out\. Count: 0 balls, 2 strikes\."/);
+  assert.match(h, /<span class="sr">Inning <\/span>1</);
+  assert.match(h, /<span class="sr">Batter 4 is up<\/span>/);
+  assert.match(h, /<span class="sr">, at bat<\/span>/);
+  assert.match(boxHtml(replay(g)), /<abbr title="At bats">AB<\/abbr>/);
 });
 
 // What the runner sheet saves when one wild throw or wild pitch moves several runners: one play with every move.
