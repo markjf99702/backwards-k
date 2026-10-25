@@ -192,8 +192,9 @@ h1[tabindex="-1"]:focus { outline: none; } /* a screen's heading, given the keyb
 .link-btn { border: 0; background: none; padding: 6px 2px; font-weight: 650; font-size: 15px; color: var(--hit); text-decoration: underline; text-underline-offset: 3px; }
 .row { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; margin-top: 16px; }
 .chips { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+/* Chips, a choice each, a thumb's height (44 pixels) to tap. */
 .chips button, .seg button, .chip {
-  min-height: 40px; padding: 6px 14px; border-radius: 999px;
+  min-height: 44px; padding: 6px 14px; border-radius: 999px;
   border: 1.5px solid var(--line-2); background: var(--card); font-weight: 650; font-size: 15px;
 }
 .chips button[aria-pressed="true"], .seg button[aria-pressed="true"] { background: var(--navy); border-color: var(--navy); color: var(--on-navy); }
@@ -201,7 +202,7 @@ h1[tabindex="-1"]:focus { outline: none; } /* a screen's heading, given the keyb
 .chips.wide { display: flex; }
 .chips button:disabled { opacity: .4; }
 .seg { display: inline-flex; gap: 4px; padding: 3px; border-radius: 999px; background: var(--soft); max-width: 100%; }
-.seg button { border-color: transparent; background: transparent; min-height: 36px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.seg button { border-color: transparent; background: transparent; min-height: 44px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .seg .batting { font-style: normal; color: var(--red); font-size: 11px; vertical-align: 2px; }
 /* The batting dot stays at 3:1 or better on the pressed button and the unpressed one, in both looks. */
 .seg [aria-pressed="true"] .batting { color: var(--lamp-o); }
@@ -264,12 +265,12 @@ fieldset { margin: 0; min-width: 0; }
 .pick-row span { color: var(--muted); font-size: 14px; margin-right: 2px; }
 .pick-row .chip[aria-pressed="true"] { background: var(--navy); border-color: var(--navy); color: var(--on-navy); }
 @media (prefers-color-scheme: dark) { .pick-row .chip[aria-pressed="true"] { background: var(--on-navy); border-color: var(--on-navy); color: var(--navy); } }
-.chip { min-height: 34px; padding: 4px 12px; }
+.chip { padding: 4px 12px; }
 .stepper { display: flex; align-items: center; gap: 8px; }
 .stepper span { flex: 1; color: var(--ink-2); }
 .stepper .st { display: grid; justify-items: start; }
 .stepper .link-btn { width: auto; height: auto; border: 0; border-radius: 0; background: none; font-size: 15px; line-height: 1.2; padding: 4px 0 2px; }
-.stepper button { width: 42px; height: 42px; border-radius: 50%; border: 1.5px solid var(--line-2); background: var(--card); font-size: 22px; line-height: 1; }
+.stepper button { width: 44px; height: 44px; border-radius: 50%; border: 1.5px solid var(--line-2); background: var(--card); font-size: 22px; line-height: 1; }
 .stepper b { min-width: 2ch; text-align: center; font: 800 26px/1 var(--board-font); }
 /* Lineup and pitcher, folded away: a chevron of the app's own that turns down when it's open. */
 details.lineup summary { cursor: pointer; font-weight: 700; padding: 6px 0; list-style: none; display: flex; align-items: center; gap: 8px; }

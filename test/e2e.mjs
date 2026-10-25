@@ -2057,6 +2057,34 @@ step('a phone in Safari (390 by 664): no green strip, a shorter field and button
   await p.context().close();
 }
 
+step('the sheets’ chips, the card’s team switch and the steppers are each 44 pixels high to tap');
+{
+  const p = await playing(seventh());
+  const low = async sel => p.$$eval(sel, l => l.length ? l.map(b => Math.round(b.getBoundingClientRect().height)).filter(h => h < 44) : ['none']);
+  await p.click('[data-v=card]');
+  assert.deepEqual(await low('.seg [data-cs]'), [], 'Whose card');
+  await p.click('[data-v=live]');
+  await p.click('[data-r="1B"]');
+  assert.deepEqual(await low('.sheet .mv [data-to]'), [], 'the runners sheet');
+  await p.keyboard.press('Escape');
+  await p.click('[data-runner="2"]');
+  assert.deepEqual(await low('.sheet [data-to]'), [], 'the runner sheet');
+  await p.keyboard.press('Escape');
+  await p.click('.field .pitcher');
+  await p.click('.sheet [data-y=new]');
+  assert.deepEqual(await low('.sheet [data-pick]'), [], 'From the order');
+  await p.keyboard.press('Escape');
+  await p.click('.field .batter');
+  await p.click('.sheet [data-y=ph]');
+  assert.deepEqual(await low('.sheet [data-ty]'), [], 'what kind of substitution');
+  await p.keyboard.press('Escape');
+  await p.goto(base + '#/new');
+  await p.waitForSelector('.setup');
+  assert.deepEqual(await low('.stepper [data-step]'), [], 'the steppers');
+  assert.deepEqual(await low('[data-inn]'), [], 'the innings');
+  await p.context().close();
+}
+
 step('tablet sizes: side by side, nothing sideways');
 for (const [w, h] of [[820, 1180], [1180, 820]]) {
   await page.setViewportSize({ width: w, height: h });
