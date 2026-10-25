@@ -51,6 +51,8 @@ export function helpSheet() {
       <dt>A heavy line on top</dt><dd>A new pitcher took over with that batter</dd>
       <dt>A heavy line on the left</dt><dd>A substitute’s first time up</dd>
       <dt>PH, PR, in, back</dt><dd>Pinch hitter, pinch runner, a substitute in the field, or someone who was in that spot before coming back in, with the inning they came in. A crossed-out name has left the game</dd>
+      <dt>left 3rd</dt><dd>Left the game in the 3rd with nobody in that spot, for a team that bats everyone: the order skips it</dd>
+      <dt>Shaded innings, and –</dt><dd>Played before the game was picked up partway through</dd>
       <dt>R H E LOB</dt><dd>Under the card, inning by inning: runs, hits, the other team’s errors, and runners left on base</dd>
       <dt>X</dt><dd>On the line score: the home team didn’t need to bat</dd>
     </dl>

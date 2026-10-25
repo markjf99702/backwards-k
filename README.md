@@ -151,7 +151,7 @@ To put it online with GitHub Pages: **Settings → Pages → Build and deploymen
 
 - `js/app.js`: which screen the address shows: your games, a new game, a game, the sample, or a shared link.
 - `js/engine.js`: the rules. It replays a game's list of events into the count, outs, runners, score, the boxes on the
-  scorecard, the stats and the play-by-play.
+  scorecard, the stats (earned runs, and the win, the loss and the save, among them) and the play-by-play.
 - `js/model.js`: what a saved game looks like, tidying one that came from a file, a link or Drive, reading a pasted
   lineup, and what Undo takes back with an event.
 - `js/store.js`: games in the browser's storage.
