@@ -92,6 +92,7 @@ FUZZ_GAMES=1500 node test/fuzz.mjs  # a longer run of random games (FUZZ_SEED=n 
 node tools/screenshots.mjs    # redraws docs/*.png and og.png
 node tools/make-icons.mjs     # redraws the PNG icons from icon.svg
 npm run build                 # dist/backwards-k.html: the whole app in one file
+npm run test:dist             # builds it, then opens it from the disk and scores a game in it
 ```
 
 To put it online with GitHub Pages: **Settings → Pages → Build and deployment → Deploy from a branch**, then pick
@@ -123,7 +124,7 @@ To put it online with GitHub Pages: **Settings → Pages → Build and deploymen
   the totals, the scorer's proof, Undo and the saved copies checked after every tap; when something breaks it prints
   the fewest taps that break it. `test/e2e.mjs`: a game scored in Chromium, and the offline copy on one bar of
   signal, with today's `sw.js` and the one before it (`test/sw-before.js`). `test/drive.mjs`: two devices sharing
-  one pretend Drive (`test/fake-google.mjs`).
+  one pretend Drive (`test/fake-google.mjs`). `test/dist.mjs`: the one-file copy, opened from the disk.
 - `tools/screenshots.mjs`: the pictures in this README and the link preview, `og.png`, drawn from the sample game.
   `tools/make-icons.mjs`: the PNG icons, from `icon.svg`, and from `tools/icon-full-bleed.svg` (for iPhones, which
   round the corners themselves) and `tools/icon-maskable.svg` (for Android, which crops to a circle).
