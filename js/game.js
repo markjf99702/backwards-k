@@ -927,14 +927,15 @@ function runnerSheet(b) {
 // A courtesy runner for the runner on base b (Little League's and softball's, for a pitcher or catcher, or anyone a
 // league allows): someone else in the order, or a name typed in. Only who's on the base changes: the player stays in
 // his spot in the order, and the run, if it scores, is his, and so are any steals (the box score lists who ran for
-// whom). The same runner on another base, or the one he runs for, isn't offered.
+// whom). The same runner on another base, or the one he runs for, isn't offered, and nor is the batter, or a player
+// who left the game.
 function courtesy(b) {
   const r = S.bases[b], side = r.side, name = runnerName(G, r), p = blank();
   const busy = new Set([1, 2, 3].filter(x => S.bases[x]).flatMap(x => [S.bases[x].slot, S.bases[x].cr && S.bases[x].cr.slot]));
   const from = [];
   for (let slot = 0; slot < S.size[side]; slot++) {
     const x = G.teams[side].lineup[slot][S.pl[side][slot] ?? 0];
-    if (!busy.has(slot) && !(side === S.half && S.up[side] === slot)) from.push([slot, x]);
+    if (!busy.has(slot) && !S.gone[side].has(slot) && !(side === S.half && S.up[side] === slot)) from.push([slot, x]);
   }
   const body = openSheet(`<h2 id="sheetTitle">Courtesy runner <small>for ${esc(name)} on ${BASE[b]}</small></h2>
     ${from.length ? `<p class="pick-row" role="group" aria-label="From the order"><span>From the order:</span>${from.map(([slot, x]) => `<button type="button" class="chip" data-cr="${slot}">${esc(named(x, slot))}</button>`).join('')}</p>` : ''}

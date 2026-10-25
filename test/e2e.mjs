@@ -2427,6 +2427,11 @@ step('a continuous order: a player who left the game is skipped with no out, and
   await p.click('[data-a=batter]');
   await p.click('.sheet [data-y=gone]');
   assert.match(await p.textContent('.batter'), /Batter 6/);
+  // A courtesy runner isn't one who went home.
+  await p.click('[data-runner="1"]');
+  await p.click('.sheet [data-k="CR"]');
+  assert.deepEqual(await p.$$eval('.sheet [data-cr]', a => a.map(x => x.dataset.cr)), ['6', '7', '8']);
+  await p.keyboard.press('Escape');
   await p.click('[data-a=menu]');
   await p.click('.sheet [data-y=lineup]');
   assert.match(await p.textContent('.sheet li[data-slot="3"] .earlier'), /Left the game: the order skips this spot\./);

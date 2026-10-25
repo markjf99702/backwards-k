@@ -181,11 +181,11 @@ function run(C, a) {
       act(C, { t: 'up', s: S.half, slot: a.slot });
       return true;
     }
-    case 'cr': { // a courtesy runner: someone in the order not on base, or a name (game.js courtesy())
+    case 'cr': { // a courtesy runner: someone in the order not on base, up or gone home, or a name (game.js courtesy())
       const r = S.bases[a.b];
       if (S.over || S.delayed || !r) return false;
       const busy = [1, 2, 3].some(x => S.bases[x] && (S.bases[x].slot === a.slot || (S.bases[x].cr && S.bases[x].cr.slot === a.slot)));
-      if (a.slot != null && (!(a.slot < S.size[S.half]) || busy || S.up[S.half] === a.slot)) return false;
+      if (a.slot != null && (!(a.slot < S.size[S.half]) || busy || S.gone[S.half].has(a.slot) || S.up[S.half] === a.slot)) return false;
       act(C, a.slot != null ? { t: 'cr', s: S.half, b: a.b, slot: a.slot } : { t: 'cr', s: S.half, b: a.b, name: `CR${a.b}`, num: '' });
       return true;
     }
