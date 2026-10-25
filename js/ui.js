@@ -35,6 +35,14 @@ export function fmtDate(d, long) {
   const year = long || y !== new Date().getFullYear() ? { year: 'numeric' } : {};
   return new Date(y, m - 1, day).toLocaleDateString(undefined, long ? { weekday: 'long', month: 'long', day: 'numeric', ...year } : { weekday: 'short', month: 'short', day: 'numeric', ...year });
 }
+// A moment in a game (at: seconds since its first pitch) on the clock where it was scored: "7:10 pm". '' without one.
+export function clockAt(g, at) {
+  if (!g.start || !Number.isFinite(at)) return '';
+  const d = new Date(g.start + at * 1000 + (g.tz || 0) * 60000), h = d.getUTCHours();
+  return `${h % 12 || 12}:${String(d.getUTCMinutes()).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}`;
+}
+// How long, in hours and minutes, as a box score gives the time of a game: "2:31", "0:45".
+export const hm = secs => { const m = Math.round(secs / 60); return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`; };
 
 // ---------- the sheet: a panel that slides up on a phone, or a box in the middle on a big screen ----------
 const dlg = () => document.getElementById('sheet');

@@ -1,7 +1,7 @@
 // The rules of scoring, without a browser:  node --test test/unit.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { replay, suggest, check, runsCount, scoredAs, mark, now, columns, halfLabel, RESULTS, runnersOn, pitchDay, pitchStat, pitchWork, pitchCount, winningRun, fits, official, winner, endNote, regulation, limitState, restDays, restBand, noCatch, sameSoFar } from '../js/engine.js';
+import { replay, suggest, check, runsCount, scoredAs, mark, now, columns, halfLabel, RESULTS, runnersOn, pitchDay, pitchStat, pitchWork, pitchCount, winningRun, fits, official, winner, endNote, regulation, limitState, restDays, restBand, noCatch, sameSoFar, clockOf } from '../js/engine.js';
 import { newGame, cleanGame, cleanDoc, parseLineup, parsePaste, takeBack, putBack, starters, newer, merge, seenOf, carried, setField } from '../js/model.js';
 import { sampleGame } from '../js/sample.js';
 // The card is drawn with ui.js, which looks for the page's sheet as it loads: here there's no page, so no sheet.
@@ -1246,6 +1246,9 @@ function everyKind() {
   play(g, { t: 'sub', s: 0, slot: 1, i: 0, ty: 'def' }, 'IBB', 'CI', 'SAC 1 3', '3B', { t: 'end' }, { t: 'on' }, 'LO 6', { t: 'delay' }, { t: 'on' }, '1B');
   play(g, { t: 'end', why: 'rule' }, { t: 'on' }, 'DP 6 4 3');
   play(g, { t: 'gone', s: 1, slot: 4 }, { t: 'back', s: 1, slot: 4 });
+  // Each scored at a time, as the game screen does it: seconds since the first pitch, at 7:10 pm Eastern.
+  g.start = Date.UTC(2026, 9, 24, 23, 10); g.tz = -240;
+  g.ev.forEach((e, i) => { e.at = i * 25; });
   return g;
 }
 
@@ -1278,6 +1281,37 @@ test('a game with every kind of event comes back the same from a file, Drive, st
     assert.deepEqual(cleanGame(await unpack(old)), g, old[0]);
     assert.deepEqual(replay(cleanGame(await unpack(old))).text, S.text);
   }
+});
+
+test('the clock: each half-inning from its first play, each at-bat from its first pitch, and the time of the game without delays', () => {
+  const g = game({ innings: 1 });
+  g.start = Date.UTC(2026, 9, 24, 23, 10); g.tz = -240; // 7:10 pm Eastern
+  const at = (e, t) => ({ ...(typeof e === 'string' ? { t: 'pa', r: e } : e), at: t });
+  // A substitution before the first pitch has no time; the first pitch is at 0.
+  let S = play(g, { t: 'sub', s: 0, slot: 0, i: 0, ty: 'def' }, at(P('b'), 0), at(P('c'), 20), at('1B', 45), at('K', 90), at({ t: 'delay' }, 100));
+  assert.deepEqual(S.cells.map(c => c.at), [0, 90], 'the single’s at-bat began with its first pitch; the strikeout had none counted');
+  assert.deepEqual(clockOf(S), { time: null, delays: 0 }, 'the game goes on, and the delay with it');
+  S = play(g, at({ t: 'on' }, 100 + 40 * 60), at('HR', 2510), at('K', 2540), at('K', 2570), at(P('s'), 2700), at('K', 2720), at('K', 2750), at('K', 2790));
+  assert.deepEqual(S.starts, { '1.0': 0, '1.1': 2700 });
+  assert.deepEqual(S.cells.map(c => c.at), [0, 90, 2510, 2540, 2570, 2700, 2750, 2790]);
+  assert.equal(S.over, true);
+  assert.deepEqual(clockOf(S), { time: 2790 - 2400, delays: 2400 });
+  const box = boxHtml(S);
+  assert.match(box, /<p class="clock">First pitch 7:10 pm · <abbr[^>]*>Time<\/abbr> 0:07 · Delay 0:40<\/p>/);
+  assert.match(playsHtml(S), /Bottom of the 1st <span>Comets batting · 7:55 pm<\/span>/);
+  // Keep playing: the game isn't over, and has no time yet.
+  g.ev.push({ t: 'on', at: 3000 });
+  assert.equal(clockOf(replay(g)).time, null);
+  // No clock at all before the first pitch, and nothing said.
+  const fresh = game();
+  assert.equal(clockOf(replay(fresh)), null);
+  assert.doesNotMatch(boxHtml(replay(fresh)) + playsHtml(play(fresh, 'K')), /First pitch|· \d+:\d\d [ap]m/);
+  // Picked up partway through: when the scoring started, and no time of the game.
+  const j = game({ innings: 2 });
+  j.start = g.start; j.tz = g.tz;
+  const SJ = play(j, { t: 'join', inn: 2, half: 0, r: [1, 0], up: 0 }, at('K', 0), at('K', 30), at('K', 60), at('K', 200), at('K', 230), at('K', 260));
+  assert.equal(SJ.over, true);
+  assert.match(boxHtml(SJ), /<p class="clock">Scored from 7:10 pm<\/p>/);
 });
 
 test('a link changed on its way, or cut short, doesn’t open as another game', async () => {

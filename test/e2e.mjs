@@ -150,6 +150,8 @@ assert.match(card, />6-3</);
 await fitsPhone('the card');
 await tap('[data-cell="0"]');
 assert.match(await page.textContent('.sheet'), /Ruiz walks\./);
+// When the at-bat began: its first pitch, on the clock.
+assert.match(await page.textContent('.sheet h2 small'), /^Top of the 1st, \d{1,2}:\d\d [ap]m$/);
 assert.match(await page.textContent('.sheet'), /To third on Castillo’s single\./);
 // A walk on four balls can't be switched to anything else here, and the sheet says what to do instead.
 assert.match(await page.textContent('.sheet'), /This one can’t be changed here\. Undo takes plays back/);
@@ -181,6 +183,11 @@ assert.match(await page.textContent('.bug'), /Comets\s*1/i);
 await tap('[data-v=box]');
 assert.match(await page.textContent('.pane[data-p=box]'), /Moreno/);
 assert.match(await page.textContent('.pane[data-p=box]'), /Home runs: Kowalski/);
+// The clock: the first pitch started it, every play since has its time, and the box score says when it began.
+const clock = await page.evaluate(async () => { const g = (await import('./js/store.js')).store.all()[0]; return { start: g.start, tz: g.tz, first: g.ev[0].at, timed: g.ev.every(e => Number.isFinite(e.at)) }; });
+assert.ok(Math.abs(clock.start - Date.now()) < 15 * 60e3 && clock.first === 0 && clock.timed, JSON.stringify(clock));
+assert.equal(clock.tz, await page.evaluate(() => -new Date().getTimezoneOffset()));
+assert.match(await page.textContent('.pane[data-p=box] .clock'), /^First pitch \d{1,2}:\d\d [ap]m$/, 'no time of the game while it goes on');
 // Moreno's line: one batter, a home run (an earned run), on one pitch, a strike (P-S 1-1).
 assert.deepEqual(await page.$$eval('.pane[data-p=box] tr', trs => trs.filter(tr => /Moreno/.test(tr.querySelector('th')?.textContent)).map(tr => [...tr.querySelectorAll('td')].map(td => td.textContent).join(' '))), ['0 1 1 1 0 0 1 1 1-1']);
 await tap('[data-v=plays]');
@@ -193,6 +200,10 @@ await tap('[data-a=menu]');
 await tap('[data-y=end]');
 await tap('[data-end=rule]');
 assert.match(await page.textContent('.final h2'), /Comets win, 1–0 \(run rule\)/);
+// Over: the box score has the time of the game.
+await tap('[data-v=box]');
+assert.match(await page.textContent('.pane[data-p=box] .clock'), /^First pitch \d{1,2}:\d\d [ap]m · Time 0:\d\d$/);
+await tap('[data-v=live]');
 await tap('[data-a=on]');
 assert.equal(await page.locator('.final').count(), 0);
 
@@ -288,6 +299,8 @@ async function startGame(p, away = 'Owls') {
 // A save is written just after the screen is drawn: wait for that, then read what's stored.
 const written = p => p.evaluate(() => new Promise(r => requestAnimationFrame(() => setTimeout(r, 0))));
 const stored = async (p, id) => { await written(p); return p.evaluate(id => JSON.parse(localStorage.getItem('backwards-k.v1')).games[id], id); };
+// An event without the time it was scored (at), to compare with one written out here.
+const untimed = ({ at, ...e }) => e;
 const plays = async (p, id) => (await stored(p, id)).ev.map(e => e.t + (e.r || '')).join(' ');
 const shown = p => p.evaluate(() => [...document.querySelectorAll('.toast')].map(t => t.textContent).join(''));
 const tickerOf = p => p.textContent('.ticker p');
@@ -2170,7 +2183,7 @@ step('a new pitcher can take the batting spot of the one going out, in one go, w
   await p.click('.sheet [data-x=go]');
   assert.equal(await seen(p), 'Two changes: Moss pitches, and bats 9th in place of Halvorsen.');
   let G = await stored(p, g.id);
-  assert.deepEqual(G.ev.slice(n), [{ t: 'pch', s: 1, i: arms }, { t: 'sub', s: 1, slot: 8, i: 1, ty: 'def' }]);
+  assert.deepEqual(G.ev.slice(n).map(untimed), [{ t: 'pch', s: 1, i: arms }, { t: 'sub', s: 1, slot: 8, i: 1, ty: 'def' }]);
   assert.deepEqual(G.teams[1].lineup[8].map(x => x.name), ['Halvorsen', 'Moss']);
   assert.match(await p.textContent('.pitcher'), /Moss/);
   assert.equal(await tickerOf(p), 'Moss comes in for Halvorsen.');
@@ -2412,7 +2425,7 @@ step('the runner sheet: defensive indifference moves him up, and isn’t a stole
   await p.click('[data-runner="1"]');
   await p.click('.sheet [data-k="DI"]');
   assert.equal(await tickerOf(p), 'Batter 1 takes second on defensive indifference.');
-  assert.deepEqual((await stored(p, id)).ev.at(-1), { t: 'r', m: [[1, 2, 'DI']] });
+  assert.deepEqual(untimed((await stored(p, id)).ev.at(-1)), { t: 'r', m: [[1, 2, 'DI']] });
   await p.click('[data-v=box]');
   assert.doesNotMatch(await p.textContent('.pane[data-p=box]'), /Stolen bases/);
   await p.context().close();
@@ -2449,7 +2462,7 @@ step('a continuous order: a player who left the game is skipped with no out, and
   assert.equal(await p.locator('.sheet [data-sub="3"]').count(), 1, 'she can be subbed for again');
   await p.keyboard.press('Escape');
   assert.equal(await tickerOf(p), 'Batter 4 is back in the game, 4th in the order.');
-  assert.deepEqual((await stored(p, id)).ev.filter(e => e.t !== 'pa'), [{ t: 'gone', s: 0, slot: 3 }, { t: 'gone', s: 0, slot: 4 }, { t: 'back', s: 0, slot: 3 }]);
+  assert.deepEqual((await stored(p, id)).ev.filter(e => e.t !== 'pa').map(untimed), [{ t: 'gone', s: 0, slot: 3 }, { t: 'gone', s: 0, slot: 4 }, { t: 'back', s: 0, slot: 3 }]);
   await p.click('[data-v=box]');
   assert.match(await p.textContent('.pane[data-p=box]'), /Left the game: Batter 4 \(1st\), Batter 5 \(1st\)\.\s*Back in the game: Batter 4 \(1st\)\./);
   await p.context().close();
@@ -2543,7 +2556,7 @@ step('a courtesy runner: only the name on the base changes, and the player she r
   await p.click('.mv[data-from="1"] [data-to="4"]');
   await p.click('.sheet [data-x=save]');
   assert.equal(await tickerOf(p), 'Batter 2 doubles. Emma scores.');
-  assert.deepEqual((await stored(p, id)).ev[1], { t: 'cr', s: 0, b: 1, name: 'Emma', num: '' });
+  assert.deepEqual(untimed((await stored(p, id)).ev[1]), { t: 'cr', s: 0, b: 1, name: 'Emma', num: '' });
   await p.click('[data-v=box]');
   const box = await p.textContent('.pane[data-p=box]');
   assert.match(box, /Courtesy runners: Emma ran for Batter 1 in the 1st\./);

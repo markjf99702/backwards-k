@@ -21,7 +21,18 @@ export function sampleGame(seed = 7, { innings = 9 } = {}) {
     g.teams[s].lineup = names.map(([name, num]) => [{ name, num: String(num) }]);
     g.teams[s].pitchers = [{ name: ARMS[s][0][0], num: String(ARMS[s][0][1]) }];
   });
-  const add = e => { g.ev.push(e); S = replay(g); };
+  // Played on a clock of its own: first pitch at 1:05 pm, about 20 seconds a pitch, a little longer for a play, and
+  // two minutes between half-innings (at, as the game screen keeps it: see model.js).
+  const [y, m, d] = g.date.split('-').map(Number);
+  g.start = Date.UTC(y, m - 1, d, 13, 5);
+  let at = 0;
+  const add = e => {
+    const half = S.half;
+    e.at = at;
+    g.ev.push(e);
+    S = replay(g);
+    at += (e.t === 'p' ? 21 : e.t === 'pch' ? 140 : 32) + (S.half !== half ? 125 : 0);
+  };
   let S = replay(g), guard = 0;
   while (!S.over && guard++ < 4000) {
     const fld = 1 - S.half, P = S.pitching[fld][S.pit[fld]];

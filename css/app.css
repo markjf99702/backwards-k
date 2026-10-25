@@ -634,6 +634,9 @@ details.partway .hint { margin: 10px 0 0; }
 .card td.missed { background: repeating-linear-gradient(135deg, transparent 0 6px, var(--grid-2) 6px 7px); }
 .card tfoot td.missed { color: var(--muted); }
 .joined { color: var(--ink-2); font-size: 15px; margin: 0 0 12px; }
+/* First pitch, and the time of the game, under the box score. */
+.clock { color: var(--ink-2); font-size: 15px; margin: 12px 0 0; }
+.clock abbr { text-decoration: none; }
 /* The win, the loss and the save. */
 .stats .dec { font-size: 15px; font-weight: 800; color: var(--red); text-decoration: none; margin-left: 6px; }
 .decided { font-weight: 650; color: var(--ink-2); margin: 10px 0; }
@@ -892,7 +895,7 @@ html:has(dialog.sheet[open]) { overflow: hidden; scrollbar-gutter: stable; }
   #print .stats thead th { font-size: 10px; }
   #print .stats thead th:first-child { font-size: 14px; }
   #print .stats small { font-size: 10px; }
-  #print .extras p { font-size: 12px; margin-bottom: 2px; }
+  #print .extras p, #print .clock { font-size: 12px; margin-bottom: 2px; }
   #print .box-grid { grid-template-columns: 1fr 1fr; display: grid; }
 }
 @media print and (orientation: landscape) {

@@ -149,6 +149,10 @@ export function replay(g, upTo = g.ev.length) {
     why: '', // why the scorer ended it: 'rule' (a run rule) or 'time' (a time limit), else '' (called: rain, darkness)
     mercy: null, // the league's mercy rule ended it: { by: runs ahead, inn: innings played, '4' or '3½' }
     delayed: false, // play is stopped for a delay: the game waits, and goes on as it was
+    // The clock, from each event's at (seconds since the first pitch, see model.js): when each half-inning's first play
+    // was scored ('inning.half': at), when the batter's first pitch was (abAt), when the game ended (endAt), and how
+    // long play stopped for delays (delays, and stop: when the one going on began).
+    starts: {}, abAt: null, endAt: null, delays: 0, stop: null,
 
     fresh: false, // a half-inning has just started and nothing has happened in it yet
     relief: null, // the pitcher a walk goes to, when a new one came in with the batter ahead in the count
@@ -157,7 +161,7 @@ export function replay(g, upTo = g.ev.length) {
     upTo, // how many events are played: what comes after the one being played, for goesOn()
   };
   ghost(S, S.pit[1]);
-  for (let i = 0; i < upTo; i++) { S.i = i; step(S, g.ev[i]); }
+  for (let i = 0; i < upTo; i++) { S.i = i; const was = S.delayed; step(S, g.ev[i]); timed(S, g.ev[i], was); }
   S.i = upTo;
   // Over in the middle of a half-inning (a walk-off, or called): it ends here, with the runners still on.
   if (S.over && !S.between) {
@@ -168,7 +172,22 @@ export function replay(g, upTo = g.ev.length) {
 }
 
 // What happens in a game, as opposed to who's in it.
-const PLAY = new Set(['p', 'pa', 'r', 'eoh']);
+export const PLAY = new Set(['p', 'pa', 'r', 'eoh']);
+
+// The clock after an event (was: whether play was stopped for a delay before it): a delay starting or ending, and the
+// game ending, or going on again.
+function timed(S, e, was) {
+  if (!Number.isFinite(e.at)) return;
+  if (!was && S.delayed) S.stop = e.at;
+  if (was && !S.delayed && S.stop != null) { S.delays += Math.max(0, e.at - S.stop); S.stop = null; }
+  S.endAt = S.over ? S.endAt ?? e.at : null;
+}
+// How long the game has gone, from its first pitch: { time: seconds, without the delays, once it's over (else null),
+// delays: seconds stopped for them, so far }. null for a game with no clock (no plays yet).
+export function clockOf(S) {
+  if (!S.g.start) return null;
+  return { time: S.over && S.endAt != null ? Math.max(0, S.endAt - S.delays) : null, delays: S.delays };
+}
 
 // Whether the game with other settings (g2: other league rules, or another inning for the runner on second) plays
 // back the same up to its last play: each play made from the same inning, half, outs, score and runners, with the
@@ -193,6 +212,9 @@ function step(S, e) {
   if (S.over && S.between && PLAY.has(e.t)) resume(S);
   // A play during a delay: play went on.
   if (S.delayed && PLAY.has(e.t)) S.delayed = false;
+  // When the half-inning started: its first play. And the batter's at-bat: its first pitch.
+  if (PLAY.has(e.t) && Number.isFinite(e.at)) S.starts[S.inn + '.' + S.half] ??= e.at;
+  if (e.t === 'p' && !S.seq) S.abAt = Number.isFinite(e.at) ? e.at : null;
   // (A kind of event or pitch from a newer version is passed over: see model.js.)
   switch (e.t) {
     case 'p': return ['b', 'c', 's', 'f'].includes(e.k) ? pitch(S, e.k) : undefined;
@@ -378,6 +400,8 @@ function pitch(S, k) {
 function pa(S, e) {
   const g = S.g, side = S.half, fld = 1 - side, slot = S.up[side], p = S.pl[side][slot];
   if (!RESULTS[e.r]) return;
+  // When the at-bat began: its first pitch, or the play itself when its pitches weren't counted.
+  const at = S.seq ? S.abAt : Number.isFinite(e.at) ? e.at : null;
   const moves = (e.m || suggest(S, e.r)).slice().sort((a, b) => b[0] - a[0]);
   // A hit that wins the game counts for the bases the winning run needed, and nobody behind that run gets further
   // (OBR 9.06(f)): with the bases loaded, a double that wins it is a single.
@@ -396,7 +420,7 @@ function pa(S, e) {
   const cell = {
     n: S.cells.length, side, slot, p, pi: S.pit[fld], inn: S.inn, k: S.col.k, r: code, f: e.f || null, mark: mark(code, e.f),
     count: [Math.min(S.b, 3), Math.min(S.s, 2)], seq: S.seq, ev: S.i, reach: 0, notes: ['', '', '', '', ''],
-    outN: 0, outAt: 0, outHow: '', scored: false, rbi: 0, end: false, text: '', story: [],
+    outN: 0, outAt: 0, outHow: '', scored: false, rbi: 0, end: false, text: '', story: [], at,
   };
   S.cells.push(cell);
 

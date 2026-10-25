@@ -45,6 +45,11 @@ written out in plain words.
   of record when his team went ahead for good, but a starter needs five innings for it (four in a five-inning game),
   else it goes to the reliever with the most outs (then the fewest earned runs), and a reliever who pitched under an
   inning and gave up two earned runs gives it to the best one after him.
+- **The clock.** Each play is kept with the time it was scored, from the first pitch on. The box score ends with when
+  the first pitch was and, once the game is over, how long it took, as box scores give it: "First pitch 7:10 pm ·
+  Time 2:31", the time without any delays, which are listed after it. Each half-inning in the plays has the time it
+  started, and a box on the card the time its at-bat began, for finding it in a video. The times are the ballpark's,
+  wherever the game is opened.
 - **Undo anything.** A game is a list of what happened, so Undo takes plays back, latest first, as many as you like.
   It's at the top of the screen, and under the field beside the play it would take back, and it says which one it
   took (with Redo) when the line under the field is out of sight. Forgot a play a few back, a steal or a pitching

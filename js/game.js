@@ -4,14 +4,14 @@ import {
   replay, suggest, check, runsCount, scoredAs, now, RESULTS, BASE, POS, POS_NAME, halfLabel, label, player, teamName,
   pitcherLabel, ord, runnersOn, mark, pitchStat, pitchWords, pitchDay, pitchWork, pitchCount, winningRun, creditedHit, credit, fits,
   ENDS, regulation, official, winner, AUTO, limitState, restDays, restBand, noCatch, LIMIT_BY, sameSoFar, outAt, outBases, usualBase,
-  runnerName,
+  runnerName, PLAY,
 } from './engine.js';
 import { store } from './store.js';
 import { blank, takeBack, putBack, newer, plays, setField } from './model.js';
 import { cardHtml, lineHtml, cellSvg } from './card.js';
 import { boxHtml, playsHtml, dayOf } from './box.js';
 import { infieldSvg, fieldSvg, BASE_AT } from './field.js';
-import { $, $$, esc, openSheet, closeSheet, sheetOpen, reveal, toast, KL, markHtml, fmtDate, go, inFrame, nextName, posField } from './ui.js';
+import { $, $$, esc, openSheet, closeSheet, sheetOpen, reveal, toast, KL, markHtml, fmtDate, go, inFrame, nextName, posField, clockAt } from './ui.js';
 import { drive } from './sync.js';
 import { shareSheet, saveFile } from './share.js';
 import { helpSheet } from './help.js';
@@ -99,11 +99,27 @@ window.addEventListener('pagehide', flush);
 // ---------- changing the game ----------
 function act(e) {
   if (readOnly) return;
+  stamp(e);
   G.ev.push(e);
   moved();
   save();
   say();
 }
+// When a new event was scored, for the times in the box score and the plays: at, in seconds since the first pitch.
+// The first play (a pitch, or a result when the pitches aren't counted) starts the clock, with the time zone it was
+// scored in; anything before it (the lineups, a substitution) has no time. A first pitch taken back with Undo, and
+// another tapped later, starts it again.
+function stamp(e) {
+  const t = Date.now();
+  if (!G.ev.some(x => Number.isFinite(x.at))) {
+    if (!PLAY.has(e.t)) return;
+    G.start = t;
+    G.tz = -new Date(t).getTimezoneOffset();
+  }
+  e.at = Math.max(0, Math.round((t - G.start) / 1000));
+}
+// A play made again (Put back with other runners on now) keeps the time it was first scored.
+const keepAt = (e, was) => { if (Number.isFinite(was.at)) e.at = was.at; return e; };
 // A new play (or a fix) after Undo. What Undo took back isn't thrown away: it's kept to put back after the new play,
 // a forgotten steal scored where it happened, say (Put back, under the field, once the game has that many plays
 // again: it waits while the new play is taken back with Undo). Plays Undo takes back after that go, as before.
@@ -175,7 +191,7 @@ function goBack(list, n) {
     else if (why === 'runners' && e.t === 'pa') {
       const m = suggest(S, e.r);
       if (!quiet(e.r)) return askBack(r, list, n, m);
-      G.ev.push(withF({ t: 'pa', r: e.r, m }, e.f));
+      G.ev.push(keepAt(withF({ t: 'pa', r: e.r, m }, e.f), e));
     } else { n.left.push(r.said); continue; }
     n.put++;
     S = replay(G);
@@ -200,7 +216,7 @@ function askBack(r, list, n, m) {
     done: e2 => {
       if (!G || G.id !== id || plays(G.ev) !== was) return toast('The game changed somewhere else while this was open, so the play wasn’t put back.');
       kept = null;
-      G.ev.push(e2);
+      G.ev.push(keepAt(e2, r.e));
       n.put++;
       S = replay(G);
       goBack(list, n);
@@ -806,7 +822,7 @@ function fixLast() {
         if (S2.over && !S.over) return toast('That ends the game. Undo back to that play instead.');
         if (S2.half !== S.half || S2.inn !== S.inn || S2.outs !== S.outs) return toast('That changes the outs. Undo back to that play instead.');
       }
-      G.ev[k] = e2;
+      G.ev[k] = keepAt(e2, e);
       tapped = { e: e2, r: code };
       moved();
       save();
@@ -1198,7 +1214,7 @@ function lineupSheet(side = S.half, { focus, top } = {}) {
     if (ls) lineupSheet(+ls.dataset.ls);
     if (back) { const at = body.scrollTop; act({ t: 'back', s: side, slot: +back.dataset.in }); lineupSheet(side, { top: at }); }
     if (sub) { const at = body.scrollTop; subForm(side, +sub.dataset.sub, side === S.half && S.up[side] === +sub.dataset.sub ? 'ph' : 'def', () => lineupSheet(side, { top: at })); }
-    if (y && y.dataset.y === 'add') { G.teams[side].lineup.push([blank()]); G.ev.push({ t: 'add', s: side }); moved(); save(); lineupSheet(side, { focus: S.size[side] - 1 }); }
+    if (y && y.dataset.y === 'add') { const e2 = { t: 'add', s: side }; stamp(e2); G.teams[side].lineup.push([blank()]); G.ev.push(e2); moved(); save(); lineupSheet(side, { focus: S.size[side] - 1 }); }
     if (y && y.dataset.y === 'pitcher') newPitcher(side);
   });
   const name = focus != null && body.querySelector(`[data-slot="${focus}"][data-f=name]`);
@@ -1342,7 +1358,9 @@ function cellSheet(c) {
   // (By what was tapped: a double that won the game and counts as a single is still a double, and can't be a walk.)
   const group = readOnly || !e ? null : e.t === 'pa' ? SAME.find(gr => gr.includes(e.r)) : fromPitch ? ['K', 'KL'] : null;
   const why = group && e.t === 'pa' ? cantBe(c, e) : {};
-  const body = openSheet(`<h2 id="sheetTitle">${esc(name)} <small>${c.side ? 'Bottom' : 'Top'} of the ${ord(c.inn)}</small></h2>
+  // (With when the at-bat began, from its first pitch.)
+  const at = clockAt(G, c.at);
+  const body = openSheet(`<h2 id="sheetTitle">${esc(name)} <small>${c.side ? 'Bottom' : 'Top'} of the ${ord(c.inn)}${at ? `, ${at}` : ''}</small></h2>
     <div class="cell-big"><div class="cell-pic">${cellSvg(c, { count: G.pitches })}</div>
       <div><p><b>${markHtml(c.r, c.mark)}</b> ${esc(R.label)}</p><p>${esc(c.text)}</p>${c.story.length ? `<p>${esc(c.story.join(' '))}</p>` : ''}
       ${seq ? `<p class="quiet">Pitches: ${esc(seq)}.</p>` : ''}</div></div>

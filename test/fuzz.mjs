@@ -41,6 +41,8 @@ const canon = v => JSON.stringify(sorted(v));
 function makeGame(setup) {
   const g = M.newGame({ away: 'Foxes', home: 'Comets', innings: setup.innings, pitches: setup.pitches, rules: setup.rules || null, tie: setup.tie || 0, limit: setup.limit || 0, date: '2026-10-25', place: 'Fuzz' });
   g.id = 'gfuzz' + setup.seed; g.created = g.updated = 1;
+  // (On a clock, as the game screen keeps it: each event's at, seconds since the first pitch.)
+  g.start = Date.UTC(2026, 9, 25, 17, 5); g.tz = -300;
   g.teams.forEach((t, s) => {
     t.lineup = Array.from({ length: setup.size[s] }, (_, i) => [i % 4 === 3 ? M.blank() : { name: `${s ? 'H' : 'V'}${i + 1}`, num: String(i + 1) }]);
     t.pitchers = [{ name: `${s ? 'H' : 'V'}P1`, num: '' }];
@@ -103,7 +105,7 @@ function jam(S, moves) {
 function save(C) { C.S = replay(C.g); }
 // A new play after Undo keeps what Undo took back, to put back (game.js moved()).
 function moved(C) { if (C.redo.length && !C.kept) C.kept = { stack: C.redo, n: C.g.ev.length }; C.redo = []; }
-function act(C, e) { C.g.ev.push(e); moved(C); save(C); }
+function act(C, e) { e.at = C.t = (C.t ?? -9) + 9; C.g.ev.push(e); moved(C); save(C); }
 const where = S => ({ half: S.half, inn: S.inn, outs: S.outs, over: S.over });
 
 // Runs one step. Returns false when the screen wouldn't offer it; or what it rewrote, for the Undo check.

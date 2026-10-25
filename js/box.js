@@ -1,6 +1,6 @@
 // The box score (batting and pitching lines for both teams) and the play-by-play.
-import { batKey, pitchStat, pitcherLabel, ip, teamName, label, player, ord, pitchWords, POS_NAME, RESULTS, AUTO, restDays, noCatch, LIMIT_BY, decisions, decisionWords } from './engine.js';
-import { esc, KL } from './ui.js';
+import { batKey, pitchStat, pitcherLabel, ip, teamName, label, player, ord, pitchWords, POS_NAME, RESULTS, AUTO, restDays, noCatch, LIMIT_BY, decisions, decisionWords, clockOf } from './engine.js';
+import { esc, KL, clockAt, hm } from './ui.js';
 import { abbr } from './card.js';
 
 // How each substitute first came in, as the card says it: PH, PR, or sub (a change in the field).
@@ -138,7 +138,18 @@ export function boxHtml(S) {
     <div>${batting(S, side)}${pitching(S, side)}
       <div class="extras">${notes(S, side)}</div>
     </div>`).join('')}
-  </div>`;
+  </div>${clockLine(S)}`;
+}
+// When the game started and how long it took, as a box score ends: "First pitch 7:10 pm · Time 2:31 · Delay 0:45". The
+// time of the game is from the first pitch to the last out (or to where it was ended), without the time it stopped
+// for delays. A game picked up partway through has when the scoring started, and no time of its own.
+function clockLine(S) {
+  const c = clockOf(S);
+  if (!c) return '';
+  const bits = [`${S.joined ? 'Scored from' : 'First pitch'} ${clockAt(S.g, 0)}`];
+  if (c.time != null && !S.joined) bits.push(`<abbr title="The time of the game, without delays">Time</abbr> ${hm(c.time)}`);
+  if (c.delays >= 30) bits.push(`Delay ${hm(c.delays)}`);
+  return `<p class="clock">${bits.join(' · ')}</p>`;
 }
 
 // In half-innings: newest first during a game, so the last few plays are at the top, and from the first pitch on
@@ -160,7 +171,9 @@ export function playsHtml(S, { limit = 0 } = {}) {
   let n = 0, h = back ? decided : '';
   for (const grp of order(groups)) {
     if (limit && n >= limit) break;
-    h += `<section class="half"><h3>${grp.half ? 'Bottom' : 'Top'} of the ${ord(grp.inn)} <span>${esc(teamName(g, grp.half))} batting</span></h3><ol>`;
+    // (With the time it started, from its first play.)
+    const at = clockAt(g, S.starts[grp.inn + '.' + grp.half]);
+    h += `<section class="half"><h3>${grp.half ? 'Bottom' : 'Top'} of the ${ord(grp.inn)} <span>${esc(teamName(g, grp.half))} batting${at ? ` · ${at}` : ''}</span></h3><ol>`;
     for (const p of order(grp.list)) {
       if (limit && n++ >= limit) break;
       const cell = p.kind === 'pa' && S.cells[p.cell], c = g.pitches && cell, np = c ? c.seq.length : 0;
