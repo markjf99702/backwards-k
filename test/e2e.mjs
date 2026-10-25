@@ -881,6 +881,18 @@ step('extra innings on a small phone: the line score shows the 15th and R H E, a
   await p.context().close();
 }
 
+step('long team names on a phone: one line each in the games list, with the score after, and box score headings at the left');
+{
+  const p = await playing(seventh(['Riverside Township Junior Varsity Comets', 'Northfield Consolidated Fighting Muskrats']), { width: 360, height: 740 });
+  await p.click('[data-v=box]');
+  assert.deepEqual(await p.$$eval('.pane[data-p=box] .stats thead th:first-child', l => [...new Set(l.map(th => getComputedStyle(th).textAlign))]), ['left']);
+  await p.goto(base + '#/');
+  await p.waitForSelector('.gi');
+  const teams = await p.$$eval('.gi-teams > span', l => l.map(t => { const r = t.getBoundingClientRect(), b = t.querySelector('b').getBoundingClientRect(), gi = t.closest('.gi').getBoundingClientRect(); return { lines: Math.round(r.height / parseFloat(getComputedStyle(t).lineHeight)), score: b.right <= gi.right && b.top >= r.top - 0.5 && b.bottom <= r.bottom + 0.5 }; }));
+  assert.deepEqual(teams, [{ lines: 1, score: true }, { lines: 1, score: true }]);
+  await p.context().close();
+}
+
 step('everyday team names fit the bar on one line');
 for (const width of [360, 390]) {
   const p = await playing(seventh(['Westside Thunder', 'Eastlake Lightning']), { width, height: 800 });

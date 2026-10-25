@@ -14,7 +14,7 @@ export function showHome(el) {
     const live = !S.over;
     return `<li><a class="gi${live ? ' live' : ''}" href="#/g/${esc(g.id)}">
       <span class="gi-date">${esc(fmtDate(g.date))}${g.place ? ` · ${esc(g.place)}` : ''}</span>
-      <span class="gi-teams">${[0, 1].map(s => `<span class="${S.over && S.R[s] > S.R[1 - s] ? 'won' : ''}">${esc(teamName(g, s))} <b>${S.R[s]}</b></span>`).join('')}</span>
+      <span class="gi-teams">${[0, 1].map(s => `<span class="${S.over && S.R[s] > S.R[1 - s] ? 'won' : ''}"><span class="gi-nm">${esc(teamName(g, s))}</span> <b>${S.R[s]}</b></span>`).join('')}</span>
       <span class="gi-st">${live && !g.ev.length ? 'Not started' : esc(halfLabel(S))}</span>
     </a></li>`;
   };
