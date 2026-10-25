@@ -845,8 +845,11 @@ step('a tap is stored just after the screen is drawn, and the page going away st
 step('games stored but unreadable (damaged) are put aside, not written over by the next save');
 {
   const p = await phone(() => { if (!sessionStorage.getItem('damaged')) { localStorage.setItem('backwards-k.v1', '{"app":"backwards-k","v":1,"games":{"gx'); sessionStorage.setItem('damaged', '1'); } });
+  // Opened, and opened again, before anything is saved: put aside once, not once each time.
+  for (let i = 0; i < 3; i++) { await p.goto(base); await p.waitForSelector('.home'); await p.reload(); }
   const id = await startGame(p);
   await written(p);
+  assert.equal(await p.evaluate(() => Object.keys(localStorage).filter(k => k.startsWith('backwards-k.v1.unreadable-')).length), 1, 'one copy put aside');
   const all = await p.evaluate(() => Object.fromEntries(Object.keys(localStorage).filter(k => k.startsWith('backwards-k.v1')).map(k => [k.replace(/-\d+$/, '-'), localStorage.getItem(k)])));
   assert.deepEqual(Object.keys(all).sort(), ['backwards-k.v1', 'backwards-k.v1.unreadable-']);
   assert.equal(all['backwards-k.v1.unreadable-'], '{"app":"backwards-k","v":1,"games":{"gx');

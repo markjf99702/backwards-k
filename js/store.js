@@ -15,10 +15,15 @@ function read() {
   try { return cleanDoc(JSON.parse(raw || 'null')); } catch { unreadable = raw; aside(); return cleanDoc(null); }
 }
 // What was stored but can't be read (damaged, say) isn't written over: it's put aside first, under a name of its own
-// (backwards-k.v1.unreadable-<when>), where it can still be got at. Until that works, nothing is written.
+// (backwards-k.v1.unreadable-<when>), where it can still be got at. Until that works, nothing is written. Once is
+// enough: opened again before anything was saved, it's aside already, and another copy would only fill the device.
 function aside() {
   if (unreadable == null) return true;
-  try { localStorage.setItem(`${KEY}.unreadable-${Date.now()}`, unreadable); unreadable = null; return true; } catch (e) { problem = isFull(e) ? 'full' : 'blocked'; return false; }
+  try {
+    if (!Object.keys(localStorage).some(k => k.startsWith(`${KEY}.unreadable-`) && localStorage.getItem(k) === unreadable)) localStorage.setItem(`${KEY}.unreadable-${Date.now()}`, unreadable);
+    unreadable = null;
+    return true;
+  } catch (e) { problem = isFull(e) ? 'full' : 'blocked'; return false; }
 }
 function write() {
   if (!aside()) return false;
