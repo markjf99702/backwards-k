@@ -59,8 +59,18 @@ export const store = {
   },
   problem: () => problem,
   doc: () => doc,
-  // Drive (or another tab) changed what's stored: read it again.
-  reload() { doc = read(); tell('reload'); },
+  // Drive (or another tab) changed what's stored: read it again. A game changed here that's newer than the stored
+  // copy (the device was out of room, so it was never written) stays as it is here, rather than going back to the
+  // stored copy, or seeming deleted when it was never stored at all.
+  reload() {
+    const was = doc;
+    doc = read();
+    for (const g of Object.values(was.games)) {
+      const there = doc.games[g.id];
+      if ((there ? there.updated : doc.gone[g.id] || 0) < g.updated) { doc.games[g.id] = g; delete doc.gone[g.id]; }
+    }
+    tell('reload');
+  },
   // f(why) runs after every change; why is 'reload' when it came from Drive or another tab.
   onChange(f) { listeners.push(f); },
 };

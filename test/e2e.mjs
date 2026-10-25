@@ -277,6 +277,7 @@ async function startGame(p, away = 'Owls') {
 const stored = (p, id) => p.evaluate(id => JSON.parse(localStorage.getItem('backwards-k.v1')).games[id], id);
 const plays = async (p, id) => (await stored(p, id)).ev.map(e => e.t + (e.r || '')).join(' ');
 const shown = p => p.evaluate(() => [...document.querySelectorAll('.toast')].map(t => t.textContent).join(''));
+const tickerOf = p => p.textContent('.ticker p');
 
 step('saving the sample twice keeps one copy, and the second Save says so');
 {
@@ -762,6 +763,35 @@ step('a device that’s out of room: one line says so, and nothing claims it was
   await p.waitForSelector('.live .field');
   await p.click('[data-p=b]');
   assert.equal(await p.locator('.trouble').isVisible(), false);
+  await p.context().close();
+}
+
+step('out of room, storage read again (another tab saved, or Google Drive) leaves the plays here, and says nothing was deleted');
+{
+  const p = await phone(() => {
+    const set = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (k, v) {
+      if (k === 'backwards-k.v1' && sessionStorage.getItem('full')) throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
+      return set.call(this, k, v);
+    };
+  });
+  const again = () => p.evaluate(async () => (await import('./js/store.js')).store.reload());
+  const id = await startGame(p);
+  await p.evaluate(() => sessionStorage.setItem('full', '1'));
+  for (const k of ['b', 'b', 's']) await p.click(`[data-p=${k}]`);
+  await again();
+  assert.equal(await tickerOf(p), 'Swinging strike (2-1)');
+  assert.equal(await p.evaluate(async id => (await import('./js/store.js')).store.get(id).ev.length, id), 3);
+  await p.click('[data-p=b]');
+  assert.equal(await tickerOf(p), 'Ball (3-1)');
+  // A game started while out of room was never stored at all: it isn't "deleted on another device".
+  const other = await startGame(p, 'Larks');
+  assert.notEqual(other, id);
+  await again();
+  await p.waitForTimeout(200);
+  assert.equal(await shown(p), '');
+  await p.click('[data-p=b]');
+  assert.equal(await tickerOf(p), 'Ball (1-0)');
   await p.context().close();
 }
 
