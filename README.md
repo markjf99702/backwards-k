@@ -96,9 +96,13 @@ To put it online with GitHub Pages: **Settings → Pages → Build and deploymen
 - `js/ui.js`: the sheet, the toast, saving and opening files, and the other small helpers every screen uses.
 - `fonts/`: Big Shoulders, Source Sans 3 and Patrick Hand (SIL Open Font License), served from here so nothing loads
   from elsewhere.
-- `sw.js`: keeps a copy for using offline, and for when the network takes more than three seconds to answer.
+- `sw.js`: keeps a copy for using offline, and for when the network takes more than three seconds to answer. The
+  copy is always one whole version of the app, and a page gets one version, the network's or the copy's, never some
+  files of each. A little script in `index.html` reloads a page that didn't start (which a copy kept by an older
+  `sw.js` could cause).
 - `test/unit.test.mjs`: the rules, including 300 simulated games whose totals have to agree. `test/e2e.mjs`: a game
-  scored in Chromium. `test/drive.mjs`: two devices sharing one pretend Drive (`test/fake-google.mjs`).
+  scored in Chromium, and the offline copy on one bar of signal, with today's `sw.js` and the one before it
+  (`test/sw-before.js`). `test/drive.mjs`: two devices sharing one pretend Drive (`test/fake-google.mjs`).
 - `tools/screenshots.mjs`: the pictures in this README and the link preview, `og.png`, drawn from the sample game.
   `tools/make-icons.mjs`: the PNG icons, from `icon.svg`, and from `tools/icon-full-bleed.svg` (for iPhones, which
   round the corners themselves) and `tools/icon-maskable.svg` (for Android, which crops to a circle).

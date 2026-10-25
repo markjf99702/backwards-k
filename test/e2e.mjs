@@ -14,17 +14,22 @@ let pw;
 try { pw = require('playwright'); } catch { pw = require(join(execSync('npm root -g').toString().trim(), 'playwright')); }
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2', '.webmanifest': 'application/manifest+json', '.json': 'application/json' };
-// For the offline tests: hold leaves every request unanswered (one bar of signal at the ballpark), and extra adds to
-// the end of a file (a new version on the server).
-let hold = false;
+// For the offline tests: hold leaves requests unanswered (one bar of signal at the ballpark): true for every one, or
+// a Set of the paths it holds. release() answers them after all, or drops them. extra adds to the end of a file (a new
+// version on the server), and oldWorker serves the sw.js phones had before (test/sw-before.js).
+let hold = false, oldWorker = false;
 const held = [], extra = {};
+const release = (answer = true) => { for (const h of held.splice(0)) if (answer) h.answer(); else h.res.destroy(); };
 const server = createServer(async (req, res) => {
-  if (hold) { held.push(res); return; }
   const path = decodeURIComponent(new URL(req.url, 'http://x').pathname);
-  let body;
-  try { body = await readFile(join(root, path === '/' ? 'index.html' : path)); } catch { res.writeHead(404); res.end(); return; }
-  res.writeHead(200, { 'content-type': TYPES[extname(path)] || 'text/html' });
-  res.end(extra[path] ? Buffer.concat([body, Buffer.from(extra[path])]) : body);
+  const answer = async () => {
+    let body;
+    try { body = await readFile(join(root, path === '/' ? 'index.html' : path === '/sw.js' && oldWorker ? 'test/sw-before.js' : path)); } catch { res.writeHead(404); res.end(); return; }
+    res.writeHead(200, { 'content-type': TYPES[extname(path)] || 'text/html' });
+    res.end(extra[path] ? Buffer.concat([body, Buffer.from(extra[path])]) : body);
+  };
+  if (hold === true || (hold && hold.has(path))) held.push({ path, res, answer });
+  else answer();
 }).listen(0);
 const base = `http://localhost:${server.address().port}/`;
 
@@ -1681,7 +1686,111 @@ hold = true;
   } finally {
     await q.close();
     hold = false;
-    for (const r of held.splice(0)) r.destroy();
+    release(false);
+  }
+}
+
+// A new version on the server, whose game.js asks ui.js for something only the new ui.js has: a page with the new
+// game.js and the ui.js from before stays blank.
+const NEW = { '/js/game.js': "\nimport { probe } from './ui.js';\ndocument.documentElement.dataset.probe = probe;\n", '/js/ui.js': "\nexport const probe = 'new';\n" };
+const version = p => p.evaluate(() => document.documentElement.dataset.probe || 'before');
+const until = async (f, ms, what) => { const t = Date.now(); while (!(await f())) { assert.ok(Date.now() - t < ms, `waited ${ms} ms for ${what}`); await new Promise(r => setTimeout(r, 100)); } };
+// A phone that has opened the app once, with its own service worker and the copy that keeps.
+async function visited() {
+  const c = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true });
+  const p = await c.newPage();
+  await p.goto(base);
+  await p.waitForFunction(() => navigator.serviceWorker?.controller, null, { timeout: 10000 });
+  await p.close();
+  return c;
+}
+// Whether the copy kept here is whole and of the new version.
+const keptNew = p => p.evaluate(async () => {
+  for (const k of await caches.keys()) {
+    const ui = await caches.match('js/ui.js', { cacheName: k });
+    if (await caches.match('kept-set-done', { cacheName: k }) && ui && (await ui.text()).includes('probe')) return true;
+  }
+  return false;
+});
+
+step('right after a new version, on one bar of signal, a page gets one version, never some files of each');
+{
+  const c = await visited(), errors = [];
+  Object.assign(extra, NEW);
+  hold = new Set(['/js/ui.js']);
+  try {
+    const q = await c.newPage(), t0 = Date.now();
+    q.on('pageerror', e => errors.push(e.message));
+    await q.goto(base, { waitUntil: 'commit' });
+    // The new game.js came straight away and ui.js not at all, so the page reloaded itself and got the version kept
+    // here, all of it.
+    await q.waitForSelector('.hero h1', { timeout: 8000 });
+    assert.equal(await version(q), 'before');
+    assert.ok(Date.now() - t0 < 6000, `the home screen took ${Date.now() - t0} ms`);
+    // The copy is still that version, whole, though the new game.js has come down: it opens in another tab, and
+    // the new game.js isn't in it.
+    const r = await c.newPage();
+    r.on('pageerror', e => errors.push(e.message));
+    await r.goto(base);
+    await r.waitForSelector('.hero h1', { timeout: 5000 });
+    assert.equal(await version(r), 'before');
+    assert.equal(await r.evaluate(async () => {
+      const out = [];
+      for (const k of await caches.keys()) if (await caches.match('kept-set-done', { cacheName: k })) out.push((await (await caches.match('js/game.js', { cacheName: k })).text()).includes('probe'));
+      return out.join();
+    }), 'false');
+    // Once ui.js comes too, the copy is the new version, whole, and that's what opens offline.
+    hold = false;
+    release();
+    await until(() => keptNew(r), 10000, 'the new version to be kept');
+    await c.setOffline(true);
+    await r.reload();
+    await r.waitForSelector('.hero h1', { timeout: 5000 });
+    assert.equal(await version(r), 'new');
+    assert.deepEqual(errors, []);
+  } finally {
+    hold = false;
+    release(false);
+    for (const k of Object.keys(NEW)) delete extra[k];
+    await c.close();
+  }
+}
+
+step('a page the older sw.js put together from two versions reloads itself, once, and comes back whole');
+{
+  oldWorker = true;
+  const c = await visited(), errors = [];
+  let navs = 0;
+  try {
+    const p0 = await c.newPage();
+    await p0.goto(base);
+    assert.deepEqual(await p0.evaluate(() => caches.keys()), ['backwards-k-v2'], 'the older sw.js and its copy');
+    await p0.close();
+    // The new version comes with today's sw.js.
+    oldWorker = false;
+    Object.assign(extra, NEW);
+    hold = new Set(['/js/ui.js']);
+    const q = await c.newPage();
+    q.on('pageerror', e => errors.push(e.message));
+    q.on('framenavigated', f => { if (f === q.mainFrame()) navs++; });
+    await q.goto(base, { waitUntil: 'commit' });
+    // The older sw.js gave it the new game.js and, after 3 seconds, the ui.js it kept: blank, until it reloads.
+    await until(() => navs === 2, 8000, 'the page to reload itself');
+    assert.match(errors.join(' '), /does not provide an export named 'probe'/);
+    // The copy it kept went first, so that reload asks the network for everything, and once ui.js comes, it's the
+    // new version, all of it.
+    hold = false;
+    release();
+    await q.waitForSelector('.hero h1', { timeout: 8000 });
+    assert.equal(await version(q), 'new');
+    assert.equal(navs, 2, 'it reloaded once');
+    assert.equal(errors.length, 1, errors.join(' '));
+  } finally {
+    oldWorker = false;
+    hold = false;
+    release(false);
+    for (const k of Object.keys(NEW)) delete extra[k];
+    await c.close();
   }
 }
 

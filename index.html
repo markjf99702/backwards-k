@@ -19,6 +19,35 @@
   <link rel="preload" href="fonts/big-shoulders.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="css/app.css">
   <script type="module" src="js/app.js"></script>
+  <script data-boot>
+    // If the app doesn't start, because one of its files didn't come or two of them are from different versions,
+    // the page reloads, once. A copy kept for offline by an older sw.js (which could mix versions) goes first, so
+    // that reload comes from the network; today's sw.js keeps only whole versions, and gives it one of those or the
+    // network's. Only while a service worker answers for the page, so never in the one-file copy. (It comes after
+    // app.js's tag: before it, Chromium asked for app.js twice, one after the other.)
+    (() => {
+      const sw = navigator.serviceWorker, K = 'backwards-k.boot', t0 = Date.now();
+      if (!sw || !sw.controller) return;
+      const started = () => !!document.querySelector('#app > *');
+      let once = false;
+      const heal = async () => {
+        if (once || started()) return;
+        once = true;
+        try { if (sessionStorage.getItem(K)) return; sessionStorage.setItem(K, '1'); } catch { return; }
+        try { for (const k of await caches.keys()) if (/^backwards-k-v\d+$/.test(k)) await caches.delete(k); } catch { /* reload anyway */ }
+        location.reload();
+      };
+      addEventListener('error', e => {
+        const t = e.target;
+        if (t === window || (t && (t.localName === 'script' || (t.localName === 'link' && t.rel === 'stylesheet')))) heal();
+      }, true);
+      // Not started in 6 seconds: reload. Started: a later page load can reload once again if it has to.
+      const tick = setInterval(() => {
+        if (started()) { clearInterval(tick); try { sessionStorage.removeItem(K); } catch { /* nothing to clear */ } }
+        else if (Date.now() - t0 > 6000) heal();
+      }, 500);
+    })();
+  </script>
 </head>
 <body>
   <div id="app"></div>

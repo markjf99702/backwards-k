@@ -52,13 +52,15 @@ function guardDark(css) {
 }
 
 // A single file can't point at other files, so the font and the icon go in as data: URIs,
-// and the links that only make sense for the hosted site (manifest, home-screen icon, preload) come out.
+// and what only makes sense for the hosted site (manifest, home-screen icon, preload, and the check that reloads a
+// page its offline copy couldn't start) comes out.
 const dataUri = async (path, type) => `data:${type};base64,${(await readFile(new URL(path, root))).toString('base64')}`;
 let css = guardDark(await read('css/app.css'));
 for (const [, file] of css.matchAll(/url\(\.\.\/(fonts\/[^)]+\.woff2)\)/g)) css = css.replace(`url(../${file})`, `url(${await dataUri(file, 'font/woff2')})`);
 const icon = await dataUri('icon.svg', 'image/svg+xml');
 const page = css => (html => html
   .replace(/ *<link rel="(manifest|apple-touch-icon|preload)"[^>]*>\n/g, '')
+  .replace(/ *<script data-boot>[\s\S]*?<\/script>\n/, '')
   .replaceAll('"icon.svg"', () => `"${icon}"`)
   .replace('<link rel="stylesheet" href="css/app.css">', () => `<style>\n${css}</style>`)
   .replace(/ *<script type="module" src="js\/app.js"><\/script>\n/, '')
@@ -66,6 +68,7 @@ const page = css => (html => html
 const source = await read('index.html');
 const html = page(css)(source);
 if (/(src|href)="(js|css|fonts)\/|"icon-\d|manifest\.webmanifest/.test(html)) throw new Error('index.html: a link to another file was left in');
+if (html.includes('data-boot')) throw new Error('index.html: the check that reloads a page that didn’t start was left in');
 
 // That host pads the page clear of a phone's notch itself, so the sticky header sits below the padding
 // instead of adding its own.
