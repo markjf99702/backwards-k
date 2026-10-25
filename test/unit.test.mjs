@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { replay, suggest, check, runsCount, scoredAs, mark, now, columns, halfLabel, RESULTS, runnersOn, pitchDay, pitchStat, pitchWork, pitchCount } from '../js/engine.js';
-import { newGame, cleanGame, cleanDoc, parseLineup, parsePaste, takeBack, putBack, carryLineup, newer } from '../js/model.js';
+import { newGame, cleanGame, cleanDoc, parseLineup, parsePaste, takeBack, putBack, carryLineup, newer, merge, seenOf } from '../js/model.js';
 import { sampleGame } from '../js/sample.js';
 // The card is drawn with ui.js, which looks for the page's sheet as it loads: here there's no page, so no sheet.
 globalThis.document ??= { readyState: 'complete', getElementById: () => null };
@@ -873,6 +873,85 @@ test('a value that isn’t plain JSON is left out', () => {
   const g = everyKind();
   g.ev.push({ t: 'xr', f: () => 1, n: Infinity, u: undefined, d: new Date(0), ok: [1, NaN, 'a'] });
   assert.deepEqual(cleanGame(g).ev.at(-1), { t: 'xr', d: {}, ok: [1, null, 'a'] });
+});
+
+// Two copies of one game: the start of it, then each changed on its own (later: changed after).
+function copies() {
+  const base = game();
+  play(base, '1B', 'K', '2B');
+  base.updated = 1000;
+  const a = JSON.parse(JSON.stringify(base)), b = JSON.parse(JSON.stringify(base));
+  return { base, a, b };
+}
+const later = (g, t) => { g.updated = t; return g; };
+
+test('two copies of a game: one whose plays are the start of the other’s gets the rest, with the newest names', () => {
+  // The phone scored on; the tablet, with the copy from before, renamed a batter after that.
+  const { a, b } = copies();
+  play(a, 'HR', 'GO 6 3', 'BB');
+  later(a, 2000);
+  b.teams[0].lineup[0][0].name = 'Ruiz';
+  b.place = 'Riverside Park';
+  later(b, 3000);
+  for (const [x, y] of [[a, b], [b, a]]) {
+    const { game, second } = merge(x, y);
+    assert.equal(second, null);
+    assert.deepEqual(game.ev, a.ev, 'every play');
+    assert.equal(game.teams[0].lineup[0][0].name, 'Ruiz');
+    assert.equal(game.place, 'Riverside Park');
+    assert.ok(game.updated > 3000, 'changed after both');
+    assert.deepEqual(cleanGame(JSON.parse(JSON.stringify(game))), game);
+  }
+  // The copy with every play, changed last too, is the answer itself.
+  later(a, 4000);
+  b.teams[0].lineup[0][0].name = '';
+  b.place = '';
+  assert.equal(merge(b, a).game, a);
+  // The same plays: the copy changed last wins, as before.
+  const { a: c, b: d } = copies();
+  d.teams[1].name = 'Bears';
+  later(d, 5000);
+  assert.equal(merge(c, d).game, d);
+  assert.equal(merge(d, c).game, d);
+});
+
+test('a play taken back with Undo stays taken back, when Drive saw the longer list last', () => {
+  const { base, a, b } = copies();
+  takeBack(a);
+  later(a, 2000);
+  b.teams[1].name = 'Bears';
+  later(b, 3000);
+  const seen = seenOf(base);
+  for (const [x, y] of [[a, b], [b, a]]) {
+    const { game } = merge(x, y, seen);
+    assert.deepEqual(game.ev, a.ev, 'the play stays taken back');
+    assert.equal(game.teams[1].name, 'Bears', 'and the new name stays');
+  }
+  // Without that, or when the longer list has plays Drive never saw, the plays stay.
+  assert.deepEqual(merge(a, b).game.ev, base.ev);
+  play(b, 'K');
+  assert.deepEqual(merge(a, b, seen).game.ev, b.ev);
+});
+
+test('two copies that each have plays the other lacks are both kept, the second marked', () => {
+  const { a, b } = copies();
+  play(a, 'HR');
+  later(a, 2000);
+  play(b, 'K', 'K');
+  b.place = 'Riverside Park';
+  later(b, 3000);
+  const { game, second } = merge(a, b);
+  assert.deepEqual(game.ev, a.ev);
+  assert.equal(game.id, a.id);
+  assert.ok(game.updated > 3000, 'changed after both, so it replaces b where b was');
+  assert.deepEqual(second.ev, b.ev);
+  assert.notEqual(second.id, a.id);
+  assert.equal(second.place, 'Riverside Park (second copy)');
+  assert.equal(merge(a, second).second.place, 'Riverside Park (second copy)', 'marked once');
+  assert.deepEqual(cleanGame(JSON.parse(JSON.stringify(second))), second);
+  // The copy that keeps the game, changed last, is kept as it is.
+  later(a, 9000);
+  assert.equal(merge(a, b).game, a);
 });
 
 test('a game can have up to 30 innings', () => {

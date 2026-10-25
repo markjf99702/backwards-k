@@ -132,6 +132,65 @@ assert.match(await a.textContent('#toast'), /This game was deleted on another de
 await a.goto(base);
 assert.deepEqual(await games(a), ['Foxes 1 Comets 0']);
 
+// Both devices with no signal while they each change the same game, then back one after the other.
+const fox = foxes().id, apart = async () => { for (const p of [a, b]) await p.context().route('https://www.googleapis.com/**', noSignal); };
+const back = async p => { await p.context().unroute('https://www.googleapis.com/**', noSignal); await syncNow(p); };
+const stored = async (p, pick = g => g.id === fox) => (await p.evaluate(() => Object.values(JSON.parse(localStorage.getItem('backwards-k.v1')).games))).filter(pick);
+const open = async p => { await p.goto(base + '#/g/' + fox); await p.waitForSelector('.live .field'); };
+const rename = async (p, side, name) => {
+  await p.click('[data-a=menu]');
+  await p.click('[data-y=settings]');
+  await p.fill(`[data-t="${side}"]`, name);
+  await p.keyboard.press('Escape');
+  await p.waitForTimeout(600); // the name is saved after a pause in the typing
+};
+
+step('scored on with no signal while the other device, with the copy from before, renamed a team: every play stays, and the new name');
+await open(a);
+await open(b);
+const plays = (await stored(a))[0].ev.length;
+await apart();
+for (const k of ['b', 'b', 's']) await a.click(`[data-p="${k}"]`);
+await rename(b, 0, 'Red Foxes');
+await back(b);
+await back(a);
+await syncNow(b);
+for (const p of [a, b]) {
+  const [g] = await stored(p);
+  assert.deepEqual([g.ev.length, g.teams[0].name], [plays + 3, 'Red Foxes']);
+}
+assert.equal(JSON.parse(gameFiles().find(f => f.appProperties.gid === fox).body).game.ev.length, plays + 3);
+
+step('scored differently on two devices with no signal: both are kept, and the device that finds it says so');
+await apart();
+await a.click('[data-p="b"]');
+await b.click('[data-p="s"]');
+await back(a);
+await back(b);
+assert.equal(await b.textContent('#toast'), 'Red Foxes at Comets was scored on another device too, with plays this one didn’t have, so both are kept. The one scored here is marked (second copy).');
+await syncNow(a);
+for (const p of [a, b]) {
+  const both = (await stored(p, g => g.teams[0].name === 'Red Foxes')).sort((x, y) => x.place.length - y.place.length);
+  assert.deepEqual(both.map(g => [g.place, g.ev.at(-1).k]), [['', 'b'], ['(second copy)', 's']]);
+  assert.equal(both[0].id, fox);
+}
+assert.equal(gameFiles().filter(f => !f.trashed).length, 2);
+
+step('a play taken back on one device while the other renamed a team: the play stays taken back, and the name stays');
+await open(b);
+const had = (await stored(a))[0].ev.length;
+await apart();
+await a.click('[data-a=undo]');
+await rename(b, 1, 'Comets II');
+await back(a);
+await back(b);
+await syncNow(a);
+for (const p of [a, b]) {
+  const [g] = await stored(p);
+  assert.deepEqual([g.ev.length, g.teams[1].name], [had - 1, 'Comets II']);
+}
+await a.goto(base);
+
 step('a sign-in that ran out: the cloud asks for a tap, and one tap fixes it');
 await a.evaluate(() => { const t = JSON.parse(localStorage.getItem('junkdrawer.google')); t.token = 'tok-expired'; localStorage.setItem('junkdrawer.google', JSON.stringify(t)); });
 await a.reload();

@@ -1544,6 +1544,47 @@ for (const width of [260, 195]) {
   await c.close();
 }
 
+step('saving a link to a game this device has: the link’s new plays come in, and plays only this copy has are kept');
+{
+  const c = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
+  const p = await c.newPage();
+  p.on('pageerror', e => problems.push('links: ' + e.message));
+  await p.goto(base);
+  // Saved here from the first link, then renamed here; meanwhile the sender scored three more plays and sent a link.
+  const g = sampleUntil(7, S => S.inn === 2), n = g.ev.length;
+  const mine = { ...structuredClone(g), updated: g.updated + 5000 };
+  mine.teams[1].name = 'Comets II';
+  const sent = { ...structuredClone(g), ev: sampleGame(7).ev.slice(0, n + 3), updated: g.updated + 1000 };
+  const mineNow = () => p.evaluate(id => JSON.parse(localStorage.getItem('backwards-k.v1')).games[id], g.id);
+  const save = async x => {
+    await p.evaluate(async x => (await import('./js/store.js')).store.add([x]), x);
+    const link = await p.evaluate(async x => (await import('./js/share.js')).linkFor(x), x === mine ? sent : x);
+    await p.goto(base + link.slice(link.indexOf('#')));
+    await p.click('[data-a=keep]');
+    await p.waitForSelector('.live .field');
+  };
+  await save(mine);
+  assert.equal(await p.textContent('#toast'), 'Saved to your games.');
+  let now = await mineNow();
+  assert.deepEqual([now.ev.length, now.teams[1].name], [n + 3, 'Comets II']);
+  // A pitch here, and a different one in the sender's next link: both are kept.
+  now.ev.push({ t: 'p', k: 'b' });
+  now.updated += 1;
+  await p.evaluate(async x => (await import('./js/store.js')).store.add([x]), now);
+  const other = { ...structuredClone(now), updated: now.updated + 1 };
+  other.ev[other.ev.length - 1] = { t: 'p', k: 's' };
+  const link = await p.evaluate(async x => (await import('./js/share.js')).linkFor(x), other);
+  await p.goto(base + link.slice(link.indexOf('#')));
+  await p.click('[data-a=keep]');
+  await p.waitForSelector('.live .field');
+  assert.equal(await seen(p), 'You already have this game, with plays this link doesn’t have, so both are kept. The link’s is marked (second copy).');
+  const all = await p.evaluate(() => Object.values(JSON.parse(localStorage.getItem('backwards-k.v1')).games));
+  assert.deepEqual(all.map(x => [x.id === g.id, x.place, x.ev.at(-1).k]).sort(), [[false, 'Riverside Park (second copy)', 's'], [true, 'Riverside Park', 'b']]);
+  assert.match(p.url(), /#\/g\//);
+  assert.notEqual(p.url().split('#/g/')[1], g.id, 'the second copy is the one shown');
+  await c.close();
+}
+
 step('a game holding a play or an event this version doesn’t know opens look-only, and keeps it');
 for (const [n, e] of [[1, { t: 'pa', r: 'ZZ', m: [[0, 1]] }], [2, { t: 'xr', b: 2, why: 'extra innings' }]]) {
   // From a newer copy of the app (or a damaged file).

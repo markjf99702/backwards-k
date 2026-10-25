@@ -1,12 +1,14 @@
 // Saving to Google Drive, so games follow a person from phone to tablet to computer.
 // The page keeps working from localStorage exactly as before. When someone turns this on, every game goes into its
 // own small file in a "Backwards K" folder in their own Google Drive, and what their other devices saved there comes
-// back, game by game: whichever copy of a game changed last wins. A deleted game's file goes to Drive's bin, marked
-// with when it was deleted, so the other devices delete it too.
+// back, game by game: the copy that changed wins, and when a game changed both here and in Drive, the plays decide
+// (see merge() in model.js), so no copy's plays are lost. A deleted game's file goes to Drive's bin, marked with when
+// it was deleted, so the other devices delete it too.
 // Nothing about this shows away from backwards-k.junkdrawer.works.
-import { cleanGame, canon } from './model.js';
+import { cleanGame, canon, merge, seenOf } from './model.js';
 import { store, KEY } from './store.js';
 import { replay, teamName, halfLabel } from './engine.js';
+import { toast } from './ui.js';
 
 // The junkdrawer.works OAuth client, shared by every junkdrawer.works project. Google only accepts it from the
 // addresses it lists, so anywhere else (localhost, the single-file copy) nothing about Drive shows.
@@ -23,14 +25,16 @@ const KS = 'backwards-k.sync', KT = 'junkdrawer.google';
 const get = k => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch { return null; } };
 const put = (k, v) => { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); } catch { /* storage full or blocked */ } };
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const fresh = () => ({ on: false, email: '', name: '', last: 0 });
+// seen: for each game, the copy this device and Drive last agreed on: { t: its updated, n and h: its plays (seenOf) }.
+const fresh = () => ({ on: false, email: '', name: '', last: 0, seen: {} });
 
 let st = { ...fresh(), ...(get(KS) || {}) }, tok = get(KT);
 let status = 'off', note = '', busy = null, again = false, client = null, gisLoading = false, pushT = null, folderId = '';
 // Goes up whenever saving stops (here or in another tab), so a sync already under way leaves Drive and this
 // device alone instead of putting back what it read before.
 let gen = 0;
-const ups = [], watchers = [];
+// Games kept twice by the last sync (see run()), to say so.
+const ups = [], watchers = [], twice = [];
 
 const saveSt = () => put(KS, st);
 const good = t => !!(t && t.token && t.exp - 60000 > Date.now() && String(t.scope || '').includes(SCOPE));
@@ -113,8 +117,10 @@ async function learnAccount(g) {
 }
 
 // One sync: for every game on either side, the newest of the game here, its deletion here, its file in Drive and
-// its file's deletion wins, and the other side is brought up to date.
+// its file's deletion wins, and the other side is brought up to date. A game changed both here and in Drive since
+// they last agreed (or never compared) is the exception: its two copies are made one by their plays (merge()).
 async function run(g) {
+  twice.length = 0;
   if (!st.email) await learnAccount(g);
   if (g !== gen) return false;
   const doc = store.doc(), files = await listGames();
@@ -130,22 +136,37 @@ async function run(g) {
     }
   }
   const incoming = {}, gids = new Set([...Object.keys(doc.games), ...Object.keys(doc.gone), ...Object.keys(byGid)]);
+  const seen = st.seen ||= {}, agreed = x => ({ t: x.updated, ...seenOf(x) });
   for (const gid of gids) {
     if (g !== gen) return false;
     const L = doc.games[gid], T = doc.gone[gid] || 0, F = byGid[gid];
-    const fileUp = F && !F.trashed ? F.up : 0, fileGone = F && F.trashed ? (F.gone || F.up) : 0;
+    const fileUp = F && !F.trashed ? F.up : 0, fileGone = F && F.trashed ? (F.gone || F.up) : 0, was = seen[gid];
+    if (L && fileUp && fileUp !== L.updated && (!was || (was.t !== L.updated && was.t !== fileUp))) {
+      const D = await download(F.id);
+      if (D) {
+        const { game, second } = merge(D, L, was);
+        if (game !== D) await upload(game, F);
+        if (game !== L) incoming[gid] = game; else seen[gid] = agreed(L);
+        if (second) { await upload(second); incoming[second.id] = second; twice.push(second); }
+        continue;
+      }
+    }
     const best = Math.max(L ? L.updated : 0, T, fileUp, fileGone);
     if (L && L.updated === best) {
       if (!F || F.trashed || F.up !== L.updated) await upload(L, F);
+      if (!was || was.t !== L.updated) seen[gid] = agreed(L);
     } else if (T && T === best) {
       if (F && !F.trashed) await bin(F, T);
+      delete seen[gid];
     } else if (fileUp && fileUp === best) {
       const got = await download(F.id);
       if (got) incoming[gid] = got;
     } else if (fileGone && fileGone === best && L) {
       incoming[gid] = { gone: fileGone };
+      delete seen[gid];
     }
   }
+  for (const id of Object.keys(seen)) if (!gids.has(id)) delete seen[id];
   if (g !== gen) return false;
   // Put what came from Drive into this device's games, unless something here changed meanwhile.
   let changed = false;
@@ -154,12 +175,16 @@ async function run(g) {
     try { cur = JSON.parse(localStorage.getItem(KEY) || 'null') || { app: 'backwards-k', v: 1, games: {}, gone: {} }; } catch { cur = null; }
     if (cur) {
       cur.games ||= {}; cur.gone ||= {};
+      const took = [];
       for (const [gid, x] of Object.entries(incoming)) {
         const mine = cur.games[gid];
         if (x.gone) { if (mine && mine.updated <= x.gone) { delete cur.games[gid]; cur.gone[gid] = x.gone; changed = true; } }
-        else if ((!mine || mine.updated < x.updated) && !((cur.gone[gid] || 0) >= x.updated)) { cur.games[gid] = x; delete cur.gone[gid]; changed = true; }
+        else if ((!mine || mine.updated < x.updated) && !((cur.gone[gid] || 0) >= x.updated)) { cur.games[gid] = x; delete cur.gone[gid]; changed = true; took.push(x); }
       }
-      if (changed) { try { localStorage.setItem(KEY, canon(cur)); } catch { changed = false; } }
+      if (changed) { try { localStorage.setItem(KEY, canon(cur)); } catch { changed = false; took.length = 0; } }
+      // What came from Drive and went in: this device and Drive agree on it now. (A game changed here meanwhile is
+      // compared again next time.)
+      for (const x of took) seen[x.id] = agreed(x);
     }
   }
   st.last = Date.now(); saveSt();
@@ -177,6 +202,12 @@ function sync() {
     if (g !== gen) return false;
     setStatus('ok');
     if (changed) ups.forEach(f => { try { f(); } catch (e) { console.error('Backwards K: showing synced games failed', e); } });
+    if (twice.length) {
+      const one = twice[0];
+      toast(twice.length > 1
+        ? `${twice.length} games were scored on another device too, with plays this one didn’t have, so both copies of each are kept. The ones scored here are marked (second copy).`
+        : `${teamName(one, 0)} at ${teamName(one, 1)} was scored on another device too, with plays this one didn’t have, so both are kept. The one scored here is marked (second copy).`, { ms: 9000 });
+    }
     return changed;
   }, e => {
     if (g !== gen) return false;

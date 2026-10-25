@@ -10,7 +10,7 @@ import { showSetup } from './setup.js';
 import { showGame, leaveGame } from './game.js';
 import { unpack } from './share.js';
 import { sampleGame } from './sample.js';
-import { cleanGame, uid } from './model.js';
+import { cleanGame, uid, merge } from './model.js';
 import { closeSheet, toast, go, routes, whyNot } from './ui.js';
 import { drive } from './sync.js';
 
@@ -66,14 +66,18 @@ function open(el, name, g, opts) {
   document.body.dataset.screen = name;
   showGame(el, g, opts);
 }
-// Someone else's game (or the sample) goes into this device's games.
+// Someone else's game (or the sample) goes into this device's games. A game this device already has is made one with
+// it by the plays (see merge() in model.js): the link's plays that this copy hasn't got are added, and when each has
+// plays the other lacks, the link's goes in as a second copy.
 function keep(g) {
-  const mine = store.get(g.id);
-  if (mine && mine.updated >= g.updated) { go('#/g/' + g.id); toast('You already have this game.'); return; }
-  const { ok } = store.add([g]);
+  const mine = store.get(g.id), { game, second } = mine ? merge(mine, g) : { game: g, second: null };
+  if (game === mine && !second) { go('#/g/' + g.id); toast('You already have this game.'); return; }
+  const { ok } = store.add([second || game]);
   drive.changed();
-  go('#/g/' + g.id);
-  if (ok) toast('Saved to your games.'); else toast(`Couldn’t save it: ${whyNot(store.problem())}.`, { ms: 6000 });
+  go('#/g/' + (second || game).id);
+  if (!ok) toast(`Couldn’t save it: ${whyNot(store.problem())}.`, { ms: 6000 });
+  else if (second) toast('You already have this game, with plays this link doesn’t have, so both are kept. The link’s is marked (second copy).', { ms: 9000 });
+  else toast('Saved to your games.');
 }
 
 // The sample goes into this device's games once; Save again opens that copy, played on or not, and leaves it be. Each

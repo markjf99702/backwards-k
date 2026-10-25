@@ -244,6 +244,43 @@ export function putBack(g, r) {
   g.ev.push(r.e);
 }
 
+// Two copies of one game made one, for Google Drive and for saving a shared link: a, the copy that keeps the game,
+// and b, the other. When one copy's plays are the start of the other's, the longer list wins, with the names and
+// settings of the copy changed last. But when the longer list is exactly the plays both copies had the last time they
+// were compared (seen, from Drive: see seenOf()), the shorter one took plays back with Undo, and it keeps them taken
+// back. When each copy has plays the other lacks, both are kept: b goes in as a game of its own, marked (second copy).
+// Returns { game, second }; game is a or b itself when that copy is already the answer, or else a new copy, changed
+// after both.
+export function merge(a, b, seen = null) {
+  const now = Math.max(Date.now(), a.updated + 1, b.updated + 1), newer = b.updated > a.updated ? b : a;
+  const plays = ev => JSON.stringify(ev);
+  if (plays(a.ev) === plays(b.ev)) return { game: newer, second: null };
+  const [short, long] = a.ev.length <= b.ev.length ? [a, b] : [b, a];
+  if (plays(long.ev.slice(0, short.ev.length)) !== plays(short.ev)) {
+    const place = /\(second copy\)$/.test(b.place) ? b.place : `${b.place.slice(0, 66)} (second copy)`.trim();
+    return { game: a.updated > b.updated ? a : { ...a, updated: now }, second: { ...b, id: 'g' + uid(), place, updated: now } };
+  }
+  const from = seen && long.ev.length === seen.n && hash(plays(long.ev)) === seen.h ? short : long;
+  const named = (t, n) => ({
+    ...t, name: n.name,
+    lineup: t.lineup.map((slot, i) => slot.map((p, j) => (n.lineup[i]?.[j] ? { ...p, name: n.lineup[i][j].name, num: n.lineup[i][j].num } : p))),
+    pitchers: t.pitchers.map((p, j) => (n.pitchers[j] ? { ...p, name: n.pitchers[j].name, num: n.pitchers[j].num } : p)),
+  });
+  const game = {
+    ...from, date: newer.date, place: newer.place, innings: newer.innings, pitches: newer.pitches,
+    teams: from.teams.map((t, s) => named(t, newer.teams[s])), updated: now,
+  };
+  return { game: canon({ ...game, updated: 0 }) === canon({ ...newer, updated: 0 }) ? newer : game, second: null };
+}
+// What Drive remembers of a game's plays after comparing it (see merge()): how many, and a fingerprint of them.
+export const seenOf = g => ({ n: g.ev.length, h: hash(JSON.stringify(g.ev)) });
+// A short fingerprint of some text (FNV-1a).
+function hash(s) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193) >>> 0;
+  return h.toString(36);
+}
+
 // A team's lineup to start another game with: the players in each slot at the end of this one. at: who that was in
 // each slot, by place in it (replay's pl), since a starter can come back in; without it, the last one listed.
 export function carryLineup(team, at = []) {

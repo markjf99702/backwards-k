@@ -57,9 +57,13 @@ written out in plain words.
 - **On each device:** every game, in the browser's storage. If the browser won't save (private browsing, site data
   turned off, or a device that's out of room), the game screen says so and offers to save the game as a file.
 - **In Google Drive, when it's on:** one JSON file per game in the "Backwards K" folder, with a line or two at the top
-  saying who played and the score. Whichever copy of a game changed last wins. A deleted game's file goes to Drive's
-  bin, and the game is deleted on your other devices too. With no signal, games wait on the device and go up when
-  it's back.
+  saying who played and the score. A game changed on one device is brought up to date on the others. One changed on
+  two devices before they caught up is put together by its plays: when one copy's plays are the start of the other's,
+  it gets the rest, with the names and settings changed last (and a play taken back with Undo stays taken back), and
+  when each copy has plays the other lacks, both are kept, and the one from the device that finds it is marked
+  "(second copy)". Saving a shared link to a game you already have works the same way. A deleted game's file goes to
+  Drive's bin, and the game is deleted on your other devices too. With no signal, games wait on the device and go up
+  when it's back.
 - Backwards K can only see the files it made. Signing in lasts an hour and stays on that device. To take the
   permission back, remove junkdrawer.works under **Third-party apps & services** in your Google Account; "Stop saving
   on this device" only stops this device.
