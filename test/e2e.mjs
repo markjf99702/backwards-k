@@ -1223,6 +1223,26 @@ step('on a small phone, each sheet’s last row of buttons is in reach without s
   await p.context().close();
 }
 
+step('scrolling a sheet, or past its end, leaves the game behind it where it was');
+{
+  const p = await playing(seventh());
+  const wheel = async (open, times) => {
+    await p.evaluate(() => window.scrollTo(0, 100));
+    await open();
+    await p.waitForTimeout(250);
+    const r = await box(p, '#sheet');
+    await p.mouse.move((r.left + r.right) / 2, (r.top + r.bottom) / 2);
+    for (let i = 0; i < times; i++) { await p.mouse.wheel(0, 800); await p.waitForTimeout(50); }
+    await p.waitForTimeout(300);
+    const body = await p.evaluate(() => { const b = document.querySelector('.sheet-body'); return b.scrollHeight - b.clientHeight - b.scrollTop; });
+    await p.keyboard.press('Escape');
+    return { body, y: await p.evaluate(() => scrollY) };
+  };
+  assert.deepEqual(await wheel(() => p.click('[data-a=more]'), 1), { body: 0, y: 100 }, 'More, which doesn’t scroll');
+  assert.deepEqual(await wheel(async () => { await p.click('[data-a=menu]'); await p.click('.sheet [data-y=help]'); }, 6), { body: 0, y: 100 }, 'help, scrolled to its end and past it');
+  await p.context().close();
+}
+
 step('a screen reader hears each play and where things stand, in a region that stays put');
 {
   const p = await phone();

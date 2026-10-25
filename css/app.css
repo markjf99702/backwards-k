@@ -575,7 +575,11 @@ li.scored { border-left: 4px solid var(--red); }
 .sheet[open] { animation: up .18s ease-out; }
 @keyframes up { from { transform: translateY(24px); opacity: .6; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .sheet[open] { animation: none; } }
-.sheet-body { padding: 18px 16px calc(18px + env(safe-area-inset-bottom)); overflow: auto; max-height: inherit; scroll-padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+.sheet-body { padding: 18px 16px calc(18px + env(safe-area-inset-bottom)); overflow: auto; overscroll-behavior: contain; max-height: inherit; scroll-padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+/* While a sheet is open the game behind it stays put: scrolling past the sheet's end, or over the dimmed page, doesn't
+   move it, so the buttons are where they were when it closes. (The scrollbar's room is kept meanwhile, so a computer's
+   page doesn't shift sideways.) */
+html:has(dialog.sheet[open]) { overflow: hidden; scrollbar-gutter: stable; }
 /* The row of buttons that ends every sheet (Save play, Close, Done) stays at its bottom edge, in reach, while the rest
    scrolls under it. (The scroll padding keeps whatever the keyboard reaches out from under it too.) */
 .sheet-body > .row:last-child {
