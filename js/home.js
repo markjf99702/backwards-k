@@ -11,11 +11,15 @@ export function showHome(el) {
   const item = g => {
     let S;
     try { S = replay(g); } catch { return ''; }
-    const live = !S.over;
+    // A game nobody has started yet is who's playing whom, with no score, and not in the red of a game going on.
+    const fresh = !g.ev.length, live = !S.over && !fresh;
+    const teams = fresh
+      ? `<span><span class="gi-nm">${esc(teamName(g, 0))}</span> <span class="gi-at">at</span></span> <span><span class="gi-nm">${esc(teamName(g, 1))}</span></span>`
+      : [0, 1].map(s => `<span class="${S.over && S.R[s] > S.R[1 - s] ? 'won' : ''}"><span class="gi-nm">${esc(teamName(g, s))}</span> <b>${S.R[s]}</b></span>`).join(' ');
     return `<li><a class="gi${live ? ' live' : ''}" href="#/g/${esc(g.id)}">
       <span class="gi-date">${esc(fmtDate(g.date))}${g.place ? ` · ${esc(g.place)}` : ''}</span>
-      <span class="gi-teams">${[0, 1].map(s => `<span class="${S.over && S.R[s] > S.R[1 - s] ? 'won' : ''}"><span class="gi-nm">${esc(teamName(g, s))}</span> <b>${S.R[s]}</b></span>`).join('')}</span>
-      <span class="gi-st">${live && !g.ev.length ? 'Not started' : esc(halfLabel(S))}</span>
+      <span class="gi-teams${fresh ? ' fresh' : ''}">${teams}</span>
+      <span class="gi-st">${fresh ? 'Not started' : esc(halfLabel(S))}</span>
     </a></li>`;
   };
   el.innerHTML = `<header class="bar home-bar">

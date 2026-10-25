@@ -388,6 +388,22 @@ step('names are typed as they are: no autocorrect or spell check on a name, a te
   await p.context().close();
 }
 
+step('a game nobody has started is listed as who’s playing whom, waiting');
+{
+  const p = await phone();
+  await startGame(p, 'Owls');
+  await p.goto(base);
+  await p.waitForSelector('.gi');
+  const read = () => p.$eval('.gi', a => ({ teams: a.querySelector('.gi-teams').textContent.replace(/\s+/g, ' ').trim(), st: a.querySelector('.gi-st').textContent, red: a.classList.contains('live') }));
+  assert.deepEqual(await read(), { teams: 'Owls at Home', st: 'Not started', red: false });
+  await p.click('.gi');
+  await p.click('[data-p=b]');
+  await p.goto(base);
+  await p.waitForSelector('.gi');
+  assert.deepEqual(await read(), { teams: 'Owls 0 Home 0', st: 'Top 1st', red: true });
+  await p.context().close();
+}
+
 step('the next new game starts with the last game’s innings and pitch counting');
 {
   const p = await phone();

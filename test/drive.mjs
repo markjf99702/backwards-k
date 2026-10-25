@@ -74,10 +74,10 @@ await newGame(b, 'Owls', 'Bears');
 await b.goto(base);
 await b.click('.drive-card [data-a=on]');
 await settle(b);
-assert.deepEqual(await games(b), ['Foxes 1 Comets 0', 'Owls 0 Bears 0']);
+assert.deepEqual(await games(b), ['Foxes 1 Comets 0', 'Owls at Bears']);
 assert.equal(gameFiles().length, 2);
 await syncNow(a);
-assert.deepEqual(await games(a), ['Foxes 1 Comets 0', 'Owls 0 Bears 0']);
+assert.deepEqual(await games(a), ['Foxes 1 Comets 0', 'Owls at Bears']);
 
 step('scoring on one device shows up on the other');
 await b.click('.gi >> nth=1');
@@ -88,7 +88,7 @@ await b.click('[data-r="1B"]');
 await b.click('[data-x=save]');
 await syncNow(b);
 await syncNow(a);
-assert.deepEqual(await games(a), ['Foxes 1 Comets 0', 'Owls 0 Bears 0']);
+assert.deepEqual(await games(a), ['Foxes 1 Comets 0', 'Owls at Bears']);
 assert.equal(await a.evaluate(() => JSON.parse(localStorage.getItem('backwards-k.v1')).games[Object.keys(JSON.parse(localStorage.getItem('backwards-k.v1')).games).find(k => JSON.parse(localStorage.getItem('backwards-k.v1')).games[k].teams[0].name === 'Foxes')].ev.length), 3);
 
 step('the page showing the game picks up the change');
