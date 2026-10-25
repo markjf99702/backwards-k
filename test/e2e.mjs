@@ -2,7 +2,7 @@
 import { createRequire } from 'node:module';
 import { execSync } from 'node:child_process';
 import { createServer } from 'node:http';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import { join, dirname, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import assert from 'node:assert/strict';
@@ -14,12 +14,17 @@ let pw;
 try { pw = require('playwright'); } catch { pw = require(join(execSync('npm root -g').toString().trim(), 'playwright')); }
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2', '.webmanifest': 'application/manifest+json', '.json': 'application/json' };
+// For the offline tests: hold leaves every request unanswered (one bar of signal at the ballpark), and extra adds to
+// the end of a file (a new version on the server).
+let hold = false;
+const held = [], extra = {};
 const server = createServer(async (req, res) => {
+  if (hold) { held.push(res); return; }
   const path = decodeURIComponent(new URL(req.url, 'http://x').pathname);
   let body;
   try { body = await readFile(join(root, path === '/' ? 'index.html' : path)); } catch { res.writeHead(404); res.end(); return; }
   res.writeHead(200, { 'content-type': TYPES[extname(path)] || 'text/html' });
-  res.end(body);
+  res.end(extra[path] ? Buffer.concat([body, Buffer.from(extra[path])]) : body);
 }).listen(0);
 const base = `http://localhost:${server.address().port}/`;
 
@@ -1191,14 +1196,57 @@ step('on paper, the line score’s R H E are in black');
   await p.context().close();
 }
 
+step('the offline copy lists every file the app needs, and each one is there');
+{
+  const sw = await readFile(join(root, 'sw.js'), 'utf8');
+  const shell = [.../const SHELL = \[([^\]]*)\]/.exec(sw)[1].matchAll(/'([^']+)'/g)].map(m => m[1]);
+  const files = async dir => (await readdir(join(root, dir))).map(f => `${dir}/${f}`);
+  const want = [
+    './', 'index.html', 'manifest.webmanifest', ...(await readdir(root)).filter(f => /^icon.*\.(svg|png)$/.test(f)),
+    ...await files('js'), ...await files('css'), ...await files('fonts'),
+  ];
+  assert.deepEqual([...shell].sort(), want.sort());
+  for (const f of shell) await readFile(join(root, f === './' ? 'index.html' : f));
+}
+
 step('it works offline once opened');
 await page.goto(base);
-await page.waitForFunction(() => navigator.serviceWorker?.controller, null, { timeout: 10000 }).catch(() => {});
+await page.waitForFunction(() => navigator.serviceWorker?.controller, null, { timeout: 10000 });
+const kept = await page.evaluate(() => Object.keys(JSON.parse(localStorage.getItem('backwards-k.v1')).games)[0]);
+assert.ok(kept, 'a game to open');
 await ctx.setOffline(true);
 await page.reload();
 await page.waitForSelector('.gi');
 assert.equal(await page.title(), 'Backwards K');
+// A new tab, straight to a game, and to the sample.
+for (const [h, sel] of [['#/g/' + kept, '.live .field'], ['#/sample', '.card']]) {
+  const q = await ctx.newPage();
+  await q.goto(base + h);
+  await q.waitForSelector(sel, { timeout: 5000 });
+  await q.close();
+}
 await ctx.setOffline(false);
+
+step('online, a reload still gets a changed file from the server');
+extra['/css/app.css'] = '\n:root { --probe: fresh; }\n';
+await page.reload();
+await page.waitForSelector('.gi');
+assert.equal(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--probe').trim()), 'fresh');
+delete extra['/css/app.css'];
+
+step('with one bar of signal (a server that never answers), a game opens from the copy kept here in a few seconds');
+hold = true;
+{
+  const q = await ctx.newPage(), t0 = Date.now();
+  try {
+    await q.goto(base + '#/g/' + kept, { timeout: 6000 });
+    await q.waitForSelector('.live .field', { timeout: Math.max(1, 6000 - (Date.now() - t0)) });
+  } finally {
+    await q.close();
+    hold = false;
+    for (const r of held.splice(0)) r.destroy();
+  }
+}
 
 assert.deepEqual(problems.filter(p => !p.startsWith('failed:')), [], 'problems while using it');
 await browser.close();

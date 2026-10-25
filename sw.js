@@ -1,6 +1,6 @@
 // Offline support: keep a copy of the app so it works at a ballpark with no signal.
 // Games live in localStorage (and Google Drive, if it's on), not here.
-// Network first, so a new version shows up as soon as you're online.
+// Network first, so a new version shows up as soon as you're online, but not for long: see answer().
 
 const CACHE = 'backwards-k-v2'; // bump the number when the file list changes
 const SHELL = [
@@ -24,15 +24,43 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET' || url.origin !== location.origin) return;
-  e.respondWith(
-    fresh(e.request)
-      .then(res => {
-        if (res.ok) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); }
-        return res;
-      })
-      .catch(() => caches.match(e.request, { ignoreSearch: true }).then(r => r || caches.match('index.html'))),
-  );
+  e.respondWith(answer(e));
 });
+
+// One bar of signal at the ballpark is worse than none: a request goes out and nothing comes back for a long time,
+// and the page asks for its files a few at a time, each waiting on the last (the page, app.js, what it imports, and
+// what those import). So the network gets WAIT ms, and then the copy kept here answers. For SLOW ms after that, the
+// copy answers straight away (the network only for a file that isn't kept), so the rest of the page doesn't wait
+// too. A late answer from the network still refreshes the copy for next time. No network at all fails at once, and
+// the copy answers then too.
+const WAIT = 3000, SLOW = 30000;
+let slowUntil = 0;
+async function answer(e) {
+  const { request } = e;
+  // The copy of this file (the page itself, for any address of the page), or none.
+  const kept = () => caches.match(request, { ignoreSearch: true }).then(r => r || (request.mode === 'navigate' ? caches.match('index.html') : r));
+  // With no network, the copy, or failing that the page.
+  const offline = () => caches.match(request, { ignoreSearch: true }).then(r => r || caches.match('index.html'));
+  if (Date.now() < slowUntil) {
+    const r = await kept();
+    if (r) return r;
+  }
+  let copied = Promise.resolve();
+  const net = fresh(request).then(res => {
+    if (res.ok) { const copy = res.clone(); copied = caches.open(CACHE).then(c => c.put(request, copy)); }
+    return res;
+  });
+  e.waitUntil(net.then(() => copied).catch(() => {}));
+  let timer;
+  const late = new Promise(resolve => { timer = setTimeout(resolve, WAIT, { late: true }); });
+  const first = await Promise.race([net.then(res => ({ res }), () => ({ failed: true })), late]);
+  clearTimeout(timer);
+  if (first.res) return first.res;
+  if (first.failed) return offline();
+  const r = await kept();
+  if (r) { slowUntil = Date.now() + SLOW; return r; }
+  return net.catch(offline); // nothing kept for this one: keep waiting for the network
+}
 
 // GitHub Pages lets browsers keep files for ten minutes, so without this an update can take that long to show up.
 // Ask the server every time instead; a file that hasn't changed comes back as a quick "not modified".

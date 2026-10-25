@@ -48,8 +48,8 @@ written out in plain words.
   game as a file.
 - **Google Drive, if you like.** Each game is saved as its own file in a "Backwards K" folder in your Drive, and shows
   up on every phone, tablet and computer where you turn it on.
-- No account and no server. Games are saved in your browser. It works offline, keeps the screen awake during a game,
-  and installs to a phone's or tablet's home screen.
+- No account and no server. Games are saved in your browser. It works offline (and on one bar of signal, when the
+  network is slow to answer), keeps the screen awake during a game, and installs to a phone's or tablet's home screen.
 
 ### What's saved where
 
@@ -93,7 +93,7 @@ To put it online with GitHub Pages: **Settings → Pages → Build and deploymen
 - `js/sample.js`: a made-up game played with seeded dice, for the sample, the pictures and the tests.
 - `fonts/`: Big Shoulders, Source Sans 3 and Patrick Hand (SIL Open Font License), served from here so nothing loads
   from elsewhere.
-- `sw.js`: keeps a copy for using offline.
+- `sw.js`: keeps a copy for using offline, and for when the network takes more than three seconds to answer.
 - `test/unit.test.mjs`: the rules, including 300 simulated games whose totals have to agree. `test/e2e.mjs`: a game
   scored in Chromium. `test/drive.mjs`: two devices sharing one pretend Drive (`test/fake-google.mjs`).
 - `scripts/build.mjs`: the one-file copy, `dist/backwards-k.html`, and `dist/artifact.html`, the same page without
