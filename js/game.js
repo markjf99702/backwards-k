@@ -651,8 +651,9 @@ function pickFielders(code, start, done, { title, st = S } = {}) {
     if (d) d.disabled = !seq.length;
   };
   const add = n => {
+    // (One tap is the answer: the fielder picked before, when changing it, isn't kept as well.)
+    if (one) return done([n]);
     seq.push(n);
-    if (one) return done(seq);
     if (seq.length > 6) seq = seq.slice(-6);
     upd();
   };

@@ -1738,10 +1738,12 @@ step('a box’s “Change what it was” offers only what could have happened');
   await p.click('.sheet [data-y=f]');
   await p.waitForSelector('.sheet .pick');
   assert.equal(await seen(p), '', 'the box’s message is gone from the fielder picker');
-  await p.click('.sheet [data-pos="6"]');
-  assert.match(await p.textContent('.sheet .cell-big'), /E6 Error/);
+  // Another fielder: it was the third baseman's error after all.
+  await p.click('.sheet [data-pos="5"]');
+  assert.match(await p.textContent('.sheet .cell-big'), /E5 Error/);
+  assert.equal((await stored(p, id)).ev[1].f.join(), '5');
   await p.keyboard.press('Escape');
-  assert.match(await p.locator('.card').innerHTML(), />E6</);
+  assert.match(await p.locator('.card').innerHTML(), />E5</);
   // Skip leaves the fielders blank.
   await p.click('[data-cell="0"]');
   await p.click('.sheet [data-sw=GO]');
@@ -1759,13 +1761,13 @@ step('a box’s “Change what it was” offers only what could have happened');
   assert.equal((await stored(p, id)).ev[0].r, 'K');
   assert.equal(await plays(p, id), 'paK paE', 'no play was taken back');
   await p.keyboard.press('Escape');
-  assert.match(await p.locator('.card').innerHTML(), />E6</);
+  assert.match(await p.locator('.card').innerHTML(), />E5</);
   await p.click('.bar .undo');
-  assert.equal(await seen(p), 'Took back: Batter 2 reaches on an error by the shortstop (E6).Redo');
+  assert.equal(await seen(p), 'Took back: Batter 2 reaches on an error by the third baseman (E5).Redo');
   assert.equal(await plays(p, id), 'paK');
   await p.click('#toast button');
   assert.equal(await plays(p, id), 'paK paE');
-  assert.match(await p.locator('.card').innerHTML(), />E6</);
+  assert.match(await p.locator('.card').innerHTML(), />E5</);
 
   step('a sacrifice bunt with everyone safe can’t be switched to an out');
   await p.click('[data-v=live]');
