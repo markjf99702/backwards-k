@@ -326,6 +326,22 @@ step('naming a lineup: Enter goes to the next batter’s name, past the number')
   await p.context().close();
 }
 
+step('a new game from the keyboard: Next after the visitors, Go after the home team');
+{
+  const p = await phone();
+  await p.goto(base + '#/new');
+  assert.deepEqual(await p.$$eval('[data-name]', l => l.map(i => i.enterKeyHint)), ['next', 'go']);
+  await p.fill('[data-side="0"] [data-name]', 'Tigers');
+  await p.press('[data-side="0"] [data-name]', 'Enter');
+  assert.equal(await p.evaluate(() => document.activeElement.closest('[data-side]').dataset.side), '1', 'Enter goes on to the home team');
+  await p.keyboard.type('Sharks');
+  await p.keyboard.press('Enter');
+  await p.waitForSelector('.live .field');
+  assert.match(await p.evaluate(() => location.hash), /^#\/g\//);
+  assert.match(await p.textContent('.bar .title'), /Tigers\s*0\s*–\s*0\s*Sharks/);
+  await p.context().close();
+}
+
 step('names are typed as they are: no autocorrect or spell check on a name, a team or a place');
 {
   const p = await phone();
