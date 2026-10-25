@@ -65,7 +65,7 @@ export function showSetup(el) {
               <label><span>Home team’s runs</span><input name="r1" type="number" inputmode="numeric" min="0" max="99" placeholder="0"></label>
               <label class="wide"><span>Who’s up</span><select name="lead"></select></label>
             </div>
-            <p class="hint">For a game that’s already going. The innings before are left blank on the card, and each team’s runs so far are in the score.</p>
+            <p class="hint">For a game that’s already going. The innings before are shaded on the card, and each team’s runs so far are in the score.</p>
           </details>
         </fieldset>
         <button class="btn primary big" type="button" data-go>Play ball</button>
