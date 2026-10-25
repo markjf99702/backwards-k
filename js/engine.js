@@ -14,6 +14,11 @@ export const POS_NAME = ['', 'pitcher', 'catcher', 'first baseman', 'second base
 const WHERE = ['', 'the pitcher', 'the catcher', 'first', 'second', 'third', 'short', 'left', 'center', 'right'];
 export const toWhere = n => WHERE[n] || '';
 const FROM = ['', 'pitcher', 'catcher', 'first', 'second', 'third', 'short', 'left', 'center', 'right'];
+// A box whose ball in play has a place: a hit by where it went, anything else by who fielded it first (6-3 at short).
+export const located = c => !!c.f && c.f[0] >= 1 && c.f[0] <= 9 && !!RESULTS[c.r];
+// Whether a game says where its hits went (Ask where hits went, or a hit that says), for spray charts: without, only
+// its outs would have places, and a chart of them would leave the hits out.
+export const saysWhere = S => S.g.spray || S.cells.some(c => located(c) && RESULTS[c.r].kind === 'hit');
 export const BASE = ['home', 'first', 'second', 'third', 'home'];
 
 // kind: hit, on (safe without a hit) or out. go: the base the batter reaches. ab: counts as an at-bat.

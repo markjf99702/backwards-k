@@ -3,11 +3,13 @@
 //   #/new       start a game
 //   #/g/ID      a game
 //   #/sample    the sample game
+//   #/team/NAME[/YEAR or all[/PLAYER]]  a team's season, or a player's
 //   #s=...      a game someone shared (the whole game is packed into the link)
 import { store } from './store.js';
 import { showHome } from './home.js';
 import { showSetup } from './setup.js';
 import { showGame, leaveGame } from './game.js';
+import { showTeam } from './team.js';
 import { unpack } from './share.js';
 import { sampleGame } from './sample.js';
 import { cleanGame, uid, merge } from './model.js';
@@ -15,7 +17,7 @@ import { closeSheet, toast, go, routes, whyNot } from './ui.js';
 import { drive } from './sync.js';
 
 const app = document.getElementById('app');
-let screen = '', loaded = false;
+let screen = '', loaded = false, team = null;
 
 async function route(to) {
   const h = typeof to === 'string' ? to : location.hash;
@@ -56,6 +58,14 @@ async function route(to) {
     return land();
   }
   if (h === '#/new') { screen = 'setup'; document.title = 'New game · Backwards K'; showSetup(fresh()); return land(); }
+  const t = /^#\/team\/([^/]+)(?:\/(\d{4}|all))?(?:\/([^/]+))?$/.exec(h);
+  if (t) {
+    const part = x => { try { return x == null ? x : decodeURIComponent(x); } catch { return x; } };
+    screen = 'team';
+    team = [part(t[1]), t[2], part(t[3])];
+    showTeam(fresh(), ...team);
+    return land();
+  }
   screen = 'home';
   document.title = 'Backwards K';
   showHome(fresh());
@@ -100,7 +110,12 @@ document.addEventListener('click', e => {
   const h = a.getAttribute('href');
   if (location.hash !== h) go(h); else route(h);
 });
-store.onChange(why => { if (screen === 'home' && why !== 'saved') showHome(app.firstElementChild); });
+store.onChange(why => {
+  if (why === 'saved') return;
+  if (screen === 'home') showHome(app.firstElementChild);
+  // (A team's page with the games Google Drive or another tab just brought.)
+  if (screen === 'team' && why === 'reload') showTeam(app.firstElementChild, ...team);
+});
 route();
 
 if ('serviceWorker' in navigator && !('single' in document.documentElement.dataset) && location.protocol !== 'file:') {

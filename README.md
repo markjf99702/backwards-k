@@ -117,6 +117,17 @@ written out in plain words.
 - **Positions, if you like.** Pick where each batter plays (a pasted lineup keeps them), and the card says "Ruiz SS
   #2", the box score "Ruiz SS", and the fielders to tap after a ground out have their names under their numbers, for
   anyone who knows the kids but not the numbers.
+- **Each team's season, and a page for each player.** Under **Teams** on the first screen, a team's page adds up
+  every game of its on this device (and those Google Drive brings): batting (G, PA, AB, R, H, 2B, 3B, HR, RBI, BB, K,
+  HBP, SB, CS, and AVG, OBP, SLG and OPS, worked out as OBR 9.21 has them) and pitching (G, W, L, S, IP, BF, H, R, ER,
+  ERA, BB, K, HR, pitches and strike %), with a heading to tap to sort by it, its games, and a season to pick (a team
+  is its name in one year, whatever the capitals; Every year puts its seasons together). With a pitch limit by league
+  age, **Pitching this week** has who pitched in the last 7 days, how many pitches, and the day each can pitch again.
+  Tap a player for his season: his line, each game with his boxes from the card, where his hits went, his pitching
+  by date (with the win, loss or save, and the days of rest), **Copy the season as text** for a group chat or the
+  grandparents, and **Save as a spreadsheet**, as a team's page has too. A player is the same player from game to
+  game by name, or by number when he has no name; a courtesy runner's run and steals stay the player's she ran for.
+  Nothing more is saved: it's all worked out from the games, each played back once until it changes.
 - **Sharing.** Send a link that carries the whole game (nothing is uploaded to share it, and a checksum in it means
   one that a chat app cut short or changed says so, rather than opening as some other game), copy the score as text for
   a group chat, print both cards and the box score (a page each, Letter or A4, upright or sideways), or save the
@@ -165,7 +176,8 @@ To put it online with GitHub Pages: **Settings → Pages → Build and deploymen
 
 ### Files
 
-- `js/app.js`: which screen the address shows: your games, a new game, a game, the sample, or a shared link.
+- `js/app.js`: which screen the address shows: your games, a new game, a game, the sample, a team's season or a
+  player's, or a shared link.
 - `js/engine.js`: the rules. It replays a game's list of events into the count, outs, runners, score, the boxes on the
   scorecard, the stats (earned runs, and the win, the loss and the save, among them) and the play-by-play.
 - `js/model.js`: what a saved game looks like, tidying one that came from a file, a link or Drive, reading a pasted
@@ -175,7 +187,9 @@ To put it online with GitHub Pages: **Settings → Pages → Build and deploymen
 - `js/card.js`: the scorecard and the line score. `js/box.js`: the box score, the play-by-play, a batter's day and
   the spray charts.
 - `js/field.js`: the field drawings, the spray charts' among them. `js/help.js`: how to read the card.
-- `js/home.js`, `js/setup.js`: the first screen, and starting a game.
+- `js/home.js`, `js/setup.js`: the first screen (with the teams), and starting a game.
+- `js/stats.js`: season stats: each game played back once (until it changes) and its lines added up by team, year and
+  player, in words, and as a spreadsheet. `js/team.js`: a team's page, and a player's.
 - `js/rules.js`: league rules (Little League's, the Minors', or a league's own) and pitch limits, picked in New game
   and Game settings.
 - `js/share.js`: share links, the score as text, printing. `js/sync.js`: Google Drive.

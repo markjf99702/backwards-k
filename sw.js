@@ -4,13 +4,14 @@
 // gets one version of the app, the network's or the copy's, never some files from each: one version's file can ask
 // another's for something it doesn't have, and the page stays blank.
 
-const CACHE = 'backwards-k-v4'; // bump the number when the file list changes
+const CACHE = 'backwards-k-v5'; // bump the number when the file list changes
 const SHELL = [
   './', 'index.html', 'icon.svg', 'manifest.webmanifest',
   'icon-180.png', 'icon-192.png', 'icon-512.png', 'icon-512-maskable.png',
   'css/app.css', 'fonts/source-sans-3.woff2', 'fonts/big-shoulders.woff2', 'fonts/patrick-hand.woff2',
   'js/app.js', 'js/box.js', 'js/card.js', 'js/engine.js', 'js/field.js', 'js/game.js', 'js/help.js', 'js/home.js',
-  'js/model.js', 'js/rules.js', 'js/sample.js', 'js/setup.js', 'js/share.js', 'js/store.js', 'js/sync.js', 'js/ui.js',
+  'js/model.js', 'js/rules.js', 'js/sample.js', 'js/setup.js', 'js/share.js', 'js/stats.js', 'js/store.js', 'js/sync.js', 'js/team.js',
+  'js/ui.js',
 ];
 // The copy is kept in sets: each a whole version of the app, fetched together, in a cache of its own called
 // CACHE-<when it was made>. A set counts once every file is in it and DONE has been put in after them. The newest is

@@ -2709,6 +2709,107 @@ step('on paper, the line score’s R H E are in black');
   await p.context().close();
 }
 
+// Three of the sample's games this season and one last season, each on its own day: the season pages' games.
+const seasonOf = () => {
+  const games = [1, 2, 3].map(i => ({ ...sampleGame(i), id: 'gseason' + i, date: `2026-0${4 + i}-0${i}`, updated: 1000 + i }));
+  games.push({ ...sampleGame(4), id: 'gseason4', date: '2025-06-01', updated: 999 });
+  return games;
+};
+async function seasonPhone(games, viewport = { width: 390, height: 844 }) {
+  const c = await browser.newContext({ viewport, deviceScaleFactor: 2, isMobile: viewport.width < 700, hasTouch: true, serviceWorkers: 'block', acceptDownloads: true });
+  await c.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: base.slice(0, -1) });
+  await c.addInitScript(doc => { if (!sessionStorage.getItem('seeded')) { localStorage.setItem('backwards-k.v1', doc); sessionStorage.setItem('seeded', '1'); } },
+    JSON.stringify({ app: 'backwards-k', v: 1, games: Object.fromEntries(games.map(g => [g.id, g])), gone: {} }));
+  const p = await c.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  p.on('console', m => { if (m.type() === 'error') problems.push(m.text()); });
+  return p;
+}
+
+step('season stats: the home lists the teams, and a team’s page adds up its games, sorts by a column and picks a year');
+{
+  globalThis.document ??= { readyState: 'complete', getElementById: () => null };
+  const ST = await import('../js/stats.js');
+  const games = seasonOf(), T = ST.season(games, 'Foxes');
+  const p = await seasonPhone(games);
+  await p.goto(base);
+  assert.deepEqual(await p.$$eval('.ti', l => l.map(a => a.textContent.replace(/\s+/g, ' ').trim())), ['Foxes 3 games in 2026', 'Comets 3 games in 2026']);
+  await p.click('.ti >> text=Foxes');
+  await p.waitForSelector('.team .season');
+  await p.waitForFunction(() => document.activeElement.tagName === 'H1');
+  assert.equal(await p.evaluate(() => location.hash), '#/team/Foxes');
+  assert.equal(await p.textContent('.team h1'), 'Foxes');
+  assert.match(await p.textContent('.team-head p'), new RegExp(`2026 season · 3 games · ${T.record.w}–${T.record.l}`));
+  assert.equal(await p.evaluate(() => document.activeElement.tagName), 'H1', 'the keyboard on the page’s heading');
+  const rows = () => p.$$eval('[data-t=bat] tbody tr', l => l.map(r => [r.querySelector('th a').textContent, ...[...r.querySelectorAll('td')].map(d => d.textContent)]));
+  // In batting order, each line as the season adds up, and the totals.
+  const want = T.bat.map(x => [x.name, ...[x.bat.g, x.bat.pa, x.bat.ab, x.bat.r, x.bat.h, x.bat.d, x.bat.t, x.bat.hr, x.bat.rbi, x.bat.bb, x.bat.k, x.bat.hbp, x.bat.sb, x.bat.cs].map(String),
+    ST.three(ST.avg(x.bat)), ST.three(ST.obp(x.bat)), ST.three(ST.slg(x.bat)), ST.three(ST.ops(x.bat))]);
+  assert.deepEqual(await rows(), want);
+  assert.equal(want[0][0], 'Ruiz');
+  assert.equal(await p.textContent('[data-t=bat] tfoot td:nth-child(6)'), String(T.tot.bat.h));
+  // A tap on H sorts by hits, most first; again, fewest first.
+  await p.click('[data-sort="bat:h"]');
+  const hits = async () => (await rows()).map(r => +r[5]);
+  assert.deepEqual(await hits(), (await hits()).slice().sort((a, b) => b - a));
+  assert.equal(await p.getAttribute('th:has([data-sort="bat:h"])', 'aria-sort'), 'descending');
+  assert.equal(await p.evaluate(() => document.activeElement.dataset.sort), 'bat:h', 'the keyboard stays on the heading');
+  await p.click('[data-sort="bat:h"]');
+  assert.deepEqual(await hits(), (await hits()).slice().sort((a, b) => a - b));
+  assert.equal(await p.getAttribute('th:has([data-sort="bat:h"])', 'aria-sort'), 'ascending');
+  // The pitchers, the games newest first, and nothing wider than the phone but the tables, which scroll.
+  assert.deepEqual(await p.$$eval('[data-t=pit] tbody th a', l => l.map(a => a.textContent)), T.pit.map(x => x.name));
+  assert.deepEqual(await p.$$eval('.game-log .gl', l => l.map(a => a.getAttribute('href'))), ['#/g/gseason3', '#/g/gseason2', '#/g/gseason1']);
+  assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'the team’s page scrolls sideways');
+  assert.equal(await p.evaluate(() => getComputedStyle(document.querySelector('.season tbody th')).position), 'sticky', 'the names stay put');
+  // Last season, and every year.
+  const says = text => p.waitForFunction(t => (document.querySelector('.team-head p')?.textContent || '').startsWith(t), text);
+  await p.click('.years >> text=2025');
+  await says('2025 season · 1 game ·');
+  assert.equal(await p.evaluate(() => location.hash), '#/team/Foxes/2025');
+  await p.click('.years >> text=Every year');
+  await says('2025–2026 · 4 games ·');
+  assert.equal(await p.evaluate(() => location.hash), '#/team/Foxes/all');
+  // The season as a spreadsheet.
+  const [file] = await Promise.all([p.waitForEvent('download'), p.click('[data-a=csv]')]);
+  assert.equal(file.suggestedFilename(), 'foxes-every-year-season.csv');
+  assert.ok((await readFile(await file.path(), 'utf8')).startsWith('﻿"Foxes, every season"\r\n'));
+  await p.context().close();
+}
+
+step('season stats: a player’s page has her line, each game with her boxes from the card, and her season as text');
+{
+  const ST = await import('../js/stats.js');
+  const games = seasonOf(), T = ST.season(games, 'Foxes'), ruiz = T.bat.find(x => x.key === 'ruiz');
+  const p = await seasonPhone(games);
+  await p.goto(base + '#/team/Foxes');
+  await p.click('[data-t=bat] >> text=Ruiz');
+  await p.waitForFunction(() => document.querySelector('.team h1')?.textContent === 'Ruiz');
+  assert.equal(await p.evaluate(() => location.hash), '#/team/Foxes/2026/Ruiz');
+  assert.match(await p.textContent('.team-head p'), /#2 · Foxes · 2026 season/);
+  assert.equal(await p.textContent('.sum'), `${ST.three(ST.avg(ruiz.bat))} (${ruiz.bat.h} for ${ruiz.bat.ab}) in 3 games, with ${ST.batWords(ruiz.bat, true)}. On base ${ST.three(ST.obp(ruiz.bat))}, slugging ${ST.three(ST.slg(ruiz.bat))}.`);
+  // A game each, newest first, each with his day in words and his boxes, one for each trip to the plate.
+  const days = await p.$$eval('.days .gl', l => l.map(a => [a.getAttribute('href'), a.querySelector('.gl-line').textContent, a.querySelectorAll('.cell-pic').length]));
+  assert.deepEqual(days, ruiz.days.slice().reverse().map(d => [`#/g/${d.game.id}`, ST.batWords(d.line), d.line.pa]));
+  assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'a player’s page scrolls sideways');
+  // The text, for the grandparents.
+  await p.click('[data-a=text]');
+  assert.equal(await p.evaluate(() => navigator.clipboard.readText()), ST.seasonText(T, ruiz));
+  assert.match(await shown(p), /Copied/);
+  // A pitcher's page: his pitching by date. Back goes to the team.
+  await p.goto(base + '#/team/Foxes/2026/Whitlock');
+  await p.waitForSelector('#pitH');
+  assert.equal(await p.locator('[aria-label="Pitching by date"] tbody tr').count(), 3);
+  assert.equal(await p.locator('#batH').count(), 0, 'he didn’t bat');
+  await p.click('.bar .back');
+  await p.waitForFunction(() => document.querySelector('.team h1')?.textContent === 'Foxes');
+  assert.equal(await p.evaluate(() => location.hash), '#/team/Foxes/2026');
+  // Someone who didn't play for them says so.
+  await p.goto(base + '#/team/Foxes/2026/Nobody');
+  assert.match(await p.textContent('.team'), /Nobody called Nobody played for the Foxes in a 2026 game on this device/);
+  await p.context().close();
+}
+
 step('the offline copy lists every file the app needs, and each one is there');
 {
   const sw = await readFile(join(root, 'sw.js'), 'utf8');

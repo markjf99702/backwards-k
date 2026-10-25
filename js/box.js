@@ -1,5 +1,5 @@
 // The box score (batting and pitching lines for both teams) and the play-by-play.
-import { batKey, pitchStat, pitcherLabel, ip, teamName, label, player, ord, pitchWords, POS_NAME, RESULTS, AUTO, restDays, noCatch, LIMIT_BY, decisions, decisionWords, clockOf, pitchesIn, toWhere } from './engine.js';
+import { batKey, pitchStat, pitcherLabel, ip, teamName, label, player, ord, pitchWords, POS_NAME, RESULTS, AUTO, restDays, noCatch, LIMIT_BY, decisions, decisionWords, clockOf, pitchesIn, toWhere, located, saysWhere } from './engine.js';
 import { esc, KL, clockAt, hm } from './ui.js';
 import { abbr } from './card.js';
 import { sprayField } from './field.js';
@@ -144,22 +144,26 @@ export function boxHtml(S) {
 }
 
 // ---------- spray charts ----------
-// Where the balls went, once the game says where its hits went (Ask where hits went, or a hit that says): each ball in
-// play whose fielder is known, a hit by where it went and anything else by who fielded it first (6-3 at short).
-const located = c => !!c.f && c.f[0] >= 1 && c.f[0] <= 9 && !!RESULTS[c.r];
-const says = S => S.g.spray || S.cells.some(c => located(c) && RESULTS[c.r].kind === 'hit');
-// The play in a few words, for the chart's dots: "Ruiz, 3rd: single to left", "Okafor, 1st: ground out, 6-3".
-function ballWords(S, c) {
+// Where the balls went, once the game says where its hits went (saysWhere(), in engine.js): each ball in play whose
+// fielder is known (located()), a hit by where it went and anything else by who fielded it first (6-3 at short).
+
+// The play in a few words, for the chart's dots: "Ruiz, 3rd: single to left", "Okafor, 1st: ground out, 6-3". who:
+// what goes before the inning, the batter's name unless it's said.
+export function ballWords(c, who) {
   const R = RESULTS[c.r], what = R.label.toLowerCase();
-  return `${label(player(S.g, c.side, c.slot, c.p), c.slot)}, ${ord(c.inn)}: ${R.kind === 'hit' ? `${what} to ${toWhere(c.f[0])}` : `${what}, ${c.mark}`}`;
+  return `${who}, ${ord(c.inn)}: ${R.kind === 'hit' ? `${what} to ${toWhere(c.f[0])}` : `${what}, ${c.mark}`}`;
 }
+// A box's ball, as a spray chart draws it, with the words for its dot. now: the box to pick out.
+export const ball = (c, title, now = false) => ({ n: c.f[0], hit: RESULTS[c.r].kind === 'hit', hr: c.r === 'HR', title, now });
 // A spray chart of the boxes that pass which (a team's, or a batter's), with its title, a key, and its hits in words.
 // now: the box to pick out. '' when the game doesn't say where hits went, or none of these balls is placed.
 export function spray(S, which, title, { now = null } = {}) {
-  if (!says(S)) return '';
-  const cells = S.cells.filter(c => which(c) && located(c));
-  if (!cells.length) return '';
-  const balls = cells.map(c => ({ n: c.f[0], hit: RESULTS[c.r].kind === 'hit', hr: c.r === 'HR', title: ballWords(S, c), now: c === now }));
+  if (!saysWhere(S)) return '';
+  return sprayFigure(S.cells.filter(c => which(c) && located(c)).map(c => ball(c, ballWords(c, label(player(S.g, c.side, c.slot, c.p), c.slot)), c === now)), title);
+}
+// The chart itself, from its balls (see ball()). '' for none.
+export function sprayFigure(balls, title) {
+  if (!balls.length) return '';
   const hits = new Map();
   for (const b of balls) if (b.hit) hits.set(b.n, (hits.get(b.n) || 0) + 1);
   const many = (k, one, more = one + 's') => `${k} ${k === 1 ? one : more}`;

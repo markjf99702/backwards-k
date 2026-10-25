@@ -2439,3 +2439,130 @@ test('the win: a starter needs five innings; a reliever who pitched briefly and 
   S = replay(g);
   assert.deepEqual([S.over, decisions(S)], [true, null]);
 });
+
+// ---------- season stats (stats.js) ----------
+const ST = await import('../js/stats.js');
+// A short game for a season: the teams' names, their batters (a name, or [name, number]), and the plays.
+function seasonGame({ date, away = 'Foxes', home = 'Comets', bats = [[], []], arms = [[], []], innings = 1, ...opts }, ...evs) {
+  const g = game({ innings, ...opts });
+  g.id = 'g' + date.replace(/-/g, '') + away.slice(0, 3) + home.slice(0, 3);
+  g.date = date;
+  g.teams[0].name = away; g.teams[1].name = home;
+  bats.forEach((list, s) => { if (list.length) g.teams[s].lineup = list.map(b => [Array.isArray(b) ? { name: b[0], num: b[1] } : { name: b, num: '' }]); });
+  arms.forEach((list, s) => { if (list.length) g.teams[s].pitchers = list.map(name => ({ name, num: '' })); });
+  play(g, ...evs);
+  return g;
+}
+const FOX = ['Ruiz', 'Okafor', ['Brennan', '24']];
+// Two 2026 games for the Foxes (one at home, its name written another way), and one from 2025.
+const seasonGames = () => [
+  // A 3-0 win: Ruiz doubles and scores, Okafor walks and scores, Brennan homers; then three strikeouts each way.
+  seasonGame({ date: '2026-05-02', bats: [FOX, []], arms: [['Whitlock'], ['Halvorsen']] }, '2B', 'BB', 'HR', 'K', 'K', 'K', ...threeK),
+  // A 1-0 walk-off at home, as "foxes ": Ruiz (RUIZ) triples, Okafor's sacrifice fly brings him in. Brennan is #24.
+  seasonGame({ date: '2026-05-09', away: 'Bears', home: 'foxes ', bats: [[], ['RUIZ', 'Okafor', ['', '24']]], arms: [['Bishop'], ['whitlock']], pitches: false }, ...threeK, '3B', 'SF'),
+  seasonGame({ date: '2025-06-01', bats: [FOX, []], arms: [['Whitlock'], []] }, '1B', 'K', 'K', 'K', ...threeK),
+];
+
+test('a season: each player’s games added up, matched by name (any case) or number, with the rates as OBR 9.21 has them', () => {
+  const T = ST.season(seasonGames(), 'Foxes');
+  assert.deepEqual([T.name, T.yr, T.years, T.record, T.games.map(x => [x.date, x.opp, x.home, x.result, x.R, x.RA])],
+    ['Foxes', '2026', ['2026', '2025'], { w: 2, l: 0, t: 0 }, [['2026-05-09', 'Bears', true, 'W', 1, 0], ['2026-05-02', 'Comets', false, 'W', 3, 0]]]);
+  const by = k => T.bat.find(x => x.key === k);
+  assert.deepEqual(T.bat.map(x => x.name), ['RUIZ', 'Okafor', 'Brennan'], 'in the order they bat, with the name as it was written most (a tie: last)');
+  const r = by('ruiz').bat, o = by('okafor').bat, b = by('brennan').bat;
+  assert.deepEqual([r.g, r.pa, r.ab, r.h, r.d, r.t, r.r, r.k], [2, 3, 3, 2, 1, 1, 2, 1]);
+  assert.deepEqual([ST.three(ST.avg(r)), ST.three(ST.obp(r)), ST.three(ST.slg(r)), ST.three(ST.ops(r))], ['.667', '.667', '1.667', '2.333']);
+  // On base counts the sacrifice fly against him, and the walk for him: 1 of 3 (9.21(f)).
+  assert.deepEqual([o.g, o.pa, o.ab, o.bb, o.sf, o.rbi, ST.three(ST.avg(o)), ST.three(ST.obp(o)), ST.three(ST.ops(o))], [2, 3, 1, 1, 1, 1, '.000', '.333', '.333']);
+  // #24 one week is Brennan #24 the other: one player.
+  assert.deepEqual([b.g, b.pa, b.ab, b.h, b.hr, b.rbi, by('brennan').num], [2, 2, 2, 1, 1, 3, '24']);
+  assert.equal(T.bat.some(x => x.key === '#24'), false);
+  assert.deepEqual([T.tot.bat.g, T.tot.bat.pa, T.tot.bat.r, T.tot.bat.h], [2, 8, 4, 3]);
+  // Pitching: the win in both, and the pitches only from the game that counted them.
+  const w = T.pit.find(x => x.key === 'whitlock').pit;
+  assert.deepEqual([w.g, w.w, w.l, w.s, ST.ip(w.outs), w.k, w.er, ST.two(ST.era(w)), w.np, w.pg], [2, 2, 0, 0, '2', 6, 0, '0.00', 3, 1]);
+  // Another year, and every year together.
+  const old = ST.season(seasonGames(), 'FOXES', '2025');
+  assert.deepEqual([old.yr, old.games.length, old.bat.find(x => x.key === 'ruiz').bat.h], ['2025', 1, 1]);
+  const all = ST.season(seasonGames(), 'Foxes', 'all');
+  assert.deepEqual([all.yr, all.games.length, all.bat.find(x => x.key === 'ruiz').bat.h, all.record.w], ['all', 3, 3, 2]);
+  // A year with no games is the latest one; a team with no games has none.
+  assert.equal(ST.season(seasonGames(), 'Foxes', '2019').yr, '2026');
+  assert.deepEqual(ST.season(seasonGames(), 'Owls').games, []);
+});
+
+test('a season: a loss, a game still going, earned runs, the loss and the save, and the rest a pitch limit asks for', () => {
+  const L = { by: 'll', age: '11-12', max: 85 };
+  // The Foxes lose 0-1 (Ruiz fouls off 20 before striking out: 21 pitches, a day of rest), and a game is going on.
+  const lost = seasonGame({ date: '2026-05-16', bats: [FOX, []], arms: [['Halvorsen'], ['Whitlock']], limit: L }, ...Array(20).fill(P('f')), 'K', 'K', 'K', 'HR', 'K', 'K', 'K');
+  const going = seasonGame({ date: '2026-05-17', bats: [FOX, []], arms: [['Halvorsen'], ['Whitlock']] }, '1B');
+  const T = ST.season([lost, going], 'Comets');
+  assert.deepEqual([T.record, T.games.map(x => x.result || x.status)], [{ w: 1, l: 0, t: 0 }, ['Top 1st', 'W']]);
+  const F = ST.season([lost, going], 'Foxes');
+  assert.deepEqual(F.record, { w: 0, l: 1, t: 0 });
+  const h = F.pit.find(x => x.key === 'halvorsen');
+  // (He hasn't pitched yet in the game going on: one game. A run in an inning is an ERA of 9.00; 4 pitches, no rest.)
+  assert.deepEqual([h.pit.g, h.pit.l, h.pit.r, h.pit.er, ST.two(ST.era(h.pit)), h.arms[0].rest], [1, 1, 1, 1, '9.00', 0]);
+  // Under Little League's limit, 21 pitches is a day of rest: he can pitch again the day after next.
+  const w = T.pit.find(x => x.key === 'whitlock');
+  assert.deepEqual([w.pit.np, w.pit.w, w.arms[0].rest, w.arms[0].ready, w.arms[1].rest], [24, 1, 1, '2026-05-18', null]);
+  assert.deepEqual(ST.thisWeek(T, '2026-05-17').map(x => [x.x.name, x.arms.length, x.ready]), [['Whitlock', 2, '2026-05-18']]);
+  assert.deepEqual(ST.thisWeek(T, '2026-05-30'), [], 'nobody pitched in the last 7 days');
+});
+
+test('a season: a courtesy runner’s run and steal are the player’s she ran for, and she has no line of her own', () => {
+  const g = seasonGame({ date: '2026-05-23', bats: [FOX, []] }, '1B', { t: 'cr', s: 0, b: 1, name: 'Speedy', num: '' }, { t: 'r', m: [[1, 2, 'SB']] }, '2B', 'K', 'K', 'K', ...threeK);
+  const T = ST.season([g], 'Foxes'), r = T.bat.find(x => x.key === 'ruiz');
+  assert.deepEqual([r.bat.r, r.bat.sb, r.bat.h], [1, 1, 1]);
+  assert.equal(T.bat.some(x => x.key === 'speedy'), false);
+  assert.equal(T.bat.find(x => x.key === 'okafor').bat.rbi, 1);
+});
+
+test('a season: players with no name are added up in one row; each game is played back once until it changes', () => {
+  const g = seasonGame({ date: '2026-05-30', bats: [['Ruiz', '', ''], []] }, '1B', 'BB', 'K', 'K', 'K', ...threeK);
+  const T = ST.season([g], 'Foxes'), none = T.bat.find(x => !x.key);
+  assert.deepEqual([none.name, none.bat.pa, none.bat.bb, none.bat.g], ['', 3, 1, 1]);
+  const a = ST.gameLines(g);
+  assert.equal(ST.gameLines(g), a, 'kept');
+  g.ev.push({ t: 'p', k: 'b' }); g.updated++;
+  assert.notEqual(ST.gameLines(g), a, 'played back again once it changed');
+});
+
+test('the teams on the home screen, and players from earlier games for the substitution sheets', () => {
+  const games = seasonGames();
+  games.push(seasonGame({ date: '2026-05-30', away: '', home: 'Comets' }, ...threeK));
+  assert.deepEqual(ST.teamList(games).map(t => [t.name, t.year, t.n]), [['Comets', '2026', 2], ['Foxes', '2026', 2], ['Bears', '2026', 1]], 'a team with no name isn’t one');
+  // Today's Foxes have Ruiz: earlier this year there were Okafor (twice) and Brennan #24 (once as #24): not last year's.
+  const today = seasonGame({ date: '2026-06-06', bats: [['Ruiz', 'Han'], []], arms: [['Pruitt'], []] });
+  assert.deepEqual(ST.earlier(games, today, 0), [{ name: 'Okafor', num: '' }, { name: 'Brennan', num: '24' }]);
+  // (Written Whitlock once and whitlock once: as the latest game has it, as on his page.)
+  assert.deepEqual(ST.earlier(games, today, 0, { pitchers: true }), [{ name: 'whitlock', num: '' }]);
+  assert.deepEqual(ST.earlier(games, { ...today, date: '2027-04-01' }, 0), [], 'a new season starts with nobody');
+});
+
+test('a season in words for a group chat, and as a spreadsheet', () => {
+  const T = ST.season(seasonGames(), 'Foxes'), r = T.bat.find(x => x.key === 'ruiz');
+  const text = ST.seasonText(T, r).split('\n');
+  assert.equal(text[0], 'RUIZ, Foxes, 2026');
+  assert.equal(text[1], 'Batting: .667 (2 for 3) in 2 games, with a double, a triple, 2 runs, a strikeout. On base .667, slugging 1.667.');
+  assert.match(text[2], /^Last game, .+ vs Bears: 1 for 1, a triple, a run\.$/);
+  const w = T.pit.find(x => x.key === 'whitlock');
+  assert.equal(ST.seasonText(T, w).split('\n')[1], 'Pitching: 2 games, 2 innings, 2-0, 6 strikeouts, 0 walks, a 0.00 ERA, 3 pitches.');
+  const csv = ST.teamCsv(T);
+  assert.ok(csv.startsWith('\ufeff"Foxes, 2026 season"\r\n'), 'with the mark that tells a spreadsheet it’s UTF-8');
+  assert.ok(csv.includes('\r\nPlayer,No.,Pos,G,PA,AB,R,H,2B,3B,HR,RBI,BB,K,HBP,SB,CS,SF,SH,AVG,OBP,SLG,OPS\r\nRUIZ,,,2,3,3,2,2,1,1,0,0,0,1,0,0,0,0,0,.667,.667,1.667,2.333\r\n'));
+  assert.ok(csv.includes('\r\nTotals,,,2,8,'));
+  assert.ok(csv.includes('\r\n2026-05-09,Bears,Home,W 1-0\r\n'));
+  // A name that a spreadsheet would read as a formula, or with a comma in it, stays a name.
+  const odd = seasonGame({ date: '2026-05-02', bats: [['=1+2', 'Ruiz, Jr.'], []] }, '1B', 'K', 'K', 'K', ...threeK);
+  const C = ST.teamCsv(ST.season([odd], 'Foxes'));
+  assert.ok(C.includes("\r\n'=1+2,") && C.includes('\r\n"Ruiz, Jr.",'));
+  assert.match(ST.playerCsv(T, r), /\r\n2026-05-02,at Comets,W 3-0,2,2,1,1,1,0,0,0,0,1,0,0,0,0,0,\.500,\.500,1\.000,1\.500,2B K\r\n/);
+});
+
+test('a team’s and a player’s address', () => {
+  assert.equal(ST.teamHref('Tigers 10U'), '#/team/Tigers%2010U');
+  assert.equal(ST.teamHref('Tigers', '2026', { name: 'Emma P' }), '#/team/Tigers/2026/Emma%20P');
+  assert.equal(ST.teamHref('Tigers', '', { name: '', num: '4' }), '#/team/Tigers/all/%234');
+  assert.deepEqual([ST.keyFrom('Emma  P'), ST.keyFrom('#4')], ['emma p', '#4']);
+});

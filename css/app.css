@@ -264,6 +264,79 @@ h1[tabindex="-1"]:focus { outline: none; } /* a screen's heading, given the keyb
 .card-box p.err { color: var(--red); }
 .card-box .row { justify-content: flex-start; margin-top: 10px; }
 
+/* ---------- a team's season, and a player's ---------- */
+/* On the home screen: each team, with how many games it has this season. */
+.team-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+@media (min-width: 600px) { .team-list { grid-template-columns: 1fr 1fr; } }
+.teams > p { margin: -4px 0 10px; font-size: 15px; }
+.teams .more { margin-top: 10px; }
+.ti {
+  display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 12px; min-height: 52px;
+  padding: 12px 14px; border-radius: 14px; background: var(--card); border: 1px solid var(--line); text-decoration: none; box-shadow: var(--shadow);
+}
+.ti:hover { border-color: var(--line-2); }
+.ti b { min-width: 0; font: 800 22px/1.1 var(--board-font); letter-spacing: .02em; overflow-wrap: anywhere; }
+.ti span { color: var(--muted); font-size: 14px; }
+/* The page: the team (or the player), its seasons, then its tables, as wide as a computer has room for. */
+.team { max-width: 1100px; margin: 0 auto; padding: 18px 16px 28px; }
+.team section + section, .team section + .hint { margin-top: 26px; }
+.team h1 { font: 900 40px/.95 var(--board-font); text-transform: uppercase; letter-spacing: .01em; margin-bottom: 8px; overflow-wrap: anywhere; }
+.team h2 { font: 800 22px/1.1 var(--board-font); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 10px; }
+.team h3 { font: 800 17px/1.1 var(--board-font); text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 18px 0 8px; }
+.team-head { margin-bottom: 18px; }
+.team-head p { color: var(--ink-2); margin-bottom: 10px; }
+.team-head p b { color: var(--ink); }
+.team-head a { color: inherit; text-underline-offset: 3px; }
+.team .sum { color: var(--ink-2); }
+.team .sum b { color: var(--ink); font-size: 1.15em; }
+.team .spray { margin-top: 16px; }
+.row.start { justify-content: flex-start; }
+.years { flex-wrap: wrap; margin-bottom: 4px; }
+.seg a { display: inline-flex; align-items: center; min-height: 44px; padding: 6px 14px; border-radius: 999px; font-weight: 650; font-size: 15px; text-decoration: none; }
+.seg a[aria-current] { background: var(--navy); color: var(--on-navy); }
+@media (prefers-color-scheme: dark) { .seg a[aria-current] { background: var(--on-navy); color: var(--navy); } }
+/* The tables scroll sideways on a phone, with the names staying put at the left. A heading sorts the table by it. */
+.stat-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 12px; background: var(--card); box-shadow: var(--shadow); margin-bottom: 12px; }
+.stat-wrap .stats { box-shadow: none; margin: 0; border-radius: 0; overflow: visible; }
+.season th, .season td { white-space: nowrap; }
+.season thead th { padding-top: 0; padding-bottom: 0; height: 44px; vertical-align: middle; }
+.stats.season thead th:first-child { font: 700 12px/1.2 var(--sans); color: var(--muted); letter-spacing: .05em; }
+.season th[scope="row"], .season thead th:first-child { position: sticky; left: 0; z-index: 1; background: var(--card); box-shadow: 1px 0 0 var(--line); }
+.season th[scope="row"] { max-width: 11em; line-height: 1.2; }
+.season th[scope="row"] small { margin-top: 1px; font-weight: 600; }
+.season th button {
+  display: flex; align-items: center; justify-content: flex-end; gap: 2px; width: 100%; min-width: 26px; min-height: 44px; padding: 0;
+  border: 0; background: none; font: inherit; color: inherit; text-transform: inherit; letter-spacing: inherit;
+}
+.season th:first-child button { justify-content: flex-start; }
+.season th[aria-sort="ascending"], .season th[aria-sort="descending"] { color: var(--ink); }
+.season th button i { font-style: normal; font-size: 9px; }
+.season a { color: inherit; text-decoration-color: var(--line-2); text-underline-offset: 3px; }
+.season.one tbody th { color: var(--muted); }
+/* The game log: the day, who against, and the result; on a player's page, her day and her boxes from the card too. */
+.game-log { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.gl {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "when res" "opp res" "line line" "boxes boxes"; gap: 0 12px; align-items: center;
+  padding: 10px 14px; border-radius: 12px; background: var(--card); border: 1px solid var(--line); text-decoration: none;
+}
+.gl:hover { border-color: var(--line-2); }
+.gl-when { grid-area: when; color: var(--muted); font-size: 14px; }
+.gl-opp { grid-area: opp; min-width: 0; font: 800 20px/1.15 var(--board-font); letter-spacing: .02em; overflow-wrap: anywhere; }
+.gl-res { grid-area: res; font: 800 20px/1 var(--board-font); font-variant-numeric: tabular-nums; }
+.gl-res.won { color: var(--red); }
+.gl-res.going { max-width: 9em; text-align: right; font: 700 13px/1.2 var(--sans); text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.gl-line { grid-area: line; margin-top: 4px; color: var(--ink-2); font-size: 15px; }
+.gl-boxes { grid-area: boxes; display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.gl-boxes .cell-pic { width: 52px; }
+/* Pitching this week: each pitcher's days, and when he can pitch again. */
+.week ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.week li { color: var(--ink-2); }
+.week li b { color: var(--ink); margin-right: 4px; }
+.week li span { display: block; font-size: 14px; font-weight: 700; }
+.week .rest { color: var(--red); }
+.week .ok { color: var(--on); }
+.week .hint { margin: 10px 0 0; }
+
 /* ---------- a new game ---------- */
 .setup form { display: grid; gap: 16px; }
 .two { display: grid; gap: 16px; }

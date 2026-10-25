@@ -6,10 +6,25 @@ import { today, cleanGame, newer } from './model.js';
 import { cellSvg } from './card.js';
 import { drive } from './sync.js';
 import { helpSheet, FIRST } from './help.js';
+import { teamList, teamHref } from './stats.js';
 
 // The 20 games changed last are listed, and the rest after a tap on Show all (remembered until the page is reloaded).
 const FEW = 20;
 let everyGame = false;
+// And the teams in them: the 6 with the most games this season, and the rest after Show all teams.
+const TEAMS = 6;
+let everyTeam = false;
+// Each team's season: its page, with how many games it has in its latest year.
+function teamsHtml(games) {
+  const all = teamList(games), list = everyTeam ? all : all.slice(0, TEAMS);
+  if (!all.length) return '';
+  return `<section class="teams" aria-labelledby="teamsH">
+      <h2 id="teamsH">Teams</h2>
+      <p class="quiet">Each team’s season: batting and pitching added up from its games here, and a page for every player.</p>
+      <ul class="team-list">${list.map(t => `<li><a class="ti" href="${esc(teamHref(t.name))}"><b>${esc(t.name)}</b> <span>${t.n} game${t.n === 1 ? '' : 's'} in ${t.year}</span></a></li>`).join('')}</ul>
+      ${list.length < all.length ? `<div class="row more"><button type="button" class="btn quiet" data-a="teams">Show all ${all.length} teams</button></div>` : ''}
+    </section>`;
+}
 
 // The game to go back to: the one changed last, if it isn't over and changed in the last 12 hours (a game being
 // scored today), and isn't one only a newer Backwards K can score. With the game itself as it stands.
@@ -78,6 +93,7 @@ export function showHome(el) {
           : '<p class="quiet">No games yet. Score one, or open the sample to see a finished card.</p>'}
         ${listed.length < games.length ? `<div class="row more"><button type="button" class="btn quiet" data-a="all">Show all ${games.length} games</button></div>` : ''}
       </section>
+      ${teamsHtml(games)}
       <section class="learn">
         <a class="tile" href="#/sample"><b>See a sample game</b><span>Nine innings between the Foxes and the Comets, scored the whole way through. Tap any box.</span></a>
         <button type="button" class="tile" data-a="help"><b>How to read a scorecard</b><span>6-3, F8, the backwards K, and what the little diamonds mean.</span></button>
@@ -103,6 +119,11 @@ export function showHome(el) {
       showHome(el);
       // The keyboard goes on to the first game that was out of sight.
       el.querySelectorAll('.gi')[FEW]?.focus();
+    }
+    if (a.dataset.a === 'teams') {
+      everyTeam = true;
+      showHome(el);
+      el.querySelectorAll('.ti')[TEAMS]?.focus();
     }
     if (a.dataset.a === 'export') download(`backwards-k-backup-${today()}.json`, JSON.stringify(store.doc(), null, 1));
     if (a.dataset.a === 'import') {
