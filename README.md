@@ -80,10 +80,11 @@ To put it online with GitHub Pages: **Settings → Pages → Build and deploymen
 
 - `js/engine.js`: the rules. It replays a game's list of events into the count, outs, runners, score, the boxes on the
   scorecard, the stats and the play-by-play.
-- `js/model.js`: what a saved game looks like, and tidying one that came from a file, a link or Drive.
+- `js/model.js`: what a saved game looks like, tidying one that came from a file, a link or Drive, reading a pasted
+  lineup, and what Undo takes back with an event.
 - `js/store.js`: games in the browser's storage.
 - `js/game.js`: the game screen: the buttons, the runner and fielder sheets, lineups, substitutions and undo.
-- `js/card.js`: the scorecard and the line score. `js/box.js`: the box score and the play-by-play.
+- `js/card.js`: the scorecard and the line score. `js/box.js`: the box score, the play-by-play and a batter's day.
 - `js/field.js`: the field drawings. `js/help.js`: how to read the card.
 - `js/home.js`, `js/setup.js`: the first screen, and starting a game.
 - `js/share.js`: share links, the score as text, printing. `js/sync.js`: Google Drive.
