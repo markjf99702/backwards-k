@@ -524,6 +524,23 @@ test('a pinch runner who scores gets the run', () => {
   assert.match(S.plays.find(p => p.kind === 'sub').text, /Speedy pinch-runs for Batter 1/);
 });
 
+test('a substitute made from Lineups for a player on base runs for him, and gets the run', () => {
+  const g = game();
+  g.teams[0].lineup[0].push({ name: 'Speedy', num: '' });
+  let S = play(g, '2B', { t: 'sub', s: 0, slot: 0, i: 1, ty: 'def' });
+  assert.equal(S.bases[2].p, 1, 'Speedy is on second');
+  S = play(g, { t: 'pa', r: '1B', m: [[0, 1], [2, 4]] });
+  assert.equal(S.text.at(-1), 'Batter 2 singles. Speedy scores.');
+  assert.equal(S.bat['0.0.1'].r, 1);
+  assert.equal(S.bat['0.0.0'].r, 0, 'the batter who doubled left the game');
+  assert.equal(S.cells[0].scored, true, 'the run is still drawn in the double’s box');
+  // A change for someone in the field, on the other team, leaves the runners alone.
+  const h = game();
+  h.teams[1].lineup[0].push({ name: 'Glove', num: '' });
+  S = play(h, '2B', { t: 'sub', s: 1, slot: 0, i: 1, ty: 'def' });
+  assert.equal(S.bases[2].p, 0);
+});
+
 test('a home run with the batter called out says so', () => {
   const g = game();
   const S = play(g, 'E', { t: 'pa', r: 'HR', m: [[0, 0], [1, 4]] });

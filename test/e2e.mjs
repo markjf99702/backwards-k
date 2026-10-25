@@ -396,6 +396,28 @@ step('a pinch runner, and then the starter back in from Lineups: the same player
   await p.context().close();
 }
 
+step('a substitute from Lineups for the runner on second runs for him there, and scores');
+{
+  const p = await phone();
+  await startGame(p);
+  await p.click('[data-r="2B"]');
+  await p.click('[data-a=menu]');
+  await p.click('.sheet [data-y=lineup]');
+  await p.click('.sheet [data-sub="0"]');
+  assert.match(await p.textContent('.sheet h2'), /^Pinch runner for Batter 1/);
+  assert.equal(await p.getAttribute('.sheet [data-ty=pr]', 'aria-pressed'), 'true');
+  assert.equal(await p.textContent('.sheet .hint'), 'They run for Batter 1 on second, and take that spot in the batting order from now on.');
+  await p.fill('.sheet [data-f=name]', 'Speedy');
+  await p.click('[data-x=go]');
+  await p.keyboard.press('Escape');
+  assert.equal(await bases(p), '2:Speedy');
+  await p.click('[data-r="1B"]');
+  await p.click('.mv[data-from="2"] [data-to="4"]');
+  await p.click('.sheet [data-x=save]');
+  assert.equal(await p.textContent('.ticker p'), 'Batter 2 singles. Speedy scores.');
+  await p.context().close();
+}
+
 step('a reliever picked from the batting order, and the pitcher’s day in plain words');
 {
   const p = await phone();

@@ -153,7 +153,12 @@ function step(S, e) {
       // A pinch hitter with two strikes already on: if he strikes out, it's the first batter's (OBR 9.15(b)).
       if (e.ty === 'ph' && e.s === S.half && e.slot === S.up[e.s] && S.s === 2) S.ph ??= old;
       S.pl[e.s][e.slot] = e.i;
-      if (e.ty === 'pr') for (const b of [1, 2, 3]) if (S.bases[b] && S.bases[b].side === e.s && S.bases[b].slot === e.slot) S.bases[b].p = e.i;
+      // A substitute for a player who's on base runs for him, whatever the change was called (OBR 5.10): the runs he
+      // scores are the substitute's.
+      for (const b of [1, 2, 3]) {
+        const r = S.bases[b];
+        if (r && r.side === e.s && r.slot === e.slot && (e.ty === 'pr' || r.p === old)) r.p = e.i;
+      }
       const a = label(player(g, e.s, e.slot, e.i), e.slot), was = label(player(g, e.s, e.slot, old), e.slot);
       // Someone who was in this spot before: a starter re-entering, or the runner who ran for him.
       const been = S.been[e.s][e.slot], back = !!been && been.has(e.i);

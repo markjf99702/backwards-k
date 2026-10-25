@@ -729,11 +729,14 @@ const named = (p, slot) => label(p, slot) + (p.name && p.num ? ' #' + p.num : ''
 function subForm(side, slot, ty, done) {
   const p = blank(), was = label(player(G, side, slot, S.pl[side][slot]), slot), back = earlier(side, slot);
   const words = { ph: 'Pinch hitter', pr: 'Pinch runner', def: 'Substitute' };
+  // Whoever comes in for a player who's on base runs for him there.
+  const on = side === S.half ? [1, 2, 3].find(b => S.bases[b] && S.bases[b].slot === slot && S.bases[b].p === S.pl[side][slot]) : undefined;
+  if (on) ty = 'pr';
   const body = openSheet(`<h2 id="sheetTitle">${words[ty]} <small>for ${esc(was)}</small></h2>
     ${back.length ? `<p class="pick-row"><span>Back in:</span>${back.map(([i, x]) => `<button type="button" class="chip" data-back="${i}">${esc(named(x, slot))}</button>`).join('')}</p>` : ''}
     ${nameFields(p)}
     <div class="chips wide" role="group" aria-label="What kind of substitution">${Object.entries(words).map(([k, w]) => `<button type="button" data-ty="${k}" aria-pressed="${k === ty}">${w}</button>`).join('')}</div>
-    <p class="hint">They take ${esc(was)}’s place in the batting order from now on.</p>
+    <p class="hint">${on ? `They run for ${esc(was)} on ${BASE[on]}, and take that spot in the batting order from now on.` : `They take ${esc(was)}’s place in the batting order from now on.`}</p>
     <div class="row"><button type="button" class="btn quiet" data-close>Cancel</button><button type="button" class="btn primary" data-x="go">Put them in</button></div>`);
   $$('[data-f]', body).forEach(i => i.addEventListener('input', () => { p[i.dataset.f] = i.value.trim(); }));
   body.addEventListener('click', e => {
