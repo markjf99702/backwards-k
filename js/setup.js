@@ -1,24 +1,21 @@
 // Starting a game: two team names and you're off. Lineups, innings and the rest are optional, and all of it can
 // be changed once the game is going.
-import { newGame, blank, carryLineup, today, parsePaste } from './model.js';
-import { replay } from './engine.js';
+import { newGame, blank, starters, today, parsePaste } from './model.js';
 import { store } from './store.js';
 import { $, $$, esc, openSheet, closeSheet, go, nextName } from './ui.js';
 import { drive } from './sync.js';
 
-// Teams from earlier games, newest first, with the order they finished with. Each player's name and number, and
+// Teams from earlier games, newest first, with the order they started with. Each player's name and number, and
 // nothing else: anything a newer Backwards K saved on a player belongs to that game, and in a new one would make it
 // look-only here (see newer() in model.js).
 function pastTeams() {
   const seen = new Map(), who = p => ({ name: p.name, num: p.num });
   for (const g of store.all()) {
     if (seen.size >= 8) break;
-    let S = null;
-    g.teams.forEach((t, side) => {
+    g.teams.forEach(t => {
       const k = t.name.trim().toLowerCase();
       if (!k || seen.has(k)) return;
-      S ||= replay(g);
-      seen.set(k, { name: t.name, lineup: carryLineup(t, S.pl[side]).map(s => who(s[0])), pitcher: who(t.pitchers[0]) });
+      seen.set(k, { name: t.name, lineup: starters(t), pitcher: who(t.pitchers[0]) });
     });
   }
   return [...seen.values()].slice(0, 8);

@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { replay, suggest, check, runsCount, scoredAs, mark, now, columns, halfLabel, RESULTS, runnersOn, pitchDay, pitchStat, pitchWork, pitchCount, winningRun } from '../js/engine.js';
-import { newGame, cleanGame, cleanDoc, parseLineup, parsePaste, takeBack, putBack, carryLineup, newer, merge, seenOf } from '../js/model.js';
+import { newGame, cleanGame, cleanDoc, parseLineup, parsePaste, takeBack, putBack, starters, newer, merge, seenOf } from '../js/model.js';
 import { sampleGame } from '../js/sample.js';
 // The card is drawn with ui.js, which looks for the page's sheet as it loads: here there's no page, so no sheet.
 globalThis.document ??= { readyState: 'complete', getElementById: () => null };
@@ -1396,12 +1396,19 @@ test('a player who was in the spot before comes back in as himself: one box-scor
   assert.match(row, /<i>PR 1st<\/i> Diaz <small>#4<\/small><\/span><span class="pl" title="Morris #21"><i>back 1st<\/i> Morris <small>#21<\/small>/);
   // His single counts once in the card's totals: AB 1, R 0, H 1.
   assert.deepEqual(row.match(/<td class="tot">(\d+)<\/td>/g).map(x => +x.match(/\d+/)[0]), [1, 0, 1, 0]);
-  // Next game starts with whoever finished in each spot: Morris, not Diaz.
-  assert.deepEqual(carryLineup(g.teams[0], S.pl[0])[0], [{ name: 'Morris', num: '21' }]);
   // Back in, he bats as himself.
   const T = play(g, ...threeK, 'K', '1B', '1B', 'K', '2B');
   assert.deepEqual([T.bat['0.0.0'].pa, T.bat['0.0.0'].h, T.bat['0.0.1']], [2, 2, undefined]);
   assert.match(T.text[T.text.length - 1], /^Morris doubles/);
+});
+
+test('a team from before starts its next game with its starters, not the pinch hitters and runners who finished', () => {
+  const g = game();
+  g.teams[0].lineup[0] = [{ name: 'Morris', num: '21' }, { name: 'Diaz', num: '4', pos: 'SS' }];
+  g.teams[0].lineup[1] = [{ name: 'Ruiz', num: '2' }, { name: 'Okafor', num: '11' }];
+  play(g, '1B', { t: 'sub', s: 0, slot: 0, i: 1, ty: 'pr' }, { t: 'sub', s: 0, slot: 1, i: 1, ty: 'ph' }, 'K');
+  assert.deepEqual(replay(g).pl[0].slice(0, 2), [1, 1], 'Diaz and Okafor finished');
+  assert.deepEqual(starters(g.teams[0]).slice(0, 3), [{ name: 'Morris', num: '21' }, { name: 'Ruiz', num: '2' }, { name: '', num: '' }]);
 });
 
 test('a player brought back in is kept in a file or a link', () => {

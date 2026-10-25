@@ -283,8 +283,6 @@ function hash(s) {
   return h.toString(36);
 }
 
-// A team's lineup to start another game with: the players in each slot at the end of this one. at: who that was in
-// each slot, by place in it (replay's pl), since a starter can come back in; without it, the last one listed.
-export function carryLineup(team, at = []) {
-  return team.lineup.map((slot, i) => [{ ...(slot[at[i]] || slot[slot.length - 1]) }]);
-}
+// A team's batting order to start another game with: whoever started in each spot, by name and number. Next week's
+// order is usually the same players in the same spots; a pinch hitter or a pinch runner rarely starts.
+export const starters = team => team.lineup.map(slot => ({ name: slot[0].name, num: slot[0].num }));
