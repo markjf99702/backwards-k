@@ -38,7 +38,7 @@ const live = { ...full, id: 'gscreens', ev: full.ev.slice(0, cut), updated: Date
 const finished = { ...full, id: 'gfinal', updated: Date.now() - 1000 };
 
 async function open(viewport, deviceScaleFactor, hash, scheme = 'light') {
-  const ctx = await browser.newContext({ viewport, deviceScaleFactor, hasTouch: true, serviceWorkers: 'block', colorScheme: scheme });
+  const ctx = await browser.newContext({ viewport, deviceScaleFactor, isMobile: viewport.width < 700, hasTouch: true, serviceWorkers: 'block', colorScheme: scheme });
   const page = await ctx.newPage();
   await page.addInitScript(games => {
     if (!localStorage.getItem('backwards-k.v1')) localStorage.setItem('backwards-k.v1', JSON.stringify({ app: 'backwards-k', v: 1, games, gone: {} }));
