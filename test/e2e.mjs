@@ -97,6 +97,7 @@ assert.match(await ticker(), /Brennan strikes out swinging/);
 step('a single with a runner on: the runners sheet, then Save');
 await tap('[data-r="1B"]');
 await page.waitForSelector('.sheet .moves');
+assert.deepEqual(await page.$$eval('.sheet .mv p', ps => ps.map(x => x.textContent)), ['Ruizwas on first', 'Castilloat bat']);
 assert.equal(await page.locator('.mv[data-from="1"] [aria-pressed=true]').textContent(), '2nd');
 await tap('.mv[data-from="1"] [data-to="3"]');
 await tap('[data-x=save]');

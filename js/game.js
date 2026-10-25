@@ -501,7 +501,7 @@ function runnersSheet(code, f, moves, { st = S, editing = false, done = act } = 
     const rows = m.slice().sort((a, b) => b[0] - a[0]).map(([from, to]) => {
       const opts = [0, ...[1, 2, 3, 4].filter(b => b >= Math.max(from, 1))];
       return `<div class="mv" data-from="${from}">
-        <p><b>${esc(who(from))}</b><span>${from ? `was on ${BASE[from]}` : 'batter'}</span></p>
+        <p><b>${esc(who(from))}</b><span>${from ? `was on ${BASE[from]}` : 'at bat'}</span></p>
         <div class="chips" role="group" aria-label="Where ${esc(who(from))} ended up">${opts.map(b => `<button type="button" data-to="${b}" aria-pressed="${b === to}" class="${b === 0 ? 'out' : b === 4 ? 'home' : ''}">${b === 0 ? 'Out' : b === from ? 'Stayed' : BASES[b]}</button>`).join('')}</div>
       </div>`;
     });
