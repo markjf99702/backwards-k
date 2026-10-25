@@ -81,9 +81,10 @@ async function same(a, b) {
 // One bar of signal at the ballpark is worse than none: a request goes out and nothing comes back for a long time,
 // and the page asks for its files a few at a time, each waiting on the last (the page, app.js, what it imports, and
 // what those import). So the network gets WAIT ms, and then the copy answers, and for SLOW ms after that the copy
-// answers every page load straight away.
+// answers every page load straight away. A network that does answer, but takes more than half of WAIT for a file,
+// is as weak as that: the waits add up, level by level (at 2.5 seconds a file, the scoring screen took 11).
 // Which version a page load gets is settled as it goes. While what the network sends is the same as the copy, either
-// can answer, and the first file the network is too slow for comes from the copy, and so does the rest of the load.
+// can answer, and the first file the network is slow with comes from the copy, and so does the rest of the load.
 // Once the network sends a file that's new, the rest of the load comes from the network too, however long that takes;
 // if it takes more than WAIT, that file fails rather than mix the versions, and the page reloads itself (see the
 // script in index.html), from the copy this time. A new file also has a new set fetched, for next time.
@@ -100,11 +101,13 @@ async function answer(e) {
     const r = await kept();
     if (r) return r;
   }
-  // What the network sends, and the copy of the same file if they're different. It's compared with the copy only
-  // while the load could still go either way.
+  // What the network sends, whether it was slow, and the copy of the same file (k), with whether they differ. It's
+  // compared with the copy only while the load could still go either way.
+  const t0 = Date.now();
   const got = fresh(request).then(async res => {
+    const slow = Date.now() - t0 > WAIT / 2;
     const k = res.ok && !loose && load.mode !== 'net' ? await kept() : undefined;
-    return { res, newer: k && !(await same(res.clone(), k.clone())) ? k : undefined };
+    return { res, slow, k, newer: !!k && !(await same(res.clone(), k.clone())) };
   });
   e.waitUntil(got.then(x => x.newer && fill()).catch(() => {}));
   let timer;
@@ -112,10 +115,13 @@ async function answer(e) {
   const first = await Promise.race([got.catch(() => ({ failed: true })), late]);
   clearTimeout(timer);
   if (first.res) {
-    if (!first.newer || loose || load.mode === 'net') return first.res;
-    if (load.mode === 'kept') return first.newer; // the copy answered another file of this load meanwhile
-    load.mode = 'net';
-    return first.res;
+    const { res, slow, k, newer } = first;
+    if (slow) weakUntil = Date.now() + SLOW;
+    if (loose || load.mode === 'net' || !k) return res;
+    // Slow, or the copy answered another file of this load meanwhile: the rest of the load is the copy's.
+    if (slow || load.mode === 'kept') { load.mode = 'kept'; return newer ? k : res; }
+    if (newer) load.mode = 'net';
+    return res;
   }
   if (first.late) weakUntil = Date.now() + SLOW;
   if (load.mode === 'net' && !loose) return Response.error();

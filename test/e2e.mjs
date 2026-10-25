@@ -15,9 +15,10 @@ try { pw = require('playwright'); } catch { pw = require(join(execSync('npm root
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2', '.webmanifest': 'application/manifest+json', '.json': 'application/json' };
 // For the offline tests: hold leaves requests unanswered (one bar of signal at the ballpark): true for every one, or
-// a Set of the paths it holds. release() answers them after all, or drops them. extra adds to the end of a file (a new
-// version on the server), and oldWorker serves the sw.js phones had before (test/sw-before.js).
-let hold = false, oldWorker = false;
+// a Set of the paths it holds. release() answers them after all, or drops them. delay answers every request that many
+// ms late. extra adds to the end of a file (a new version on the server), and oldWorker serves the sw.js phones had
+// before (test/sw-before.js).
+let hold = false, oldWorker = false, delay = 0;
 const held = [], extra = {};
 const release = (answer = true) => { for (const h of held.splice(0)) if (answer) h.answer(); else h.res.destroy(); };
 const server = createServer(async (req, res) => {
@@ -29,6 +30,7 @@ const server = createServer(async (req, res) => {
     res.end(extra[path] ? Buffer.concat([body, Buffer.from(extra[path])]) : body);
   };
   if (hold === true || (hold && hold.has(path))) held.push({ path, res, answer });
+  else if (delay) setTimeout(answer, delay);
   else answer();
 }).listen(0);
 const base = `http://localhost:${server.address().port}/`;
@@ -1752,6 +1754,23 @@ step('right after a new version, on one bar of signal, a page gets one version, 
     hold = false;
     release(false);
     for (const k of Object.keys(NEW)) delete extra[k];
+    await c.close();
+  }
+}
+
+step('a network that answers every file, but only after 2.5 seconds, is as weak as one that never answers');
+{
+  const c = await visited();
+  delay = 2500;
+  try {
+    const q = await c.newPage(), t0 = Date.now();
+    await q.goto(base, { waitUntil: 'commit', timeout: 20000 });
+    await q.waitForSelector('.hero h1', { timeout: 20000 });
+    // The page took 2.5 seconds, and the rest came from the copy (one level of files after another, each 2.5 seconds
+    // late, took 11).
+    assert.ok(Date.now() - t0 < 5000, `the home screen took ${Date.now() - t0} ms`);
+  } finally {
+    delay = 0;
     await c.close();
   }
 }
