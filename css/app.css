@@ -592,6 +592,7 @@ details.lineup summary small { color: var(--muted); font-weight: 400; }
 .cs .dia { fill: none; stroke: var(--grid); stroke-width: 1; }
 .cs .run { fill: var(--run); stroke: none; }
 .cs .path { fill: none; stroke: var(--pencil); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.cs .start { fill: var(--pencil); }
 .cs text { fill: var(--pencil); font-family: var(--hand); }
 .cs .big { font-size: 15px; text-anchor: middle; paint-order: stroke; stroke: var(--paper); stroke-width: 3.5px; stroke-linejoin: round; }
 .cs .big.k { font-size: 23px; }

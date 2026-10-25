@@ -3,7 +3,7 @@
 import {
   replay, suggest, check, runsCount, scoredAs, now, RESULTS, BASE, POS, POS_NAME, halfLabel, label, player, teamName,
   pitcherLabel, ord, runnersOn, mark, pitchStat, pitchWords, pitchDay, pitchWork, pitchCount, winningRun, creditedHit, credit, fits,
-  ENDS, regulation, official, winner,
+  ENDS, regulation, official, winner, AUTO,
 } from './engine.js';
 import { store } from './store.js';
 import { blank, takeBack, putBack, newer, plays } from './model.js';
@@ -233,10 +233,11 @@ function speak(t) {
 }
 const score = () => `${teamName(G, 0)} ${S.R[0]}, ${teamName(G, 1)} ${S.R[1]}.`;
 // Where things stand, in words: who's on, the outs and the count; or the end of the half-inning, or of the game.
+// (At the end of a half-inning, how it ended, and in extra innings, who starts the next on second.)
 function situation() {
   if (S.over) return (S.ended ? '' : 'Final. ') + score();
-  const end = S.plays[S.plays.length - 1];
-  if (end && end.kind === 'end' && end.i === G.ev.length - 1) return end.text;
+  const i = G.ev.length - 1, end = S.plays.findLast(p => p.kind === 'end' && p.i === i);
+  if (end) return [end.text, ...S.plays.filter(p => p.auto && p.i === i).map(p => p.text)].join(' ');
   const on = [1, 2, 3].filter(b => S.bases[b]).map(b => BASE[b]);
   const bases = !on.length ? 'Nobody on' : on.length === 3 ? 'Bases loaded' : `Runner${on.length > 1 ? 's' : ''} on ${on.join(' and ')}`;
   return `${bases}, ${S.outs ? few(S.outs, 'out') : 'nobody out'}${G.pitches && (S.b || S.s) ? `, ${countWords()}` : ''}.`;
@@ -1108,6 +1109,13 @@ function menuSheet() {
   });
 }
 
+// The innings a game can start putting a runner on second in: none, the first extra inning, or one near it.
+function tieOptions() {
+  const near = Array.from({ length: 5 }, (_, i) => Math.max(2, G.innings - 2) + i);
+  return [0, ...[...new Set([...near, G.innings + 1, G.tie])].filter(Boolean).sort((a, b) => a - b)]
+    .map(n => `<option value="${n}"${n === G.tie ? ' selected' : ''}>${!n ? 'Not in this game' : `From the ${ord(n)}${n === G.innings + 1 ? ' (extra innings)' : ''}`}</option>`).join('');
+}
+
 function settingsSheet() {
   // In the bottom of an inning with the home team ahead after the top of it, that inning can't be made the last: the
   // game would have been over before this half, and the plays in it would go on as if after a Final.
@@ -1125,6 +1133,7 @@ function settingsSheet() {
       <div class="rules-row"></div>
       <label><span>Date</span><input type="date" data-g="date" value="${esc(G.date)}"></label>
       <label><span>Where</span><input data-g="place" maxlength="80" value="${esc(G.place)}" placeholder="Optional" autocapitalize="words" autocorrect="off" spellcheck="false"></label>
+      <label><span>Runner on second</span><select data-g="tie">${tieOptions()}</select><small>Each half-inning from then on starts with the batter before its leadoff man on second, as the majors do in extra innings. His run is unearned.</small></label>
       <label class="switch"><input type="checkbox" data-g="pitches"${G.pitches ? ' checked' : ''}><span>Count balls and strikes<small>Keeps the count and each pitcher’s pitch count.</small></span></label>
     </div>
     <div class="row"><button type="button" class="btn primary" data-close>Done</button></div>`);
@@ -1134,8 +1143,11 @@ function settingsSheet() {
   $$('[data-g]', body).forEach(i => i.addEventListener(i.type === 'checkbox' || i.tagName === 'SELECT' ? 'change' : 'input', () => {
     const k = i.dataset.g;
     if (k === 'date' && !i.value) return; // (see below)
-    G[k] = k === 'pitches' ? i.checked : k === 'innings' ? +i.value : i.value.trim();
-    if (k === 'innings' || k === 'pitches') save(); else { saveSoon(); draw(); }
+    // (Extra innings that started with a runner on second still do, after the new last inning.)
+    if (k === 'innings' && G.tie === G.innings + 1) G.tie = +i.value + 1;
+    G[k] = k === 'pitches' ? i.checked : k === 'innings' || k === 'tie' ? +i.value : i.value.trim();
+    if (k === 'innings') $('[data-g=tie]', body).innerHTML = tieOptions();
+    if (k === 'innings' || k === 'pitches' || k === 'tie') save(); else { saveSoon(); draw(); }
   }));
   // A game always has a date (one saved blank would read back as whatever day it was next opened), so clearing the
   // field changes nothing, and the date comes back.
@@ -1168,7 +1180,7 @@ function cantBe(c, e) {
 }
 function cellSheet(c) {
   if (!c) return;
-  const e = G.ev[c.ev], R = RESULTS[c.r];
+  const e = G.ev[c.ev], R = RESULTS[c.r] || AUTO;
   const name = label(player(G, c.side, c.slot, c.p), c.slot);
   const seq = pitchWords(c.seq);
   // A strikeout that came from counting pitches can still be switched between swinging and looking.
@@ -1183,6 +1195,7 @@ function cellSheet(c) {
     ${group ? `<h3>Change what it was</h3><div class="chips wide" role="group" aria-label="What it was">${group.map(k => `<button type="button" data-sw="${k}" aria-pressed="${k === c.r}"${why[k] && k !== c.r ? ` disabled title="${esc(why[k])}"` : ''}>${esc(RESULTS[k].label)}</button>`).join('')}</div>` : ''}
     ${group && e.t === 'pa' && (R.f || c.f) ? `<div class="row"><button type="button" class="btn quiet" data-y="f">Change the fielders${c.f ? ` (${esc(c.f.join('-'))})` : ''}</button></div>` : ''}
     ${!readOnly && e && !group ? '<p class="hint">This one can’t be changed here. Undo takes plays back, latest first, and until the next batter’s turn is over, Fix runners changes where everyone ended up on the play before.</p>' : ''}
+    ${c.auto ? `<p class="hint">Extra innings start with a runner on second: the batter before the leadoff man (OBR 7.01(b)). He didn’t bat, and his run is unearned. Game settings has when it starts.</p>` : ''}
     <div class="row"><button type="button" class="btn primary" data-close>Done</button></div>`);
   // Undo takes back plays, not a change made here, so each change has its own Undo, in a message right after it.
   const old = { r: e && e.r, f: e && e.f, k: e && e.k, tap: tapped.e === e ? tapped.r : null };

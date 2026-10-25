@@ -56,6 +56,10 @@ written out in plain words.
   ("That's 5 runs: the half-inning is over.", and a run after that on the same play doesn't count, unless your league
   counts every run on it), and the game ends itself on the mercy rule, Final, with "(Final, 10-run rule, 4 innings)"
   in the score you send. The next new game starts with the same rules.
+- **Extra innings that start with a runner on second,** as the majors have since 2020 and many tournaments do: turn it
+  on in New game (from the first extra inning) or pick the inning in Game settings. Each half-inning from then on
+  starts with the batter before its leadoff man on second (OBR 7.01(b)), in a box of his own marked AR, with a line in
+  the plays. He isn't a trip to the plate, and his run is unearned for the pitcher.
 - **Phone or tablet.** On a phone the buttons, the card, the box score and the play-by-play are tabs. On a tablet
   held sideways (or any screen 1000 pixels wide or more) the buttons and the card sit side by side, and the card
   fills in while you watch; on one held upright, the card is under the buttons.

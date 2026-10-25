@@ -41,6 +41,7 @@ export function helpSheet() {
       <dt>3U</dt><dd>Unassisted: the first baseman made the out alone</dd>
       <dt>SB, CS, PO</dt><dd>Stolen base, caught stealing, picked off</dd>
       <dt>A line with a bar</dt><dd>Put out trying for that base</dd>
+      <dt>AR and a dot on second</dt><dd>Put on second to start an extra inning, where a league does that: he didn’t bat, and his run is unearned</dd>
       <dt>WP, PB, BK</dt><dd>Wild pitch, passed ball, balk</dd>
       <dt>A small number</dt><dd>Moved up on that batter’s play (by their place in the order)</dd>
       <dt>2-1</dt><dd>The count when the at-bat ended (balls, then strikes)</dd>

@@ -26,13 +26,13 @@ function pastTeams() {
 export function showSetup(el) {
   const past = pastTeams();
   const T = [0, 1].map(() => ({ name: '', lineup: Array.from({ length: 9 }, blank), pitcher: blank() }));
-  // The innings, the pitch counting and the league rules start as they were for the last game on this device: a
-  // league that plays six innings without counting pitches, under Little League's rules, doesn't have to say so
-  // every week.
+  // The innings, the pitch counting, the league rules and the runner on second in extra innings start as they were
+  // for the last game on this device: a league that plays six innings without counting pitches, under Little
+  // League's rules, doesn't have to say so every week.
   const last = store.all()[0], INN = [9, 7, 6, 5, 4, 3];
   const opt = {
     innings: last && INN.includes(last.innings) ? last.innings : 9, pitches: last ? last.pitches !== false : true,
-    rules: last && last.rules ? structuredClone(last.rules) : null, date: today(), place: '',
+    rules: last && last.rules ? structuredClone(last.rules) : null, tie: !!(last && last.tie), date: today(), place: '',
   };
 
   el.innerHTML = `<header class="bar">
@@ -49,6 +49,7 @@ export function showSetup(el) {
           <legend class="sr">The game</legend>
           <div class="opt"><span class="lbl">Innings</span><span class="chips" role="group" aria-label="Innings">${INN.map(n => `<button type="button" data-inn="${n}" aria-pressed="${n === opt.innings}">${n}</button>`).join('')}</span></div>
           <div class="rules-row"></div>
+          <label class="switch"><input type="checkbox" name="tie"${opt.tie ? ' checked' : ''}><span>Extra innings start with a runner on second<small>The batter before the leadoff man, as the majors have done since 2020.</small></span></label>
           <label class="switch"><input type="checkbox" name="pitches"${opt.pitches ? ' checked' : ''}><span>Count balls and strikes<small>Keeps the count and each pitcher’s pitch count. Turn it off to only tap what each batter did.</small></span></label>
           <div class="two-sm">
             <label><span>Date</span><input type="date" name="date" value="${opt.date}"></label>
@@ -146,7 +147,7 @@ export function showSetup(el) {
   form.addEventListener('submit', e => { e.preventDefault(); start(); });
   el.querySelector('[data-go]').addEventListener('click', start);
   function start() {
-    const g = newGame({ away: T[0].name, home: T[1].name, innings: opt.innings, pitches: form.pitches.checked, rules: opt.rules, date: form.date.value || today(), place: form.place.value.trim() });
+    const g = newGame({ away: T[0].name, home: T[1].name, innings: opt.innings, pitches: form.pitches.checked, rules: opt.rules, tie: form.tie.checked ? opt.innings + 1 : 0, date: form.date.value || today(), place: form.place.value.trim() });
     T.forEach((t, s) => {
       g.teams[s].lineup = t.lineup.map(p => [{ ...p }]);
       g.teams[s].pitchers = [{ ...t.pitcher }];

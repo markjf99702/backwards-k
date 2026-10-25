@@ -37,7 +37,7 @@ const canon = v => JSON.stringify(sorted(v));
 
 // ---------- a game, and the game screen's steps (js/game.js) ----------
 function makeGame(setup) {
-  const g = M.newGame({ away: 'Foxes', home: 'Comets', innings: setup.innings, pitches: setup.pitches, rules: setup.rules || null, date: '2026-10-25', place: 'Fuzz' });
+  const g = M.newGame({ away: 'Foxes', home: 'Comets', innings: setup.innings, pitches: setup.pitches, rules: setup.rules || null, tie: setup.tie || 0, date: '2026-10-25', place: 'Fuzz' });
   g.id = 'gfuzz' + setup.seed; g.created = g.updated = 1;
   g.teams.forEach((t, s) => {
     t.lineup = Array.from({ length: setup.size[s] }, (_, i) => [i % 4 === 3 ? M.blank() : { name: `${s ? 'H' : 'V'}${i + 1}`, num: String(i + 1) }]);
@@ -309,24 +309,26 @@ function rules(C, fresh) {
     if (r.p !== S.pl[r.side][r.slot] && S.size[r.side] > 3) bad('runner-sub', `the runner on ${b} is player ${r.p} of spot ${r.slot + 1}, but the order has player ${S.pl[r.side][r.slot]} there`);
   }
   for (const side of [0, 1]) {
-    const f = 1 - side, cells = S.cells.filter(c => c.side === side), R = S.R[side];
+    // (cells: every box, the runner put on second to start an extra inning's too; pas: the trips to the plate.)
+    const f = 1 - side, cells = S.cells.filter(c => c.side === side), pas = cells.filter(c => !c.auto), R = S.R[side];
     const bats = Object.entries(S.bat).filter(([k]) => k.startsWith(side + '.')).map(([, b]) => b), arms = S.pitching[f].filter(Boolean);
     const add = (key, got, want, what) => { if (got !== want) bad(key, `side ${side}: ${what} ${got}, should be ${want}`); };
     add('R', sum(S.line[side]), R, 'runs by inning'); add('R', cells.filter(c => c.scored).length, R, 'boxes that scored');
     add('R', sum(bats.map(b => b.r)), R, 'batters’ runs'); add('R', sum(arms.map(p => p.r)), R, 'runs charged to pitchers');
     const H = S.H[side];
-    add('H', cells.filter(c => RESULTS[c.r].kind === 'hit').length, H, 'hit boxes'); add('H', sum(S.hInn[side]), H, 'hits by inning');
+    add('H', pas.filter(c => RESULTS[c.r].kind === 'hit').length, H, 'hit boxes'); add('H', sum(S.hInn[side]), H, 'hits by inning');
     add('H', sum(bats.map(b => b.h)), H, 'batters’ hits'); add('H', sum(arms.map(p => p.h)), H, 'hits off pitchers');
     add('E', sum(S.eInn[side]), S.E[f], 'errors by inning'); add('E', S.errs[f].length, S.E[f], 'errors listed');
-    if (S.E[f] < cells.filter(c => RESULTS[c.r].err).length) bad('E', `side ${f}: fewer errors than boxes that say E or CI`);
+    if (S.E[f] < pas.filter(c => RESULTS[c.r].err).length) bad('E', `side ${f}: fewer errors than boxes that say E or CI`);
     add('outs', sum(arms.map(p => p.outs)), cells.filter(c => c.outN).length, 'outs the pitchers got vs boxes out');
-    add('pa', sum(arms.map(p => p.bf)), cells.length, 'batters faced'); add('pa', sum(bats.map(b => b.pa)), cells.length, 'trips to the plate');
-    add('ab', sum(bats.map(b => b.ab)), sum(cells.map(c => RESULTS[c.r].ab)), 'at-bats'); add('rbi', sum(bats.map(b => b.rbi)), sum(cells.map(c => c.rbi)), 'RBI');
+    add('pa', sum(arms.map(p => p.bf)), pas.length, 'batters faced'); add('pa', sum(bats.map(b => b.pa)), pas.length, 'trips to the plate');
+    add('ab', sum(bats.map(b => b.ab)), sum(pas.map(c => RESULTS[c.r].ab)), 'at-bats');
+    add('ur', sum(arms.map(p => p.ur)), cells.filter(c => c.auto && c.scored).length, 'unearned runs by the runner put on second'); add('rbi', sum(bats.map(b => b.rbi)), sum(cells.map(c => c.rbi)), 'RBI');
     for (const k of ['k', 'bb', 'hbp']) add(k, sum(bats.map(b => b[k])), sum(arms.map(p => p[k])), `batters’ ${k} vs pitchers’`);
     for (const p of arms) if (p.np !== p.balls + p.str) bad('pitches', `${p.np} pitches aren’t ${p.balls} balls and ${p.str} strikes`);
     for (const c of cells) {
       if (c.scored && (c.reach !== 4 || c.outN)) bad('box', `box ${c.n} scored, but reached ${c.reach}, out ${c.outN}`);
-      if (c.rbi && RESULTS[c.r].rbi === 0) bad('rule-rbi', `box ${c.n} (${c.r}) has an RBI (OBR 9.04(b))`);
+      if (c.rbi && RESULTS[c.r]?.rbi === 0) bad('rule-rbi', `box ${c.n} (${c.r}) has an RBI (OBR 9.04(b))`);
     }
     // The proof, each half-inning: every trip to the plate ends as a run, a runner left on base or an out (OBR 9.03(c)).
     for (const inn of new Set(cells.map(c => c.inn))) {
@@ -382,7 +384,8 @@ function pages(C) {
     const want = ['ab', 'r', 'h', 'rbi', 'bb', 'k'].map(k => sum(Object.entries(S.bat).filter(([x]) => x.startsWith(side + '.')).map(([, b]) => b[k])));
     if (got.join() !== want.join()) bad('box-score', `side ${side}: totals ${got.join(' ')}, should be ${want.join(' ')}`);
   }
-  if ((html.plays.match(/<li class="pa/g) || []).length !== S.cells.length) bad('plays', `${S.cells.length} trips to the plate, and the plays list another number`);
+  const pas = S.cells.filter(c => !c.auto).length;
+  if ((html.plays.match(/<li class="pa/g) || []).length !== pas) bad('plays', `${pas} trips to the plate, and the plays list another number`);
   return out;
 }
 // The game from storage, a file or Drive (cleanGame), and from a link (pack), is the game.
@@ -491,6 +494,8 @@ for (let n = 0; n < GAMES; n++) {
   // League rules in some: Little League's mercy rule, the Minors' run limit, and limits of every kind.
   setup.rules = weighed(rnd, [[6, null], [1, LEAGUE.ll], [1, LEAGUE.minors],
     [1, { set: 'custom', runs: 1 + Math.floor(rnd() * 4), last: rnd() < 0.5, all: rnd() < 0.5, mercy: rnd() < 0.5 ? [[1 + Math.floor(rnd() * 3), 2 + Math.floor(rnd() * 5)]] : [] }]]);
+  // Extra innings that start with a runner on second in some, now and then from an inning before them.
+  setup.tie = weighed(rnd, [[6, 0], [3, setup.innings + 1], [1, Math.max(2, setup.innings - 1)]]);
   // Make up the game a step at a time, keeping the steps the screen would take.
   const C = { setup, g: makeGame(setup), redo: [], kept: null, tapped: { e: null, r: '' } };
   save(C);
@@ -514,7 +519,7 @@ console.log(`fuzz: ${GAMES} games from seed ${SEED}, ${found.size} thing(s) brok
 for (const [key, f] of found) {
   const s = await shrink(f.setup, f.steps, key), r = await play(s.setup, s.steps, { full: false });
   console.log(`== ${key}: ${(r.broke.get(key) || f).msg}`);
-  console.log(`   seed ${f.setup.seed}: ${s.setup.innings} inning(s), ${s.setup.size.join('/')} batters, ${s.setup.pitches ? 'counting pitches' : 'no pitch count'}${s.setup.rules ? `, rules ${JSON.stringify(s.setup.rules)}` : ''}. ${s.steps.length} taps:`);
+  console.log(`   seed ${f.setup.seed}: ${s.setup.innings} inning(s), ${s.setup.size.join('/')} batters, ${s.setup.pitches ? 'counting pitches' : 'no pitch count'}${s.setup.rules ? `, rules ${JSON.stringify(s.setup.rules)}` : ''}${s.setup.tie ? `, a runner on second from the ${s.setup.tie}` : ''}. ${s.steps.length} taps:`);
   console.log('   ' + s.steps.map(say).join(' · '));
   console.log('   Plays: ' + JSON.stringify(r.C.g.ev) + '\n');
 }

@@ -627,6 +627,42 @@ test('league rules are kept from a file, a link and Drive, and the copy changed 
   assert.deepEqual(merge(a, b).game.rules, LL);
 });
 
+test('extra innings that start with a runner on second: the batter before the leadoff man, in a box of his own (OBR 7.01(b))', () => {
+  const g = game({ innings: 1, tie: 2 });
+  let S = play(g, ...threeK, ...threeK);
+  const r = S.bases[2], c = S.cells.at(-1);
+  assert.deepEqual([S.inn, S.half, r.slot, now(S).name], [2, 0, 2, 'Batter 4']);
+  assert.deepEqual([c.r, c.mark, c.auto, c.reach, c.from, c.text], ['AR', 'AR', true, 2, 2, 'Batter 3 starts the 2nd on second.']);
+  assert.deepEqual(S.plays.at(-1), { i: 5, inn: 2, half: 0, text: 'Extra innings: Batter 3 starts on second.', kind: 'run', runs: 0, mark: 'AR', auto: true });
+  assert.match(cellSvg(c), /class="start"/);
+  // He scores on a double: his run, unearned for the pitcher, and the batter's RBI. Nobody gets a trip to the plate.
+  S = play(g, '2B');
+  assert.deepEqual([S.R, S.pitching[1][0].r, S.pitching[1][0].ur, S.cells.at(-1).rbi], [[1, 0], 1, 1, 1]);
+  assert.deepEqual([S.bat['0.2.0'].r, S.bat['0.2.0'].pa, S.pitching[1][0].bf], [1, 1, 4]);
+  assert.match(pitchDay(S.pitching[1][0], false), /1 run \(1 unearned\)/);
+  assert.match(cellSvg(S.cells.at(-2)), /<polyline class="path" points="30,13 11,32 30,51"\/>/, 'from second, home');
+  S = play(g, ...threeK);
+  assert.equal(S.bases[2].slot, 2, 'the home team’s too');
+  assert.equal(S.cells.at(-1).side, 1);
+  S = play(g, ...threeK);
+  assert.deepEqual([S.over, halfLabel(S)], [true, 'Final/2']);
+  // Each half-inning still proves: every trip to the plate, and the runner, ends as a run, left on base or out.
+  assert.deepEqual([proof(S, 0, 2), proof(S, 1, 2)], [[5, 5], [4, 4]]);
+  assert.match(boxHtml(S), /Unearned runs, from the runner put on second:<\/b> Pitcher\./);
+  assert.deepEqual(dayOf(S, 0, 2, 0).trips.map(t => t.words), ['strikeout swinging', 'on second to start the inning']);
+  assert.equal(columns(S, 0).length, 2, 'no extra column for him');
+  // Called before anyone bats in it: no runner, and Keep playing puts him back.
+  const h = game({ innings: 1, tie: 2 });
+  S = play(h, ...threeK, ...threeK, { t: 'end' });
+  assert.deepEqual([S.cells.some(x => x.auto), S.plays.some(p => p.auto), !!S.bases[2], S.inn, S.half], [false, false, false, 1, 1]);
+  S = play(h, { t: 'on' });
+  assert.equal(S.bases[2].cell.auto, true);
+  // Off, as before; and saved and read back as it was.
+  assert.equal(play(game({ innings: 1 }), ...threeK, ...threeK).bases[2], null);
+  assert.deepEqual(cleanGame(JSON.parse(JSON.stringify(g))), g);
+  assert.deepEqual([game().tie, cleanGame({ ...g, tie: 'x' }).tie, cleanGame({ ...g, tie: 99 }).tie], [0, 0, 30]);
+});
+
 test('a play that makes the third out leaves the other runners where they were', () => {
   const marks = S => S.cells.slice(0, 3).map(c => c.notes.join('')).join('|');
   // Bases loaded, two out, a ground out: nobody moves up and nobody scores.

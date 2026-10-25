@@ -1,6 +1,7 @@
 // What a game looks like when it's saved, and how to tidy one that came from a file, a link or Google Drive.
 //
-// A game: { id, created, updated, date, place, innings, pitches, rules, teams: [visitors, home], ev: [events] }
+// A game: { id, created, updated, date, place, innings, pitches, rules, tie, teams: [visitors, home], ev: [events] }
+// tie: the first inning that starts with a runner on second (extra innings, OBR 7.01(b)), or 0 for none.
 // rules: the league's rules, or null: { set: 'll', 'minors' or 'custom' (which ones, for Game settings), runs: the
 // most runs a half-inning (0 for no limit), last: that limit holds in the last inning too, all: every run on the play
 // that reaches it counts, mercy: [[innings, runs ahead], ...] } (engine.js plays them)
@@ -25,9 +26,9 @@ export function newTeam(name = '', size = 9) {
   return { name, lineup: Array.from({ length: size }, () => [blank()]), pitchers: [blank()] };
 }
 
-export function newGame({ away = '', home = '', innings = 9, size = 9, pitches = true, rules = null, date = today(), place = '' } = {}) {
+export function newGame({ away = '', home = '', innings = 9, size = 9, pitches = true, rules = null, tie = 0, date = today(), place = '' } = {}) {
   const t = Date.now();
-  return { id: 'g' + uid(), created: t, updated: t, date, place, innings, pitches, rules, teams: [newTeam(away, size), newTeam(home, size)], ev: [] };
+  return { id: 'g' + uid(), created: t, updated: t, date, place, innings, pitches, rules, tie, teams: [newTeam(away, size), newTeam(home, size)], ev: [] };
 }
 
 const str = (v, max = 60) => (typeof v === 'string' || typeof v === 'number' ? String(v).slice(0, max) : '');
@@ -36,7 +37,7 @@ const int = (v, lo, hi, d) => (Number.isFinite(+v) ? Math.min(hi, Math.max(lo, M
 // What this version knows: the values on a game, a team, a player and each kind of event, and the kinds of pitch and
 // substitution.
 const KNOWN = new Map(Object.entries({
-  game: ['id', 'created', 'updated', 'date', 'place', 'innings', 'pitches', 'rules', 'teams', 'ev'],
+  game: ['id', 'created', 'updated', 'date', 'place', 'innings', 'pitches', 'rules', 'tie', 'teams', 'ev'],
   team: ['name', 'lineup', 'pitchers'], player: ['name', 'num'], rules: ['set', 'runs', 'last', 'all', 'mercy'],
   p: ['t', 'k'], pa: ['t', 'r', 'f', 'm', 'x'], r: ['t', 'm'], sub: ['t', 's', 'slot', 'i', 'ty'], pch: ['t', 's', 'i'],
   add: ['t', 's'], eoh: ['t'], end: ['t', 'why'], delay: ['t'], on: ['t'],
@@ -135,7 +136,7 @@ export function cleanGame(g) {
     id: typeof g.id === 'string' && /^g[\w-]{4,40}$/.test(g.id) ? g.id : 'g' + uid(),
     created: int(g.created, 0, 9e15, t), updated: int(g.updated, 0, 9e15, t),
     date: /^\d{4}-\d{2}-\d{2}$/.test(g.date) ? g.date : today(),
-    place: str(g.place, 80), innings: int(g.innings, 1, 30, 9), pitches: g.pitches !== false, rules: cleanRules(g.rules),
+    place: str(g.place, 80), innings: int(g.innings, 1, 30, 9), pitches: g.pitches !== false, rules: cleanRules(g.rules), tie: int(g.tie, 0, 30, 0),
     teams, ev: ok, ...more(g, KNOWN.get('game'), 2000),
   };
 }
@@ -292,7 +293,7 @@ export function merge(a, b, seen = null) {
     pitchers: t.pitchers.map((p, j) => (n.pitchers[j] ? { ...p, name: n.pitchers[j].name, num: n.pitchers[j].num } : p)),
   });
   const game = {
-    ...from, date: newer.date, place: newer.place, innings: newer.innings, pitches: newer.pitches, rules: newer.rules,
+    ...from, date: newer.date, place: newer.place, innings: newer.innings, pitches: newer.pitches, rules: newer.rules, tie: newer.tie,
     teams: from.teams.map((t, s) => named(t, newer.teams[s])), updated: now,
   };
   return { game: canon({ ...game, updated: 0 }) === canon({ ...newer, updated: 0 }) ? newer : game, second: null };

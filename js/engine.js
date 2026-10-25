@@ -239,8 +239,9 @@ const key = (side, slot, p) => side + '.' + slot + '.' + p;
 function bstat(S, side, slot, p) {
   return S.bat[key(side, slot, p)] ||= { pa: 0, ab: 0, r: 0, h: 0, d: 0, t: 0, hr: 0, rbi: 0, bb: 0, k: 0, hbp: 0, sb: 0, cs: 0 };
 }
+// (ur: the runs charged that are unearned because the runner was put on second to start an extra inning.)
 function pstat(S, side = 1 - S.half, i = S.pit[side]) {
-  return S.pitching[side][i] ||= { np: 0, balls: 0, str: 0, bf: 0, outs: 0, h: 0, r: 0, bb: 0, k: 0, hr: 0, hbp: 0, wp: 0, bk: 0 };
+  return S.pitching[side][i] ||= { np: 0, balls: 0, str: 0, bf: 0, outs: 0, h: 0, r: 0, ur: 0, bb: 0, k: 0, hr: 0, hbp: 0, wp: 0, bk: 0 };
 }
 
 function pitch(S, k) {
@@ -532,7 +533,10 @@ function score(S, r) {
   S.R[side]++; S.line[side][S.inn - 1]++;
   r.cell.scored = true;
   bstat(S, side, r.slot, r.p).r++;
-  pstat(S, 1 - side, r.pi).r++;
+  const P = pstat(S, 1 - side, r.pi);
+  P.r++;
+  // The runner put on second to start an extra inning scores an unearned run (OBR 7.01(b)).
+  if (r.cell.auto) P.ur++;
 }
 
 // The home team is ahead in its last turn (or an extra inning): the game is over (OBR 7.01(g)). Not while the scorer
@@ -606,6 +610,26 @@ function nextHalf(S) {
   S.col = { k: 0, used: new Set() };
   S.last = null;
   S.fresh = true;
+  if (S.g.tie && S.inn >= S.g.tie) placeRunner(S);
+}
+// Extra innings that start with a runner on second (g.tie, the first inning they do; OBR 7.01(b), in MLB since 2020):
+// the player in the batting order just before the half-inning's leadoff batter. He didn't bat, so it's not a trip to
+// the plate, but he has a box of his own in that inning, marked AR (the automatic runner), and a line in the plays.
+// His run is unearned: for that, he reached on an error nobody made.
+export const AUTO = { label: 'On second to start the inning', kind: 'on' };
+function placeRunner(S) {
+  const h = S.half, n = S.size[h];
+  if (n < 2) return;
+  const slot = (S.up[h] + n - 1) % n, p = S.pl[h][slot], pi = S.pit[1 - h], who = label(player(S.g, h, slot, p), slot);
+  const cell = {
+    n: S.cells.length, side: h, slot, p, pi, inn: S.inn, k: 0, r: 'AR', f: null, mark: 'AR', count: [0, 0], seq: '', ev: -1,
+    reach: 2, from: 2, notes: ['', '', '', '', ''], outN: 0, outAt: 0, outHow: '', scored: false, rbi: 0, end: false,
+    text: `${who} starts the ${ord(S.inn)} on second.`, story: [], auto: true,
+  };
+  S.cells.push(cell);
+  S.col.used.add(slot);
+  S.bases[2] = { cell, side: h, slot, p, pi };
+  S.plays.push({ i: S.i, inn: S.inn, half: h, text: `Extra innings: ${who} starts on second.`, kind: 'run', runs: 0, mark: 'AR', auto: true });
 }
 // The game ended before anything happened in the half-inning that had just started (a mercy rule, rain between
 // innings): nobody batted in it, so it comes off the line score, and the game stops after the half before it. Keep
@@ -613,6 +637,9 @@ function nextHalf(S) {
 function unstart(S) {
   const h = S.half, inn = S.inn;
   S.line[h].pop(); S.hInn[h].pop(); S.eInn[h].pop();
+  // (And the runner put on second to start it, if it was an extra inning.)
+  const here = x => x.auto && x.inn === inn && (x.side ?? x.half) === h;
+  if (S.cells.some(here)) { S.cells = S.cells.filter(c => !here(c)); S.plays = S.plays.filter(p => !here(p)); S.bases = [null, null, null, null]; }
   S.half = 1 - h;
   if (h === 0) S.inn--;
   for (const p of S.plays) if (p.inn === inn && p.half === h) { p.inn = S.inn; p.half = S.half; }
@@ -804,13 +831,13 @@ export function columns(S, side) {
   return out;
 }
 export const batKey = key;
-export const pitchStat = (S, side, i) => S.pitching[side][i] || { np: 0, balls: 0, str: 0, bf: 0, outs: 0, h: 0, r: 0, bb: 0, k: 0, hr: 0, hbp: 0, wp: 0, bk: 0 };
+export const pitchStat = (S, side, i) => S.pitching[side][i] || { np: 0, balls: 0, str: 0, bf: 0, outs: 0, h: 0, r: 0, ur: 0, bb: 0, k: 0, hr: 0, hbp: 0, wp: 0, bk: 0 };
 export const ip = outs => Math.floor(outs / 3) + (outs % 3 ? '.' + (outs % 3) : '');
 // A pitcher's day so far, in words, from pitchStat: "43 pitches (33 strikes), 4 innings and 1 out, 13 batters faced,
 // 1 hit, 0 runs, 0 walks, 4 strikeouts." (The box score keeps the scorer's 4.1.) pitches: whether they're counted.
 const many = (k, one, more = one + 's') => `${k} ${k === 1 ? one : more}`;
 export function pitchDay(st, pitches = true) {
-  return `${pitches ? `${many(st.np, 'pitch', 'pitches')} (${many(st.str, 'strike')}), ` : ''}${pitchWork(st)}, ${many(st.h, 'hit')}, ${many(st.r, 'run')}, ${many(st.bb, 'walk')}, ${many(st.k, 'strikeout')}.`;
+  return `${pitches ? `${many(st.np, 'pitch', 'pitches')} (${many(st.str, 'strike')}), ` : ''}${pitchWork(st)}, ${many(st.h, 'hit')}, ${many(st.r, 'run')}${st.ur ? ` (${st.ur} unearned)` : ''}, ${many(st.bb, 'walk')}, ${many(st.k, 'strikeout')}.`;
 }
 // The outs a pitcher got and the batters he faced, in words: "1 inning and 2 outs, 7 batters faced".
 export function pitchWork(st) {

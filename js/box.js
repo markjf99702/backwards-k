@@ -1,5 +1,5 @@
 // The box score (batting and pitching lines for both teams) and the play-by-play.
-import { batKey, pitchStat, pitcherLabel, ip, teamName, label, player, ord, pitchWords, POS_NAME, RESULTS } from './engine.js';
+import { batKey, pitchStat, pitcherLabel, ip, teamName, label, player, ord, pitchWords, POS_NAME, RESULTS, AUTO } from './engine.js';
 import { esc, KL } from './ui.js';
 import { abbr } from './card.js';
 
@@ -90,6 +90,8 @@ function notes(S, side) {
     ['Hit by a pitch', of('HBP')], ['Stolen bases', names(bats.map(([n, b]) => [n, b.sb]))], ['Caught stealing', names(bats.map(([n, b]) => [n, b.cs]))],
     ['Left on base', String(S.lob[side].reduce((a, b) => a + (b || 0), 0))], ['Errors', errs],
     ['Wild pitches', names(arms.map(([n, p]) => [n, p.wp]))],
+    // (Extra innings that start with a runner on second: his run is unearned, OBR 7.01(b).)
+    ['Unearned runs, from the runner put on second', names(arms.map(([n, p]) => [n, p.ur || 0]))],
     ['Hit batters', names(hit.map(c => [`${pitcherLabel(g, side, c.pi)} (${label(player(g, c.side, c.slot, c.p), c.slot)})`, 1]))],
     ['Balks', names(arms.map(([n, p]) => [n, p.bk]))],
   ];
@@ -100,7 +102,7 @@ function notes(S, side) {
 // and a line that adds up, naming only what isn't zero: "1 for 2, a walk, a run, 2 stolen bases".
 export function dayOf(S, side, slot, p) {
   const trips = S.cells.filter(c => c.side === side && c.slot === slot && c.p === p)
-    .map(c => ({ inn: c.inn, r: c.r, mark: c.mark, words: (RESULTS[c.r] || { label: '' }).label.toLowerCase() }));
+    .map(c => ({ inn: c.inn, r: c.r, mark: c.mark, words: (RESULTS[c.r] || (c.auto ? AUTO : { label: '' })).label.toLowerCase() }));
   const b = S.bat[batKey(side, slot, p)];
   if (!b) return { trips, line: '' };
   const n = (k, one, many) => k && (k === 1 ? one : `${k} ${many}`);

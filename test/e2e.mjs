@@ -465,6 +465,37 @@ step('league rules: the Minors end a half at five runs, and the next new game st
   await p.context().close();
 }
 
+step('extra innings that start with a runner on second: he is on the field, on the card and in the plays');
+{
+  const p = await phone();
+  await p.goto(base + '#/new');
+  await p.click('[data-inn="3"]');
+  await p.check('input[name=tie]');
+  await p.click('[data-go]');
+  await p.waitForSelector('.live .field');
+  for (let i = 0; i < 18; i++) await p.click('[data-r=K]');
+  assert.match(await p.textContent('.bar .title small'), /^Top 4th/);
+  assert.equal(await p.textContent('.live [data-runner="2"]'), 'Batter 9');
+  assert.equal(await p.textContent('.live .batter span'), 'Batter 1');
+  assert.match(await p.textContent('.recent'), /AR\s*Extra innings: Batter 9 starts on second\./);
+  await p.click('[data-v=card]');
+  await p.click('.card td.cur [data-cell]');
+  assert.match(await p.textContent('.sheet .cell-big'), /AR On second to start the inning\s*Batter 9 starts the 4th on second\./);
+  assert.match(await p.textContent('.sheet'), /his run is unearned/);
+  await p.keyboard.press('Escape');
+  await p.click('[data-a=menu]');
+  await p.click('.sheet [data-y=settings]');
+  assert.equal(await p.$eval('.sheet [data-g=tie]', s => s.selectedOptions[0].textContent), 'From the 4th (extra innings)');
+  // Taken off: the 4th starts as usual.
+  await p.selectOption('.sheet [data-g=tie]', '0');
+  await p.keyboard.press('Escape');
+  await p.click('[data-v=live]');
+  assert.equal(await p.locator('.live [data-runner]').count(), 0);
+  await p.goto(base + '#/new');
+  assert.equal(await p.isChecked('input[name=tie]'), false, 'the next game starts as the last one was left');
+  await p.context().close();
+}
+
 step('the end of the order the first time through: a warning on deck, and a batter added from the batter sheet');
 {
   const p = await phone(), id = await startGame(p);

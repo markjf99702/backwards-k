@@ -10,7 +10,7 @@ const PT = [[30, 51], [49, 32], [30, 13], [11, 32], [30, 51]];
 const NOTE = [null, [46, 50, 'start'], [58, 17, 'end'], [2, 22, 'start'], [2, 50, 'start']];
 // Picked off a base: inside the diamond by that base, so it's clear of the note for how they got there.
 const INSIDE = [null, [41, 34, 'end'], [30, 26, 'middle'], [19, 34, 'start']];
-const pts = n => PT.slice(0, n + 1).map(p => p.join(',')).join(' ');
+const pts = (n, from = 0) => PT.slice(from, n + 1).map(p => p.join(',')).join(' ');
 const mid = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
 
 // c is a box from engine.js (or a made-up one for the guide). count: show the final count in the corner.
@@ -19,7 +19,10 @@ export function cellSvg(c, { count = true } = {}) {
   let s = '<svg viewBox="0 0 60 60" class="cs" aria-hidden="true">';
   s += `<path class="dia" d="M${pts(3)}Z"/>`;
   if (c.scored) s += `<path class="run" d="M${pts(3)}Z"/>`;
-  if (c.reach) s += `<polyline class="path" points="${pts(Math.min(c.reach, 4))}"/>`;
+  // (A runner put on second to start an extra inning starts there: a dot on the bag, and his way on from it.)
+  const from = c.from || 0;
+  if (c.reach > from) s += `<polyline class="path" points="${pts(Math.min(c.reach, 4), from)}"/>`;
+  if (from) s += `<circle class="start" cx="${PT[from][0]}" cy="${PT[from][1]}" r="3"/>`;
   // Put out on the way to the next base: a line part of the way there, and a bar across it.
   if (c.outN && c.outAt > c.reach && c.outAt > 0 && (c.reach > 0 || c.outAt > 1)) {
     const a = PT[c.reach], b = PT[Math.min(c.outAt, 4)], m = mid(a, b, 0.55);
@@ -87,8 +90,8 @@ function changes(S, side) {
 // count. "1st inning. Brennan doubles. To third on Lindqvist's ground out. Count: 1 ball, 2 strikes."
 function boxWords(c, count) {
   const few = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
-  return [`${ord(c.inn)} inning.`, c.text, ...c.story, c.outN ? `${ord(c.outN)} out.` : '', c.rbi ? `${c.rbi} RBI.` : '',
-    count ? `Count: ${few(c.count[0], 'ball')}, ${few(c.count[1], 'strike')}.` : ''].filter(Boolean).join(' ');
+  return [`${ord(c.inn)} inning.`, c.text, ...c.story, c.auto && c.scored ? 'The run is unearned.' : '', c.outN ? `${ord(c.outN)} out.` : '', c.rbi ? `${c.rbi} RBI.` : '',
+    count && !c.auto ? `Count: ${few(c.count[0], 'ball')}, ${few(c.count[1], 'strike')}.` : ''].filter(Boolean).join(' ');
 }
 // A heading's short form, with its words for a screen reader and a mouse pointer.
 const WORDS = { AB: 'At bats', R: 'Runs', H: 'Hits', RBI: 'Runs batted in', BB: 'Walks', K: 'Strikeouts', IP: 'Innings pitched', HR: 'Home runs', BF: 'Batters faced', 'P-S': 'Pitches and strikes' };
