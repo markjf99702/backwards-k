@@ -875,7 +875,7 @@ export const noCatch = (limit, np) => !!limit && limit.by === 'll' && np >= 41;
 export function limitState(S) {
   const L = S.g.limit, fld = 1 - S.half;
   if (!L || !L.max || !S.g.pitches || S.over) return '';
-  const np = pstat(S, fld, S.pit[fld]).np;
+  const np = pitchStat(S, fld, S.pit[fld]).np;
   if (np < L.max - 5) return '';
   if (np < L.max) return 'near';
   return S.seq && np - S.seq.length < L.max ? 'finish' : 'over';

@@ -134,8 +134,8 @@ To put it online with GitHub Pages: **Settings → Pages → Build and deploymen
 - `js/card.js`: the scorecard and the line score. `js/box.js`: the box score, the play-by-play and a batter's day.
 - `js/field.js`: the field drawings. `js/help.js`: how to read the card.
 - `js/home.js`, `js/setup.js`: the first screen, and starting a game.
-- `js/rules.js`: league rules (Little League's, the Minors', or a league's own), picked in New game and Game
-  settings.
+- `js/rules.js`: league rules (Little League's, the Minors', or a league's own) and pitch limits, picked in New game
+  and Game settings.
 - `js/share.js`: share links, the score as text, printing. `js/sync.js`: Google Drive.
 - `js/sample.js`: a made-up game played with seeded dice, for the sample, the pictures and the tests.
 - `js/ui.js`: the sheet, the toast, saving and opening files, and the other small helpers every screen uses.
