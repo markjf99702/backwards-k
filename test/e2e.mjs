@@ -2692,6 +2692,20 @@ step('on paper, the line score’s R H E are in black');
     assert.equal(got.cols.length, 9);
     assert.deepEqual(got.breaks, ['auto', 'page', 'page']);
   }
+  // The box score keeps to its page too, spray charts and all: the whole sample game, whose hits say where they went.
+  await p.evaluate(async () => {
+    const { printGame } = await import('./js/share.js'), { sampleGame } = await import('./js/sample.js');
+    printGame(sampleGame(7));
+  });
+  for (const [w, h] of [[7.7, 10.2], [10.2, 7.7]]) {
+    await p.setViewportSize({ width: Math.round(w * 96), height: Math.round(h * 96) });
+    const box = await p.evaluate(() => {
+      const b = document.querySelector('#print .pbox');
+      return { h: b.getBoundingClientRect().height + parseFloat(getComputedStyle(b.querySelector('h2')).marginTop), charts: b.querySelectorAll('.spray').length };
+    });
+    assert.equal(box.charts, 2);
+    assert.ok(box.h < h * 96, `${w}x${h}in: the box score takes ${box.h} of ${h * 96}`);
+  }
   await p.context().close();
 }
 

@@ -911,11 +911,22 @@ html:has(dialog.sheet[open]) { overflow: hidden; scrollbar-gutter: stable; }
   #print .stats thead th:first-child { font-size: 14px; }
   #print .stats small { font-size: 10px; }
   #print .extras p, #print .clock { font-size: 12px; margin-bottom: 2px; }
-  #print .spray { box-shadow: none; padding: 0; max-width: 2.4in; break-inside: avoid; }
+  /* A spray chart on paper: its field small, with the title, the key and the words beside it, so the box score keeps
+     to its page. */
+  #print .spray { box-shadow: none; padding: 0; max-width: none; margin: 10px 0 0; break-inside: avoid; display: grid; grid-template-columns: 1.15in 1fr; grid-template-rows: auto auto 1fr; column-gap: 10px; }
+  #print .spray-field { grid-column: 1; grid-row: 1 / span 3; }
+  #print .spray figcaption { grid-column: 2; grid-row: 1; font-size: 14px; margin: 0 0 4px; }
+  #print .spray-key { grid-column: 2; grid-row: 2; margin: 0; }
+  #print .spray-words { grid-column: 2; grid-row: 3; margin: 2px 0 0; }
   #print .spray-key, #print .spray-words { font-size: 11px; }
   #print .box-grid { grid-template-columns: 1fr 1fr; display: grid; }
 }
 @media print and (orientation: landscape) {
   /* Less height: the first card shares its page with the title and the line score. */
   #print .pcard { --budget: 4in; }
+  /* And a spray chart goes beside the notes under the team's lines (doubles, left on base), where there's room. */
+  #print .box-grid > div { display: grid; grid-template-columns: 1fr 2.7in; column-gap: 14px; align-items: start; align-content: start; }
+  #print .box-grid > div > * { grid-column: 1 / -1; }
+  #print .box-grid > div > .extras { grid-column: 1; }
+  #print .box-grid > div > .spray { grid-column: 2; margin-top: 0; }
 }
