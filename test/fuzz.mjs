@@ -2,8 +2,9 @@
 // every tap:  node test/fuzz.mjs   (FUZZ_GAMES=1500 for a long run, FUZZ_SEED=n to start from another seed)
 //
 // Each game is seeded, so a run is the same every time. A step is what a tap on the game screen does (js/game.js):
-// a pitch, a result with its fielders and the runners sheet (check(), scoredAs() and "did the run count"), Fix
-// runners, a runner's steal, pickoff, wild pitch or balk, a substitution or someone back in, a pitching change, a
+// a pitch, a result with its fielders and the runners sheet (check(), scoredAs() and "did the run count", where a
+// runner was put out and how one took an extra base), Fix runners, a runner's steal, pickoff, wild pitch, defensive
+// indifference or balk, a substitution or someone back in, a pitching change, a
 // batter added, End this half-inning, End the game here (a delay, a run rule, a time limit, called), Keep playing
 // and Resume play, a box switched to another result, and Undo,
 // Redo and Put back. After each one: the outs, the count and the bases make sense; runs, hits and errors add up the
@@ -274,7 +275,7 @@ function choose(C, rnd) {
     }
     case 'run': {
       const b = pick(rnd, runnersOn(S));
-      const how = weighed(rnd, [[35, 'SB'], [10, 'CS'], [5, 'PO'], [5, 'OB'], [15, 'WP'], [7, 'PB'], [8, 'E'], [5, 'OA'], [5, 'BK'], [5, 'PR']]);
+      const how = weighed(rnd, [[35, 'SB'], [10, 'CS'], [5, 'PO'], [5, 'OB'], [15, 'WP'], [7, 'PB'], [8, 'E'], [4, 'DI'], [5, 'OA'], [5, 'BK'], [5, 'PR']]);
       if (how === 'PR') return { a: 'sub', side: S.half, slot: S.bases[b].slot, ty: 'pr' };
       return { a: 'run', b, how, to: rnd() < 0.7 ? b + 1 : b + 1 + Math.floor(rnd() * (4 - b)), also: rnd() < 0.3, f: how === 'E' && rnd() < 0.7 ? [1 + Math.floor(rnd() * 9)] : null };
     }
@@ -481,7 +482,7 @@ function say(a) {
     case 'p': return { b: 'Ball', c: 'Strike looking', s: 'Strike swinging', f: 'Foul' }[a.k];
     case 'pa': return `${a.r}${a.f ? ' ' + a.f.join('-') : ''}${mv(a.m)}${a.said != null ? ` (runs count: ${a.said ? 'yes' : 'no'})` : ''}`;
     case 'fix': return `Fix runners${mv(a.m)}`;
-    case 'run': return `runner on ${a.b}: ${a.how}${['WP', 'PB', 'E', 'OA'].includes(a.how) ? ' to ' + a.to + (a.also ? ', the others up one' : '') : ''}`;
+    case 'run': return `runner on ${a.b}: ${a.how}${['WP', 'PB', 'E', 'DI', 'OA'].includes(a.how) ? ' to ' + a.to + (a.also ? ', the others up one' : '') : ''}`;
     case 'sub': return `${a.back ? 'back in' : a.ty} for ${a.side ? 'home' : 'visitors'} spot ${a.slot + 1}`;
     case 'pitcher': return `new pitcher for ${a.side ? 'home' : 'visitors'}`;
     case 'back': return 'bring back an earlier pitcher';

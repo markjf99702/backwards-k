@@ -2395,6 +2395,19 @@ step('the runners sheet: a runner marked out says where, from the next base on (
   await p.context().close();
 }
 
+step('the runner sheet: defensive indifference moves him up, and isn’t a stolen base');
+{
+  const p = await phone(), id = await startGame(p);
+  await p.click('[data-r="1B"]');
+  await p.click('[data-runner="1"]');
+  await p.click('.sheet [data-k="DI"]');
+  assert.equal(await tickerOf(p), 'Batter 1 takes second on defensive indifference.');
+  assert.deepEqual((await stored(p, id)).ev.at(-1), { t: 'r', m: [[1, 2, 'DI']] });
+  await p.click('[data-v=box]');
+  assert.doesNotMatch(await p.textContent('.pane[data-p=box]'), /Stolen bases/);
+  await p.context().close();
+}
+
 step('positions: kept from a pasted lineup, changed in Lineups, on the card and the box score, and names on the fielder picker');
 {
   const p = await phone();

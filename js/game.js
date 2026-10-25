@@ -887,7 +887,8 @@ function runnerSheet(b) {
       <button type="button" class="res" data-k="WP"><b>WP</b><span>Wild pitch</span></button>
       <button type="button" class="res" data-k="PB"><b>PB</b><span>Passed ball</span></button>
       <button type="button" class="res" data-k="E"><b>E</b><span>Error</span></button>
-      <button type="button" class="res" data-k="OA"><b>Adv</b><span>Something else</span></button>
+      <button type="button" class="res" data-k="DI"><b>DI</b><span>Defensive indifference: nobody tried to stop him</span></button>
+      <button type="button" class="res wide" data-k="OA"><b>Adv</b><span>Something else</span></button>
     </div>
     <div class="list">
       <button type="button" class="li" data-k="BK"><b>Balk</b><span>Every runner moves up a base.</span></button>

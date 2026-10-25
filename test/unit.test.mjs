@@ -211,6 +211,17 @@ test('stolen bases and wild pitches move runners without a plate appearance', ()
   assert.equal(S.cells.length, 1);
 });
 
+test('defensive indifference: he takes second, and it isn’t a stolen base (OBR 9.07(g))', () => {
+  const g = game();
+  const S = play(g, '1B', { t: 'r', m: [[1, 2, 'DI']] });
+  assert.equal(S.text.at(-1), 'Batter 1 takes second on defensive indifference.');
+  assert.deepEqual([S.cells[0].notes[2], S.cells[0].story, S.bat['0.0.0'].sb, S.plays.at(-1).mark], ['DI', ['Took second on defensive indifference.'], 0, 'DI']);
+  assert.match(boxHtml(S), /Left on base/);
+  assert.doesNotMatch(boxHtml(S), /Stolen bases/);
+  assert.deepEqual(cleanGame(JSON.parse(JSON.stringify(g))), g);
+  assert.equal(newer(g), false);
+});
+
 test('a runner can’t be moved onto a base someone is still on', () => {
   const g = game();
   play(g, 'CI', '2B');

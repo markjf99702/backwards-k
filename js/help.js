@@ -43,6 +43,7 @@ export function helpSheet() {
       <dt>A line with a bar</dt><dd>Put out trying for that base</dd>
       <dt>AR and a dot on second</dt><dd>Put on second to start an extra inning, where a league does that: he didn’t bat, and his run is unearned</dd>
       <dt>WP, PB, BK</dt><dd>Wild pitch, passed ball, balk</dd>
+      <dt>DI</dt><dd>Defensive indifference: nobody tried to stop him taking the base, so it isn’t a stolen base</dd>
       <dt>A small number</dt><dd>Moved up on that batter’s play (by their place in the order)</dd>
       <dt>2-1</dt><dd>The count when the at-bat ended (balls, then strikes)</dd>
       <dt>Red line</dt><dd>Under the last batter of an inning</dd>

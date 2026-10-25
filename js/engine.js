@@ -52,6 +52,8 @@ export const RUNS = {
   PB: { label: 'Passed ball', out: false },
   BK: { label: 'Balk', out: false },
   E: { label: 'Error', out: false },
+  // Took a base nobody tried to stop him taking: no stolen base (OBR 9.07(g)).
+  DI: { label: 'Defensive indifference', out: false },
   OA: { label: 'Moved up', out: false },
   OB: { label: 'Out on the bases', out: true },
 };
@@ -538,7 +540,8 @@ function runners(S, e) {
       r.cell.story.push(bits[bits.length - 1].replace(who + ' is', 'Was') + '.');
     } else {
       reach(r.cell, from, to, m);
-      const why = how === 'WP' ? ' on a wild pitch' : how === 'PB' ? ' on a passed ball' : how === 'E' ? ` on an error by the ${POS_NAME[f && f[0]] || 'fielder'}${f && f[0] ? ` (E${f[0]})` : ''}` : '';
+      const why = how === 'WP' ? ' on a wild pitch' : how === 'PB' ? ' on a passed ball' : how === 'DI' ? ' on defensive indifference'
+        : how === 'E' ? ` on an error by the ${POS_NAME[f && f[0]] || 'fielder'}${f && f[0] ? ` (E${f[0]})` : ''}` : '';
       const said = balk ? '' : why;
       if (to === 4 && runs >= cap) { overLimit(S, r, from, who, past, (names, one, more) => { if (!names.length) bits.push(() => `${list(names)} ${names.length > 1 ? more : one}`); }); continue; }
       if (to === 4) { score(S, r); runs++; } else S.bases[to] = r;
@@ -548,8 +551,8 @@ function runners(S, e) {
         if (winning) win = said;
         if (!scored[said]) { const names = scored[said] = []; bits.push(() => scorers(names, win === said, said)); }
         scored[said].push(who);
-      } else bits.push(`${who} ${to === 4 ? `steals home${winning ? ' with the winning run' : ''}` : `${how === 'SB' ? 'steals' : 'moves to'} ${BASE[to]}`}${said}`);
-      r.cell.story.push(`${how === 'SB' && to === 4 ? 'Stole home' : to === 4 ? 'Scored' : how === 'SB' ? 'Stole ' + BASE[to] : 'Moved to ' + BASE[to]}${balk ? ' on a balk' : why}.`);
+      } else bits.push(`${who} ${to === 4 ? `steals home${winning ? ' with the winning run' : ''}` : `${how === 'SB' ? 'steals' : how === 'DI' ? 'takes' : 'moves to'} ${BASE[to]}`}${said}`);
+      r.cell.story.push(`${how === 'SB' && to === 4 ? 'Stole home' : to === 4 ? 'Scored' : how === 'SB' ? 'Stole ' + BASE[to] : how === 'DI' ? 'Took ' + BASE[to] : 'Moved to ' + BASE[to]}${balk ? ' on a balk' : why}.`);
     }
   }
   // One wild throw is one error, and one wild pitch is one, however many runners move up on it (OBR 9.12).
