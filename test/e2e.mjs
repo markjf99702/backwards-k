@@ -1262,7 +1262,11 @@ step('scoring from a keyboard: a key for each pitch and the everyday results, an
   const p = await phone();
   const id = await startGame(p);
   const keys = async (...k) => { for (const x of k) await p.keyboard.press(x); };
-  await keys('b', 'c', 's', 'f');
+  // A key held down (its repeats) is one ball, not a walk.
+  for (let i = 0; i < 4; i++) await p.keyboard.down('b');
+  await p.keyboard.up('b');
+  assert.equal(await tickerOf(p), 'Ball (1-0)');
+  await keys('c', 's', 'f');
   assert.equal(await tickerOf(p), 'Foul (1-2)');
   await keys('1');
   assert.equal(await tickerOf(p), 'Batter 1 singles.');

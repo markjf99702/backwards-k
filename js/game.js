@@ -506,12 +506,12 @@ function onClick(e) {
 // ---------- scoring from a keyboard ----------
 // For a scorer at a laptop, or following on TV: a key for each pitch and the everyday results, More, and Undo. Only
 // with no sheet open and nothing being typed in; a sheet that opens (the fielders, say) takes its own keys, so G 6 3
-// Enter scores a 6-3.
+// Enter scores a 6-3. A key held down counts once: the keyboard's repeats would be more balls, and soon a walk.
 const KEYS_TO = { b: ['p', 'b'], c: ['p', 'c'], s: ['p', 's'], f: ['p', 'f'], 1: ['r', '1B'], 2: ['r', '2B'], 3: ['r', '3B'], 4: ['r', 'HR'],
   w: ['r', 'BB'], h: ['r', 'HBP'], e: ['r', 'E'], k: ['r', 'K'], K: ['r', 'KL'], g: ['r', 'GO'], y: ['r', 'FO'], l: ['r', 'LO'], p: ['r', 'PU'], m: ['a', 'more'], u: ['a', 'undo'] };
 const KEY_OF = { '1B': '1', '2B': '2', '3B': '3', HR: '4', BB: 'W', HBP: 'H', E: 'E', K: 'K', KL: 'Shift+K', GO: 'G', FO: 'Y', LO: 'L', PU: 'P' };
 document.addEventListener('keydown', e => {
-  if (!root || readOnly || e.defaultPrevented || e.altKey || e.isComposing || sheetOpen()) return;
+  if (!root || readOnly || e.defaultPrevented || e.repeat || e.altKey || e.isComposing || sheetOpen()) return;
   if (e.target.closest && e.target.closest('input, textarea, select, [contenteditable]')) return;
   const k = e.key.length === 1 ? e.key.toLowerCase() : '';
   const [what, v] = (e.ctrlKey || e.metaKey ? (k === 'z' && !e.shiftKey ? KEYS_TO.u : null) : KEYS_TO[k === 'k' && e.shiftKey ? 'K' : k]) || [];
