@@ -429,6 +429,11 @@ function pages(C) {
   }
   const pas = S.cells.filter(c => !c.auto).length;
   if ((html.plays.match(/<li class="pa/g) || []).length !== pas) bad('plays', `${pas} trips to the plate, and the plays list another number`);
+  // The win, the loss and the save: only once a team has won, to pitchers who pitched for the right teams, and never the
+  // winner's save (OBR 9.17, 9.19).
+  const d = E.decisions(S);
+  if (d && (E.winner(S) !== d.win || !S.pitching[d.win][d.w] || !S.pitching[1 - d.win][d.l] || (d.s != null && (d.s === d.w || !S.pitching[d.win][d.s])))) bad('decisions', JSON.stringify(d));
+  if (d && (html.box.match(/class="dec"/g) || []).length !== (d.s != null ? 3 : 2)) bad('decisions', 'the box score marks another number of decisions');
   return out;
 }
 // The game from storage, a file or Drive (cleanGame), and from a link (pack), is the game.

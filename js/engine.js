@@ -136,6 +136,9 @@ export function replay(g, upTo = g.ev.length) {
     crs: [[], []], // each team's courtesy runners: { name, for, inn }
     joined: null, // scored from partway through: { inn, half, r: the runs each team had then } (see 'join')
     ghosts: [], // this half-inning played again without its errors and passed balls, for earned runs (see ghost())
+    rec: [0, 0], // each team's pitcher of record: the one who pitched to its latest batter (OBR 9.17)
+    lead: null, // the team ahead, and from which run: { side, w: its pitcher of record then, l: the pitcher charged with it }
+    entry: [{}, {}], // how things stood when each pitcher first pitched: { lead, tying } (a save, OBR 9.19)
     pit: [0, 0],
     line: [[0], []], hInn: [[0], []], eInn: [[0], []], lob: [[], []],
     R: [0, 0], H: [0, 0], E: [0, 0],
@@ -249,6 +252,10 @@ function step(S, e) {
       for (const k of ['line', 'hInn', 'eInn']) { S[k][0][inn - 1] = h ? null : 0; if (h) S[k][1][inn - 1] = 0; }
       if (e.up < S.size[h]) S.up[h] = e.up;
       S.ghosts = []; ghost(S, S.pit[1 - h]);
+      // (Whoever pitched before isn't known: a lead from then on gives nobody a win or a loss, and nor does one taken
+      // before a team's pitcher has pitched where the scorer saw it.)
+      S.lead = r[0] === r[1] ? null : { side: r[1] > r[0] ? 1 : 0, w: null, l: null };
+      S.rec = [null, null];
       const lead = r[0] === r[1] ? `tied ${r[0]}–${r[1]}` : `${teamName(g, r[1] > r[0] ? 1 : 0)} ${Math.max(...r)}, ${teamName(g, r[1] > r[0] ? 0 : 1)} ${Math.min(...r)}`;
       return note(S, `Scored from the ${h ? 'bottom' : 'top'} of the ${ord(inn)}: ${lead}.`, 'sub');
     }
@@ -351,6 +358,7 @@ function pstat(S, side = 1 - S.half, i = S.pit[side]) {
 
 function pitch(S, k) {
   S.fresh = false;
+  pitching(S);
   const P = pstat(S);
   P.np++; S.seq += k;
   const count = () => `${S.b}-${S.s}`;
@@ -375,6 +383,7 @@ function pa(S, e) {
   // (OBR 9.06(f)): with the bases loaded, a double that wins it is a single.
   const need = winningRun(S, e.r, moves, e.x), code = creditedHit(e.r, need, moves), R = RESULTS[code];
   S.fresh = false;
+  pitching(S);
   const P = pstat(S);
   if (!e.auto && R.pitch) {
     P.np++;
@@ -594,6 +603,7 @@ function fielderWords(code, f) {
 
 function runners(S, e) {
   S.fresh = false;
+  pitching(S);
   const g = S.g, side = S.half, fld = 1 - side;
   const moves = e.m.slice().sort((a, b) => b[0] - a[0]);
   // Runners who score for the same reason are in one sentence: "Ruiz and Okafor score on a wild pitch."
@@ -744,6 +754,17 @@ function ghostPlay(S, acts, code, balk = false) {
   }
 }
 
+// ---------- the pitcher of record ----------
+// The team in the field's pitcher pitches: he's its pitcher of record, and the first time he does, how things stand
+// is kept for a save (OBR 9.19): his team's lead, and whether the tying run is on base, at bat or on deck.
+function pitching(S) {
+  const fld = 1 - S.half, i = S.pit[fld];
+  S.rec[fld] = i;
+  if (S.entry[fld][i]) return;
+  const lead = S.R[fld] - S.R[S.half];
+  S.entry[fld][i] = { lead, tying: lead > 0 && lead <= runnersOn(S).length + 2 };
+}
+
 // Where someone put out on a batted ball was put out: the base the scorer picked (a move's how, '@3' for third), or else
 // the next one, or for the batter the one after his hit (thrown out stretching a single: at second). R: the play.
 export function outAt(from, how, R) {
@@ -774,6 +795,9 @@ function score(S, r) {
   S.R[side]++; S.line[side][S.inn - 1]++;
   r.cell.scored = true;
   r.ran = true;
+  // The run that ties it, or puts a team ahead: who'd get the win, and who's charged with the loss (OBR 9.17).
+  if (S.R[side] === S.R[1 - side]) S.lead = null;
+  else if (S.R[side] === S.R[1 - side] + 1) S.lead = { side, w: S.rec[side], l: r.pi };
   bstat(S, side, r.slot, r.p).r++;
   const P = pstat(S, 1 - side, r.pi);
   P.r++;
@@ -1070,6 +1094,43 @@ export function winner(S) {
   if (!S.over || S.R[0] === S.R[1] || (S.ended && !S.why && !official(S))) return null;
   return S.R[1] > S.R[0] ? 1 : 0;
 }
+// The win, the loss and the save, once a team has won (OBR 9.17, 9.19): { win: the side, w, l, s: the pitchers, s
+// null for none }, or null (no winner yet, or a lead the game was picked up with, from pitchers nobody saw).
+// The win: the winning team's pitcher of record when it went ahead for good; but a starter has to go five innings (four
+// in a game of five on defense) to get it, else it's the most effective reliever's, and a reliever who pitched briefly
+// and ineffectively (under an inning, two or more earned runs) loses it to the best of those after him. Most effective,
+// which the rules leave to the scorer, is here the most outs, then the fewest earned runs, then the first in. The loss:
+// the pitcher charged with the run that put the winners ahead for good. The save: the pitcher who finished the game for
+// the winners, not the winner, with an out or more, who came in with a lead of three runs or fewer and pitched an
+// inning, or with the tying run on base, at bat or on deck, or who pitched three innings.
+export function decisions(S) {
+  const win = winner(S);
+  if (win == null || !S.lead || S.lead.side !== win || S.lead.w == null) return null;
+  const st = i => pitchStat(S, win, i), used = [0];
+  for (const e of S.g.ev.slice(0, S.upTo)) if (e.t === 'pch' && e.s === win && !used.includes(e.i) && S.pitching[win][e.i]) used.push(e.i);
+  const relievers = used.slice(1), best = list => list.slice().sort((a, b) => st(b).outs - st(a).outs || st(a).er - st(b).er || used.indexOf(a) - used.indexOf(b))[0];
+  let w = S.lead.w;
+  // (In the field: the halves the losing team batted. A game picked up partway through doesn't know its starter.)
+  const def = S.line[1 - win].filter(v => v != null).length;
+  if (w === 0 && !S.joined && def >= 5 && st(0).outs < (def >= 6 ? 15 : 12) && relievers.length) w = best(relievers);
+  else if (w !== 0 && st(w).outs < 3 && st(w).er >= 2) {
+    const later = relievers.slice(relievers.indexOf(w) + 1);
+    if (later.length) w = best(later);
+  }
+  // (A game ended before the winners pitched, by hand on a time limit, say: nobody's to be credited.)
+  if (!S.pitching[win][w] || !S.pitching[1 - win][S.lead.l]) return null;
+  const fin = S.rec[win], en = S.entry[win][fin], outs = st(fin).outs;
+  const sv = fin !== w && fin !== 0 && outs >= 1 && !!en && ((en.lead > 0 && en.lead <= 3 && outs >= 3) || en.tying || outs >= 9);
+  return { win, w, l: S.lead.l, s: sv ? fin : null };
+}
+// The decisions in words: "Halvorsen gets the win, Whitlock the loss, and Bishop the save."
+export function decisionWords(S) {
+  const d = decisions(S);
+  if (!d) return '';
+  const name = (side, i) => pitcherLabel(S.g, side, i);
+  return `${name(d.win, d.w)} gets the win, ${name(1 - d.win, d.l)} the loss${d.s != null ? `, and ${name(d.win, d.s)} the save` : ''}.`;
+}
+
 // Why a game ended before its last out, for after the score: "run rule", "time limit", the league's "10-run rule, 4
 // innings", or for a called game that didn't count, "before it was official". '' otherwise.
 export function endNote(S) {

@@ -2196,3 +2196,59 @@ test('earned runs: an error that would have been the third out, a passed ball, a
   play(g, ...threeK, ...threeK, '2B');
   assert.deepEqual(er(g), [1, 0]);
 });
+
+test('the win, the loss and the save (OBR 9.17, 9.19): beside the names in the box score, and said in the plays', async () => {
+  const { decisions, decisionWords } = await import('../js/engine.js');
+  const names = (S, d = decisions(S)) => d && [d.w, d.l, d.s];
+  // The sample: Halvorsen pitched six for the Comets, who went ahead in the 4th for good; Bishop came in two up and
+  // pitched three.
+  let S = replay(sampleGame(7));
+  assert.deepEqual(names(S), [0, 0, 1]);
+  assert.equal(decisionWords(S), 'Halvorsen gets the win, Whitlock the loss, and Bishop the save.');
+  const box = boxHtml(S);
+  assert.match(box, /Halvorsen <abbr class="dec" title="Winning pitcher">W<\/abbr><\/th>/);
+  assert.match(box, /Whitlock <abbr class="dec" title="Losing pitcher">L<\/abbr><\/th>/);
+  assert.match(box, /Bishop <abbr class="dec" title="Save">S<\/abbr><\/th>/);
+  assert.match(playsHtml(S), /<p class="decided">Halvorsen gets the win, Whitlock the loss, and Bishop the save\.<\/p>$/);
+  assert.match(playsHtml(S, { limit: 5 }), /^<p class="decided">/, 'newest first: before the last plays');
+  // Not until there's a winner.
+  const g = game({ innings: 3 });
+  g.teams[0].pitchers.push({ name: 'Relief', num: '' });
+  g.teams[1].pitchers.push({ name: 'Closer', num: '' });
+  S = play(g, 'HR', 'K', 'K', 'K');
+  assert.equal(decisions(S), null);
+  assert.equal(playsHtml(S).includes('decided'), false);
+  // The lead changes hands: the Comets go ahead 2-1 off the starter in the 1st, and the Foxes' reliever, in the game
+  // since the 2nd, is the pitcher of record when the Foxes go ahead 3-2 for good in the 3rd, off the Comets' starter.
+  // The Foxes' reliever finished it, but he's the winner: no save.
+  S = play(g, 'HR', 'HR', ...threeK, { t: 'pch', s: 0, i: 1 }, ...threeK, ...threeK, '1B', 'HR', 'K', 'K', 'K', { t: 'pch', s: 1, i: 1 }, ...threeK);
+  assert.deepEqual([S.R, S.over], [[3, 2], true]);
+  assert.equal(decisionWords(S), 'Relief gets the win, Pitcher the loss.', 'the Foxes finished with Relief, who won it');
+});
+
+test('the win: a starter needs five innings; a reliever who pitched briefly and badly gives way to the one after him (OBR 9.17)', async () => {
+  const { decisions } = await import('../js/engine.js');
+  // Seven innings: the Foxes' starter goes 3 with a 1-0 lead, two relievers finish (the second with more outs): the
+  // win is the most effective reliever's.
+  let g = game({ innings: 7 });
+  g.teams[0].pitchers.push({ name: 'Two', num: '' }, { name: 'Three', num: '' });
+  const K9 = Array(9).fill('K'), K6 = Array(6).fill('K');
+  play(g, 'HR', 'K', 'K', 'K', ...threeK, ...K6, ...K6, { t: 'pch', s: 0, i: 1 }, ...K6, ...threeK, { t: 'pch', s: 0, i: 2 }, ...K9, ...K6);
+  let S = replay(g);
+  assert.deepEqual([S.R, S.over, S.pitching[0].map(p => p.outs)], [[1, 0], true, [9, 3, 9]]);
+  assert.equal(decisions(S).w, 2);
+  // Three innings, so no five-inning rule: the Comets' reliever, in with one out in the 2nd, is the pitcher of record
+  // when they go ahead 4-0, but he gives up three home runs in a row in the 3rd, two outs in all; the one after him
+  // gets the last three outs, and the win (and so no save).
+  g = game({ innings: 3 });
+  g.teams[1].pitchers.push({ name: 'Wild', num: '' }, { name: 'Steady', num: '' });
+  play(g, ...threeK, ...threeK, 'K', { t: 'pch', s: 1, i: 1 }, 'K', 'K', '1B', '1B', '1B', 'HR', 'K', 'K', 'K', 'HR', 'HR', 'HR', { t: 'pch', s: 1, i: 2 }, 'K', 'K', 'K');
+  S = replay(g);
+  assert.deepEqual([S.R, S.over, S.pitching[1].map(p => [p.outs, p.er])], [[3, 4], true, [[4, 0], [2, 3], [3, 0]]]);
+  assert.deepEqual([decisions(S).w, decisions(S).s], [2, null]);
+  // A game picked up with the home team already ahead, who stay ahead: whoever pitched before is unknown, so nobody.
+  g = game({ innings: 2 });
+  play(g, { t: 'join', inn: 2, half: 0, r: [0, 3], up: 0 }, ...threeK);
+  S = replay(g);
+  assert.deepEqual([S.over, decisions(S)], [true, null]);
+});

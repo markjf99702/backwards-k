@@ -40,7 +40,11 @@ written out in plain words.
   half-inning played again without its errors and passed balls (a batter safe on an error is out instead, and a runner
   doesn't take the base an error gave him), and a run is earned if it would still have scored before the third out
   (OBR 9.16). A reliever doesn't get the outs the fielders missed before he came in (9.16(i)), and the runner put on
-  second in extra innings is never earned.
+  second in extra innings is never earned. Once a team has won, the box score marks the **win, the loss and the save**
+  (W, L, S) beside the pitchers' names, and the plays end with who got them (OBR 9.17, 9.19): the win to the pitcher
+  of record when his team went ahead for good, but a starter needs five innings for it (four in a five-inning game),
+  else it goes to the reliever with the most outs (then the fewest earned runs), and a reliever who pitched under an
+  inning and gave up two earned runs gives it to the best one after him.
 - **Undo anything.** A game is a list of what happened, so Undo takes plays back, latest first, as many as you like.
   It's at the top of the screen, and under the field beside the play it would take back, and it says which one it
   took (with Redo) when the line under the field is out of sight. Forgot a play a few back, a steal or a pitching

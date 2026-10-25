@@ -1,5 +1,5 @@
 // The box score (batting and pitching lines for both teams) and the play-by-play.
-import { batKey, pitchStat, pitcherLabel, ip, teamName, label, player, ord, pitchWords, POS_NAME, RESULTS, AUTO, restDays, noCatch, LIMIT_BY } from './engine.js';
+import { batKey, pitchStat, pitcherLabel, ip, teamName, label, player, ord, pitchWords, POS_NAME, RESULTS, AUTO, restDays, noCatch, LIMIT_BY, decisions, decisionWords } from './engine.js';
 import { esc, KL } from './ui.js';
 import { abbr } from './card.js';
 
@@ -28,12 +28,14 @@ function batting(S, side) {
     <tbody>${rows.join('')}</tbody><tfoot><tr><th scope="row">Totals</th><td>${tot.ab}</td><td>${tot.r}</td><td>${tot.h}</td><td>${tot.rbi}</td><td>${tot.bb}</td><td>${tot.k}</td></tr></tfoot></table>`;
 }
 
+// (W, L or S beside a name: the win, the loss or the save, once the game is won.)
+const DEC = { w: ['W', 'Winning pitcher'], l: ['L', 'Losing pitcher'], s: ['S', 'Save'] };
 function pitching(S, side) {
-  const g = S.g, used = new Set([0]);
+  const g = S.g, used = new Set([0]), d = decisions(S);
   for (const e of g.ev) if (e.t === 'pch' && e.s === side) used.add(e.i);
   const rows = [...used].map(i => {
-    const p = pitchStat(S, side, i);
-    return `<tr><th scope="row">${esc(pitcherLabel(g, side, i))}</th><td>${ip(p.outs)}</td><td>${p.h}</td><td>${p.r}</td><td>${p.er}</td><td>${p.bb}</td><td>${p.k}</td><td>${p.hr}</td><td>${p.bf}</td>${g.pitches ? `<td>${p.np}-${p.str}</td>` : ''}</tr>`;
+    const p = pitchStat(S, side, i), k = d && (side === d.win ? (i === d.w ? 'w' : i === d.s ? 's' : '') : i === d.l ? 'l' : '');
+    return `<tr><th scope="row">${esc(pitcherLabel(g, side, i))}${k ? ` <abbr class="dec" title="${DEC[k][1]}">${DEC[k][0]}</abbr>` : ''}</th><td>${ip(p.outs)}</td><td>${p.h}</td><td>${p.r}</td><td>${p.er}</td><td>${p.bb}</td><td>${p.k}</td><td>${p.hr}</td><td>${p.bf}</td>${g.pitches ? `<td>${p.np}-${p.str}</td>` : ''}</tr>`;
   });
   // Pitches and strikes as a newspaper prints them: 106-69.
   return `<table class="stats"><thead><tr><th scope="col">${esc(teamName(g, side))} pitching</th>${['IP', 'H', 'R', 'ER', 'BB', 'K', 'HR', 'BF', ...(g.pitches ? ['P-S'] : [])].map(k => `<th scope="col">${abbr(k)}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table>`;
@@ -153,7 +155,9 @@ export function playsHtml(S, { limit = 0 } = {}) {
   }
   if (!groups.length) return `<p class="quiet">${g.ev.some(e => e.t === 'p') ? 'No plays yet: the first at-bat is still going.' : 'Nothing has happened yet. The first pitch is all yours.'}</p>`;
   const back = !S.over || limit, order = list => (back ? list.slice().reverse() : list);
-  let n = 0, h = '';
+  // Once the game is won: the win, the loss and the save, after the last play (or, newest first, before it).
+  const dec = decisionWords(S), decided = dec ? `<p class="decided">${esc(dec)}</p>` : '';
+  let n = 0, h = back ? decided : '';
   for (const grp of order(groups)) {
     if (limit && n >= limit) break;
     h += `<section class="half"><h3>${grp.half ? 'Bottom' : 'Top'} of the ${ord(grp.inn)} <span>${esc(teamName(g, grp.half))} batting</span></h3><ol>`;
@@ -167,7 +171,7 @@ export function playsHtml(S, { limit = 0 } = {}) {
     }
     h += '</ol></section>';
   }
-  return h;
+  return back ? h : h + decided;
 }
 const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 // A play's mark for its column: a backwards K, or the mark with a line break only where it has a space ("SAC" over

@@ -2440,6 +2440,18 @@ step('a continuous order: a player who left the game is skipped with no out, and
   await p.context().close();
 }
 
+step('the sample game: earned runs in the box score, the win, the loss and the save beside the names, and in the plays');
+{
+  const p = await phone();
+  await p.goto(base + '#/sample');
+  await p.click('[data-v=box]');
+  assert.deepEqual(await p.$$eval('.pane[data-p=box] .stats .dec', a => a.map(x => `${x.parentElement.firstChild.textContent.trim()} ${x.textContent} ${x.title}`)), ['Whitlock L Losing pitcher', 'Halvorsen W Winning pitcher', 'Bishop S Save']);
+  assert.equal(await p.locator('.pane[data-p=box] .stats thead th abbr[title="Earned runs"]').count(), 2);
+  await p.click('[data-v=plays]');
+  assert.equal(await p.textContent('.pane[data-p=plays] .decided'), 'Halvorsen gets the win, Whitlock the loss, and Bishop the save.');
+  await p.context().close();
+}
+
 step('starting partway through: from the bottom of the 3rd, with the runs so far and who’s up');
 {
   const p = await phone();

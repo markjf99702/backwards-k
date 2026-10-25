@@ -634,6 +634,9 @@ details.partway .hint { margin: 10px 0 0; }
 .card td.missed { background: repeating-linear-gradient(135deg, transparent 0 6px, var(--grid-2) 6px 7px); }
 .card tfoot td.missed { color: var(--muted); }
 .joined { color: var(--ink-2); font-size: 15px; margin: 0 0 12px; }
+/* The win, the loss and the save. */
+.stats .dec { font-size: 15px; font-weight: 800; color: var(--red); text-decoration: none; margin-left: 6px; }
+.decided { font-weight: 650; color: var(--ink-2); margin: 10px 0; }
 .stats small.ps { display: inline; font-size: 12px; font-weight: 600; color: var(--muted); margin-left: 2px; }
 .stats .how { font-size: 10px; font-weight: 700; color: var(--red); text-transform: uppercase; letter-spacing: .02em; }
 .stats tfoot th, .stats tfoot td { font-weight: 800; border-bottom: 0; }
