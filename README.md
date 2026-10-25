@@ -38,6 +38,7 @@ written out in plain words.
 - **Phone or tablet.** On a phone the buttons, the card, the box score and the play-by-play are tabs. On a tablet
   held sideways (or any screen 1000 pixels wide or more) the buttons and the card sit side by side, and the card
   fills in while you watch; on one held upright, the card is under the buttons.
+  <p align="center"><img src="docs/tablet.png" alt="A tablet on its side in the top of the 7th: the field with runners on first and second and a 1-2 count, the pitch and result buttons under it, and beside them the line score and the Foxes' scorecard filling in, with Brennan's box outlined in red while he bats" width="600"></p>
 - **Lineups when you want them.** Start with two team names, and name batters as they come up, paste a lineup (from a
   group text or a game preview, starting pitcher included), or reuse a team from an earlier game. Pinch hitters and
   pitching changes are a tap on the batter or the pitcher (a reliever already in the batting order is one more tap,
@@ -80,6 +81,7 @@ To put it online with GitHub Pages: **Settings → Pages → Build and deploymen
 
 ### Files
 
+- `js/app.js`: which screen the address shows: your games, a new game, a game, the sample, or a shared link.
 - `js/engine.js`: the rules. It replays a game's list of events into the count, outs, runners, score, the boxes on the
   scorecard, the stats and the play-by-play.
 - `js/model.js`: what a saved game looks like, tidying one that came from a file, a link or Drive, reading a pasted
@@ -91,10 +93,14 @@ To put it online with GitHub Pages: **Settings → Pages → Build and deploymen
 - `js/home.js`, `js/setup.js`: the first screen, and starting a game.
 - `js/share.js`: share links, the score as text, printing. `js/sync.js`: Google Drive.
 - `js/sample.js`: a made-up game played with seeded dice, for the sample, the pictures and the tests.
+- `js/ui.js`: the sheet, the toast, saving and opening files, and the other small helpers every screen uses.
 - `fonts/`: Big Shoulders, Source Sans 3 and Patrick Hand (SIL Open Font License), served from here so nothing loads
   from elsewhere.
 - `sw.js`: keeps a copy for using offline, and for when the network takes more than three seconds to answer.
 - `test/unit.test.mjs`: the rules, including 300 simulated games whose totals have to agree. `test/e2e.mjs`: a game
   scored in Chromium. `test/drive.mjs`: two devices sharing one pretend Drive (`test/fake-google.mjs`).
+- `tools/screenshots.mjs`: the pictures in this README and the link preview, `og.png`, drawn from the sample game.
+  `tools/make-icons.mjs`: the PNG icons, from `icon.svg`, and from `tools/icon-full-bleed.svg` (for iPhones, which
+  round the corners themselves) and `tools/icon-maskable.svg` (for Android, which crops to a circle).
 - `scripts/build.mjs`: the one-file copy, `dist/backwards-k.html`, and `dist/artifact.html`, the same page without
   its own `<html>`, `<head>` and `<body>`, for hosts that supply them. `dist/` isn't committed.

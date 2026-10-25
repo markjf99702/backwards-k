@@ -3,8 +3,7 @@
 export const $ = (s, el = document) => el.querySelector(s);
 export const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 export const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-// The one-file copy (built by scripts/build.mjs), and whether it's shown inside another page.
-export const isSingle = () => 'single' in document.documentElement.dataset;
+// Whether the page is shown inside another page (as the one-file copy, built by scripts/build.mjs, can be).
 export const inFrame = () => { try { return window.top !== window.self; } catch { return true; } };
 export const SITE = 'https://backwards-k.junkdrawer.works/';
 
