@@ -2031,6 +2031,32 @@ for (const [width, height] of [[360, 640], [390, 844], [768, 1024], [1024, 768]]
   await p.context().close();
 }
 
+step('a phone in Safari (390 by 664): no green strip, a shorter field and buttons, and the outs down to Fly out in sight');
+{
+  const p = await playing(seventh(), { width: 390, height: 664 });
+  const s = await p.evaluate(() => {
+    const h = sel => document.querySelector(sel).getBoundingClientRect();
+    const field = h('.field'), tabs = [...document.querySelectorAll('.vtabs button')].map(b => b.getBoundingClientRect().height);
+    const pill = parseFloat(getComputedStyle(document.querySelector('.vtabs [aria-pressed=true]'), '::before').height);
+    // Just above and just below a runner's chip, and the batter's: a tap there is still on them.
+    const near = sel => { const r = h(sel), x = (r.left + r.right) / 2; return [r.top - 3, r.bottom + 3].every(y => document.elementFromPoint(x, y)?.closest(sel)); };
+    return {
+      strip: getComputedStyle(document.querySelector('.bug')).display, ratio: Math.round(field.height / field.width * 300),
+      pitch: h('[data-p=b]').height, result: h('[data-r="1B"]').height, tabs: Math.min(...tabs), pill,
+      chips: near('[data-runner="2"]') && near('.field .batter'), fly: h('[data-r=FO]').bottom, ih: innerHeight,
+    };
+  });
+  assert.equal(s.strip, 'none', 'the bar has the score and the inning, and the board the outs: no strip');
+  assert.equal(s.ratio, 155, 'the field is 300 by 155');
+  assert.deepEqual([s.pitch, s.result], [48, 52], 'Ball and the results are 48 and 52 high');
+  assert.ok(s.tabs >= 44 && s.pill === 38, `each tab is ${s.tabs} high to tap, with the one showing drawn ${s.pill} high`);
+  assert.ok(s.chips, 'a tap just above or below a runner or the batter is on them');
+  assert.ok(s.fly <= s.ih, `Fly out ends at ${s.fly}, the screen at ${s.ih}`);
+  await p.setViewportSize({ width: 768, height: 1024 });
+  assert.equal(await p.evaluate(() => getComputedStyle(document.querySelector('.bug')).display), 'flex', 'a tablet keeps the strip');
+  await p.context().close();
+}
+
 step('tablet sizes: side by side, nothing sideways');
 for (const [w, h] of [[820, 1180], [1180, 820]]) {
   await page.setViewportSize({ width: w, height: h });
