@@ -45,6 +45,7 @@ export function helpSheet() {
       <dt>WP, PB, BK</dt><dd>Wild pitch, passed ball, balk</dd>
       <dt>DI</dt><dd>Defensive indifference: nobody tried to stop him taking the base, so it isn’t a stolen base</dd>
       <dt>A small number</dt><dd>Moved up on that batter’s play (by their place in the order)</dd>
+      <dt>T, or E9 by a base</dt><dd>Took that base on the throw, or on an error, past where the play took him</dd>
       <dt>2-1</dt><dd>The count when the at-bat ended (balls, then strikes)</dd>
       <dt>Red line</dt><dd>Under the last batter of an inning</dd>
       <dt>A heavy line on top</dt><dd>A new pitcher took over with that batter</dd>
