@@ -9,12 +9,15 @@ export const inFrame = () => { try { return window.top !== window.self; } catch 
 export const SITE = 'https://backwards-k.junkdrawer.works/';
 
 // Moving between screens changes the part of the address after the #. Where the page is shown inside another page,
-// that change might not be announced, so if it isn't, the screen is switched directly.
-let router = null, shown = null;
-export const routes = { use(fn) { router = fn; }, shown(h) { shown = h; } };
+// that change might not be announced, so if it isn't, the screen is switched directly. Once any screen has been shown
+// since, that's no longer needed: switching then would undo a move made in the meantime (the address says New game,
+// and the game is back).
+let router = null, shown = null, later = 0;
+export const routes = { use(fn) { router = fn; }, shown(h) { shown = h; clearTimeout(later); } };
 export function go(h, { replace = false } = {}) {
   try { if (replace) location.replace(h); else location.hash = h; } catch { /* the address can't change here */ }
-  setTimeout(() => { if (router && shown !== h) router(h); }, 60);
+  clearTimeout(later);
+  later = setTimeout(() => { if (router && shown !== h) router(h); }, 60);
 }
 
 // The app icon, drawn in place so the one-file copy needs no other files.

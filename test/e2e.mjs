@@ -288,10 +288,10 @@ step('the next new game starts with the last game’s innings and pitch counting
   assert.equal(await p.getAttribute('[data-inn="9"]', 'aria-pressed'), 'true', 'nine on a new device');
   await p.click('[data-inn="6"]');
   await p.uncheck('input[name=pitches]');
-  await p.click('[data-go]');
-  await p.waitForSelector('.live .field');
-  await p.goto(base + '#/new');
-  await p.waitForSelector('.setup');
+  // Play ball, and straight back to New game: the game screen doesn't come back over it a moment later.
+  await p.evaluate(() => { document.querySelector('[data-go]').click(); setTimeout(() => { location.hash = '#/new'; }, 20); });
+  await p.waitForTimeout(200);
+  assert.deepEqual(await p.evaluate(() => [location.hash, !!document.querySelector('.setup'), !!document.querySelector('.live')]), ['#/new', true, false]);
   assert.equal(await p.getAttribute('[data-inn="6"]', 'aria-pressed'), 'true');
   assert.equal(await p.isChecked('input[name=pitches]'), false);
   await p.context().close();
