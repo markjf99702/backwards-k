@@ -362,7 +362,7 @@ function liveHtml() {
     <div class="pad results" role="group" aria-label="What the batter did">
       <div class="row4 g-hit" role="group" aria-label="Hits">${res('1B', '1B', 'Single')}${res('2B', '2B', 'Double')}${res('3B', '3B', 'Triple')}${res('HR', 'HR', 'Home run')}</div>
       <div class="row4 g-on" role="group" aria-label="On base without a hit">${res('BB', 'BB', 'Walk')}${res('HBP', 'HBP', 'Hit by pitch')}${res('E', 'E', 'Error')}${res('FC', 'FC', 'Fielder’s choice')}</div>
-      <div class="row4 g-out" role="group" aria-label="Outs">${res('K', 'K', 'Swinging')}${res('KL', KL, 'Looking')}${res('GO', 'G', 'Ground out')}${res('FO', 'F', 'Fly out')}
+      <div class="row4 g-out" role="group" aria-label="Outs">${res('K', 'K', 'Strikeout')}${res('KL', KL, 'Strikeout looking')}${res('GO', 'G', 'Ground out')}${res('FO', 'F', 'Fly out')}
         ${res('LO', 'L', 'Line out')}${res('PU', 'P', 'Pop out')}${res('SF', 'SF', 'Sac fly')}${res('SAC', 'SAC', 'Sac bunt')}
         ${res('DP', 'DP', 'Double play')}<button type="button" class="res r-more" data-a="more"><b>More</b><span>Intentional walk, dropped third strike, end the inning</span></button></div>
     </div>
@@ -955,7 +955,7 @@ function cellSheet(c) {
     <div class="cell-big"><div class="cell-pic">${cellSvg(c, { count: G.pitches })}</div>
       <div><p><b>${markHtml(c.r, c.mark)}</b> ${esc(R.label)}</p><p>${esc(c.text)}</p>${c.story.length ? `<p>${esc(c.story.join(' '))}</p>` : ''}
       ${seq ? `<p class="quiet">Pitches: ${esc(seq)}.</p>` : ''}</div></div>
-    ${group ? `<h3>Change what it was</h3><div class="chips wide" role="group" aria-label="What it was">${group.map(k => `<button type="button" data-sw="${k}" aria-pressed="${k === c.r}"${why[k] && k !== c.r ? ` disabled title="${esc(why[k])}"` : ''}>${k === 'KL' ? KL + ' looking' : esc(RESULTS[k].label)}</button>`).join('')}</div>` : ''}
+    ${group ? `<h3>Change what it was</h3><div class="chips wide" role="group" aria-label="What it was">${group.map(k => `<button type="button" data-sw="${k}" aria-pressed="${k === c.r}"${why[k] && k !== c.r ? ` disabled title="${esc(why[k])}"` : ''}>${esc(RESULTS[k].label)}</button>`).join('')}</div>` : ''}
     ${group && e.t === 'pa' && (R.f || c.f) ? `<div class="row"><button type="button" class="btn quiet" data-y="f">Change the fielders${c.f ? ` (${esc(c.f.join('-'))})` : ''}</button></div>` : ''}
     ${!readOnly && e && !group ? '<p class="hint">This one can’t be changed here. Undo takes plays back, latest first, and until the next batter’s turn is over, Fix runners changes where everyone ended up on the play before.</p>' : ''}
     <div class="row"><button type="button" class="btn primary" data-close>Done</button></div>`);

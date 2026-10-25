@@ -83,6 +83,8 @@ assert.match(await ticker(), /Ruiz walks/);
 assert.match(await page.textContent('.pitcher'), /4\s*pitches/);
 
 step('a strikeout looking, then swinging');
+// Both strikeout buttons say so, under the K and the backwards K.
+assert.deepEqual(await page.$$eval('[data-r=K] span, [data-r=KL] span', s => s.map(x => x.textContent)), ['Strikeout', 'Strikeout looking']);
 for (const k of ['f', 'f', 'f']) await tap(`[data-p=${k}]`);
 // Two strikes, but a runner on first and nobody out: a dropped third strike is still an out (OBR 5.09(a)(3)).
 await tap('[data-a=more]');
@@ -1034,6 +1036,7 @@ step('a box’s “Change what it was” offers only what could have happened');
   await p.click('.sheet-toast button');
   assert.match(await p.textContent('.sheet .cell-big'), /K Strikeout swinging/);
   assert.equal(await p.getAttribute('.sheet [data-sw=K]', 'aria-pressed'), 'true');
+  assert.deepEqual(await p.$$eval('.sheet [data-sw=K], .sheet [data-sw=KL]', b => b.map(x => x.textContent)), ['Strikeout swinging', 'Strikeout looking']);
   assert.equal((await stored(p, id)).ev[0].r, 'K');
   assert.equal(await plays(p, id), 'paK paE', 'no play was taken back');
   await p.keyboard.press('Escape');
