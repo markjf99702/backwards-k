@@ -1,7 +1,9 @@
 // What a game looks like when it's saved, and how to tidy one that came from a file, a link or Google Drive.
 //
-// A game: { id, created, updated, date, place, innings, pitches, rules, tie, teams: [visitors, home], ev: [events] }
+// A game: { id, created, updated, date, place, innings, pitches, rules, tie, limit, teams: [visitors, home], ev: [events] }
 // tie: the first inning that starts with a runner on second (extra innings, OBR 7.01(b)), or 0 for none.
+// limit: a pitch limit, or 0 for none: { by: 'll' (Little League), 'ps' (Pitch Smart) or '' (a number), age: the
+// pitchers' league age ('11-12', for the rest they need after), max: the most pitches } (engine.js)
 // rules: the league's rules, or null: { set: 'll', 'minors' or 'custom' (which ones, for Game settings), runs: the
 // most runs a half-inning (0 for no limit), last: that limit holds in the last inning too, all: every run on the play
 // that reaches it counts, mercy: [[innings, runs ahead], ...] } (engine.js plays them)
@@ -11,7 +13,7 @@
 // Anything a newer Backwards K saves that this one doesn't know (a new kind of event, pitch, play or substitution, or a
 // new value on a game, team, player or event) is kept as it came, as long as it's small, so this copy can show the
 // game and save it again without losing it; and a game holding any of it opens look-only (see newer()).
-import { RESULTS, ENDS } from './engine.js';
+import { RESULTS, ENDS, PITCH_AGES, LIMIT_BY } from './engine.js';
 
 export const APP = 'backwards-k';
 export const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -26,9 +28,9 @@ export function newTeam(name = '', size = 9) {
   return { name, lineup: Array.from({ length: size }, () => [blank()]), pitchers: [blank()] };
 }
 
-export function newGame({ away = '', home = '', innings = 9, size = 9, pitches = true, rules = null, tie = 0, date = today(), place = '' } = {}) {
+export function newGame({ away = '', home = '', innings = 9, size = 9, pitches = true, rules = null, tie = 0, limit = 0, date = today(), place = '' } = {}) {
   const t = Date.now();
-  return { id: 'g' + uid(), created: t, updated: t, date, place, innings, pitches, rules, tie, teams: [newTeam(away, size), newTeam(home, size)], ev: [] };
+  return { id: 'g' + uid(), created: t, updated: t, date, place, innings, pitches, rules, tie, limit, teams: [newTeam(away, size), newTeam(home, size)], ev: [] };
 }
 
 const str = (v, max = 60) => (typeof v === 'string' || typeof v === 'number' ? String(v).slice(0, max) : '');
@@ -37,8 +39,8 @@ const int = (v, lo, hi, d) => (Number.isFinite(+v) ? Math.min(hi, Math.max(lo, M
 // What this version knows: the values on a game, a team, a player and each kind of event, and the kinds of pitch and
 // substitution.
 const KNOWN = new Map(Object.entries({
-  game: ['id', 'created', 'updated', 'date', 'place', 'innings', 'pitches', 'rules', 'tie', 'teams', 'ev'],
-  team: ['name', 'lineup', 'pitchers'], player: ['name', 'num'], rules: ['set', 'runs', 'last', 'all', 'mercy'],
+  game: ['id', 'created', 'updated', 'date', 'place', 'innings', 'pitches', 'rules', 'tie', 'limit', 'teams', 'ev'],
+  team: ['name', 'lineup', 'pitchers'], player: ['name', 'num'], rules: ['set', 'runs', 'last', 'all', 'mercy'], limit: ['by', 'age', 'max'],
   p: ['t', 'k'], pa: ['t', 'r', 'f', 'm', 'x'], r: ['t', 'm'], sub: ['t', 's', 'slot', 'i', 'ty'], pch: ['t', 's', 'i'],
   add: ['t', 's'], eoh: ['t'], end: ['t', 'why'], delay: ['t'], on: ['t'],
 }));
@@ -114,6 +116,13 @@ function cleanRules(r) {
   };
 }
 
+// A pitch limit (see above), or 0 for none. Its age is one of the table's, with Little League or Pitch Smart.
+function cleanLimit(v) {
+  if (!v || typeof v !== 'object' || Array.isArray(v) || !(+v.max >= 1)) return 0;
+  const by = Object.hasOwn(LIMIT_BY, v.by) ? v.by : '';
+  return { by, age: by && Object.hasOwn(PITCH_AGES, v.age) ? v.age : '', max: int(v.max, 1, 300, 85), ...more(v, KNOWN.get('limit'), 300) };
+}
+
 function cleanTeam(t, side) {
   t = t && typeof t === 'object' ? t : {};
   let lineup = cleanList(t.lineup, s => cleanList(Array.isArray(s) ? s : [s], cleanPlayer)).filter(s => s.length).slice(0, 40);
@@ -136,7 +145,7 @@ export function cleanGame(g) {
     id: typeof g.id === 'string' && /^g[\w-]{4,40}$/.test(g.id) ? g.id : 'g' + uid(),
     created: int(g.created, 0, 9e15, t), updated: int(g.updated, 0, 9e15, t),
     date: /^\d{4}-\d{2}-\d{2}$/.test(g.date) ? g.date : today(),
-    place: str(g.place, 80), innings: int(g.innings, 1, 30, 9), pitches: g.pitches !== false, rules: cleanRules(g.rules), tie: int(g.tie, 0, 30, 0),
+    place: str(g.place, 80), innings: int(g.innings, 1, 30, 9), pitches: g.pitches !== false, rules: cleanRules(g.rules), tie: int(g.tie, 0, 30, 0), limit: cleanLimit(g.limit),
     teams, ev: ok, ...more(g, KNOWN.get('game'), 2000),
   };
 }
@@ -145,7 +154,7 @@ export function cleanGame(g) {
 // scoring on from a game this copy can't read all of would go wrong.
 export function newer(g) {
   const extra = (o, k) => Object.keys(o).some(x => !KNOWN.get(k).includes(x));
-  return extra(g, 'game') || (!!g.rules && extra(g.rules, 'rules')) || g.teams.some(t => extra(t, 'team') || [...t.lineup.flat(), ...t.pitchers].some(p => extra(p, 'player')))
+  return extra(g, 'game') || (!!g.rules && extra(g.rules, 'rules')) || (!!g.limit && extra(g.limit, 'limit')) || g.teams.some(t => extra(t, 'team') || [...t.lineup.flat(), ...t.pitchers].some(p => extra(p, 'player')))
     || g.ev.some(e => !EVENTS.has(e.t) || extra(e, e.t) || (e.t === 'p' && !KINDS.includes(e.k))
       || (e.t === 'pa' && !Object.hasOwn(RESULTS, e.r)) || (e.t === 'sub' && !SUBS.includes(e.ty)) || (e.t === 'end' && 'why' in e && !Object.hasOwn(ENDS, e.why)));
 }
@@ -293,7 +302,7 @@ export function merge(a, b, seen = null) {
     pitchers: t.pitchers.map((p, j) => (n.pitchers[j] ? { ...p, name: n.pitchers[j].name, num: n.pitchers[j].num } : p)),
   });
   const game = {
-    ...from, date: newer.date, place: newer.place, innings: newer.innings, pitches: newer.pitches, rules: newer.rules, tie: newer.tie,
+    ...from, date: newer.date, place: newer.place, innings: newer.innings, pitches: newer.pitches, rules: newer.rules, tie: newer.tie, limit: newer.limit,
     teams: from.teams.map((t, s) => named(t, newer.teams[s])), updated: now,
   };
   return { game: canon({ ...game, updated: 0 }) === canon({ ...newer, updated: 0 }) ? newer : game, second: null };

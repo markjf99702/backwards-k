@@ -847,3 +847,36 @@ export function pitchWork(st) {
 }
 // A pitch count in words: "1 pitch", "34 pitches".
 export const pitchCount = np => many(np, 'pitch', 'pitches');
+
+// ---------- pitch limits ----------
+// A game's pitch limit (g.limit, see model.js): 0 for none, or { by: 'll' (Little League), 'ps' (Pitch Smart) or ''
+// (a number of the scorer's own), age: the pitchers' league age, max: the most pitches in a day }. The most by age:
+// Little League Regulation VI(c), and Pitch Smart (MLB and USA Baseball), the same numbers, with 19-22 too.
+export const PITCH_AGES = { '7-8': 50, '9-10': 75, '11-12': 85, '13-14': 95, '15-16': 95, '17-18': 105, '19-22': 120 };
+export const LIMIT_BY = { ll: 'Little League', ps: 'Pitch Smart' };
+// The days of rest a pitcher needs after so many pitches, the same in both (Regulation VI(d)): through 14, none after
+// 1-20, 1 after 21-35, 2 after 36-50, 3 after 51-65, 4 after 66 or more; at 15-18 the steps are 30, 45, 60 and 75;
+// at 19-22 (Pitch Smart) a 5th day after 105. null with no table (a number of the scorer's own) or no pitches.
+const restSteps = limit => { const age = parseInt(limit.age, 10); return age >= 19 ? [30, 45, 60, 75, 105] : age >= 15 ? [30, 45, 60, 75] : [20, 35, 50, 65]; };
+export function restDays(limit, np) {
+  if (!limit || !LIMIT_BY[limit.by] || !PITCH_AGES[limit.age] || !np) return null;
+  return restSteps(limit).filter(x => np > x).length;
+}
+// The pitches that make that many days of rest, in words: "36 to 50 pitches", "66 or more pitches".
+export function restBand(limit, np) {
+  const steps = restSteps(limit), d = steps.filter(x => np > x).length;
+  return d === steps.length ? `${steps[d - 1] + 1} or more pitches` : `${d ? steps[d - 1] + 1 : 1} to ${steps[d]} pitches`;
+}
+// In Little League a pitcher who threw 41 or more in a game can't catch for the rest of the day (Regulation VI).
+export const noCatch = (limit, np) => !!limit && limit.by === 'll' && np >= 41;
+// Where the pitcher now in the field stands against the limit: '' (well short, or no limit), 'near' (5 pitches or
+// fewer from it), 'finish' (he reached it during this at-bat: he may finish this batter, Regulation VI(c)), or 'over'
+// (at it with a new batter up: time for a new pitcher). With pitches counted only.
+export function limitState(S) {
+  const L = S.g.limit, fld = 1 - S.half;
+  if (!L || !L.max || !S.g.pitches || S.over) return '';
+  const np = pstat(S, fld, S.pit[fld]).np;
+  if (np < L.max - 5) return '';
+  if (np < L.max) return 'near';
+  return S.seq && np - S.seq.length < L.max ? 'finish' : 'over';
+}

@@ -3,7 +3,7 @@
 import {
   replay, suggest, check, runsCount, scoredAs, now, RESULTS, BASE, POS, POS_NAME, halfLabel, label, player, teamName,
   pitcherLabel, ord, runnersOn, mark, pitchStat, pitchWords, pitchDay, pitchWork, pitchCount, winningRun, creditedHit, credit, fits,
-  ENDS, regulation, official, winner, AUTO,
+  ENDS, regulation, official, winner, AUTO, limitState, restDays, restBand, noCatch, LIMIT_BY,
 } from './engine.js';
 import { store } from './store.js';
 import { blank, takeBack, putBack, newer, plays } from './model.js';
@@ -14,7 +14,7 @@ import { $, $$, esc, openSheet, closeSheet, sheetOpen, reveal, toast, KL, markHt
 import { drive } from './sync.js';
 import { shareSheet, saveFile } from './share.js';
 import { helpSheet } from './help.js';
-import { rulesRow } from './rules.js';
+import { rulesRow, limitRow } from './rules.js';
 
 // redo: what Undo took back, latest last. kept: what it took back before a new play went in, to put back after it
 // (see moved()).
@@ -409,6 +409,8 @@ function liveHtml() {
     return `<button type="button" class="runner" data-runner="${b}" style="left:${x}%;top:${y}%" aria-label="Runner on ${BASE[b]}: ${name}. Tap for steals and other moves."><span>${name}</span></button>`;
   };
   const dots = (on, of, cls) => Array.from({ length: of }, (_, i) => `<i class="${cls}${i < on ? ' on' : ''}"></i>`).join('');
+  // Near the game's pitch limit the pitcher's button turns amber, and at it red (see LIMIT_SHOW).
+  const lim = limitState(S);
   const bug = `<div class="bug">
       <div class="bug-teams">
         ${[0, 1].map(s => `<div class="bt${!S.over && S.half === s ? ' bat' : ''}${winner(S) === s ? ' won' : ''}"><span class="nm">${esc(teamName(g, s))}</span><span class="r">${S.R[s]}</span>${!S.over && S.half === s ? '<span class="sr">, batting</span>' : ''}</div>`).join('')}
@@ -433,7 +435,7 @@ function liveHtml() {
       ${S.over ? '' : `<button type="button" class="batter" data-a="batter" style="left:${BASE_AT[0][0]}%;top:${BASE_AT[0][1]}%" aria-label="At bat: ${esc(n.name)}. Tap to name or pinch-hit."><small>${n.slot + 1}</small><span>${esc(n.name)}</span></button>`}
       ${S.over ? '' : `<p class="deck"><span>On deck</span> ${esc(n.deckName)}${top ? '<small>Top of the order</small>' : ''}</p>`}
       ${S.over ? '' : board}
-      ${S.over ? '' : `<button type="button" class="pitcher" data-a="pitcher" aria-label="Pitching: ${esc(n.pitcherName)}${g.pitches ? ', ' + n.pitches + ' pitches' : ''}. Tap to change pitchers."><span>${esc(n.pitcherName)}</span>${g.pitches ? `<b>${n.pitches}</b><small>pitch${n.pitches === 1 ? '' : 'es'}</small>` : ''}</button>`}
+      ${S.over ? '' : `<button type="button" class="pitcher${lim ? ' ' + lim : ''}" data-a="pitcher" aria-label="Pitching: ${esc(n.pitcherName)}${g.pitches ? ', ' + n.pitches + ' pitches' : ''}${lim ? `, ${LIMIT_SAY[lim](g.limit.max)}` : ''}. Tap to change pitchers."><span>${esc(n.pitcherName)}</span>${g.pitches ? `<b>${n.pitches}</b><small>${lim ? LIMIT_SHOW[lim](g.limit.max) : `pitch${n.pitches === 1 ? '' : 'es'}`}</small>` : ''}</button>`}
     </div>`;
   const last = G.ev.length ? S.text[G.ev.length - 1] : '';
   // The links have a row of their own (beside the play, on a big screen), each a thumb's height, and the line a fixed
@@ -493,6 +495,23 @@ function liveHtml() {
     </div>
     </div>
     <div class="recent"><h3>Latest plays</h3>${playsHtml(S, { limit: 5 })}</div>`;
+}
+
+// The pitcher's button near and at the pitch limit: under the count, and for a screen reader. At it, Little League
+// lets him finish the batter he reached it on (Regulation VI(c)).
+const LIMIT_SHOW = { near: max => `of ${max}`, finish: () => 'finish this batter', over: () => 'limit reached' };
+const LIMIT_SAY = { near: max => `5 or fewer from the limit of ${max}`, finish: max => `at the limit of ${max}: finish this batter`, over: max => `at the limit of ${max}: time for a new pitcher` };
+// The pitcher's day against the game's pitch limit, for the pitcher sheet: how far from it, the days of rest he'll
+// need after (Regulation VI(d)), and in Little League, whether he can still catch today.
+function limitLines(st) {
+  const L = G.limit;
+  if (!L || !G.pitches) return '';
+  const left = L.max - st.np, d = restDays(L, st.np), by = LIMIT_BY[L.by] ? ` (${LIMIT_BY[L.by]}, ${L.age.replace('-', '–')})` : '';
+  return [
+    left > 0 ? `Limit ${L.max}${by}: ${pitchCount(left)} to go.` : `At the limit of ${L.max}${by}: finish the batter it was reached on, then a new pitcher.`,
+    d == null ? '' : `Rest after today: ${d ? `${d} day${d > 1 ? 's' : ''}` : 'none needed'} (${restBand(L, st.np)}).`,
+    noCatch(L, st.np) ? '41 or more pitches today: can’t catch for the rest of the day.' : '',
+  ].filter(Boolean).map(t => `<p class="quiet">${esc(t)}</p>`).join('');
 }
 
 // ---------- taps ----------
@@ -968,6 +987,7 @@ function pitcherSheet(side) {
   const body = openSheet(`<h2 id="sheetTitle">Pitching <small>for ${esc(teamName(G, side))}</small></h2>
     ${nameFields(p)}
     <p class="quiet">${esc(pitchDay(st, G.pitches))}</p>
+    ${limitLines(st)}
     <div class="list">
       <button type="button" class="li" data-y="new"><b>New pitcher</b><span>Bring in a reliever. Their pitch count starts at zero.</span></button>
       ${G.teams[side].pitchers.length > 1 ? '<button type="button" class="li" data-y="back"><b>Bring back an earlier pitcher</b><span>Someone who already pitched today.</span></button>' : ''}
@@ -1135,11 +1155,13 @@ function settingsSheet() {
       <label><span>Where</span><input data-g="place" maxlength="80" value="${esc(G.place)}" placeholder="Optional" autocapitalize="words" autocorrect="off" spellcheck="false"></label>
       <label><span>Runner on second</span><select data-g="tie">${tieOptions()}</select><small>Each half-inning from then on starts with the batter before its leadoff man on second, as the majors do in extra innings. His run is unearned.</small></label>
       <label class="switch"><input type="checkbox" data-g="pitches"${G.pitches ? ' checked' : ''}><span>Count balls and strikes<small>Keeps the count and each pitcher’s pitch count.</small></span></label>
+      <div class="limit-row"${G.pitches ? '' : ' hidden'}></div>
     </div>
     <div class="row"><button type="button" class="btn primary" data-close>Done</button></div>`);
   $$('[data-t]', body).forEach(i => i.addEventListener('input', () => { G.teams[+i.dataset.t].name = i.value.trim(); saveSoon(); draw(); }));
   // The league's rules change how the game is played back, so each change is saved and the game drawn again.
   rulesRow($('.rules-row', body), () => G && G.rules, r => { if (!G) return; G.rules = r; save(); });
+  limitRow($('.limit-row', body), () => G && G.limit, L => { if (!G) return; G.limit = L; save(); });
   $$('[data-g]', body).forEach(i => i.addEventListener(i.type === 'checkbox' || i.tagName === 'SELECT' ? 'change' : 'input', () => {
     const k = i.dataset.g;
     if (k === 'date' && !i.value) return; // (see below)
@@ -1147,6 +1169,7 @@ function settingsSheet() {
     if (k === 'innings' && G.tie === G.innings + 1) G.tie = +i.value + 1;
     G[k] = k === 'pitches' ? i.checked : k === 'innings' || k === 'tie' ? +i.value : i.value.trim();
     if (k === 'innings') $('[data-g=tie]', body).innerHTML = tieOptions();
+    if (k === 'pitches') $('.limit-row', body).hidden = !G.pitches;
     if (k === 'innings' || k === 'pitches' || k === 'tie') save(); else { saveSoon(); draw(); }
   }));
   // A game always has a date (one saved blank would read back as whatever day it was next opened), so clearing the

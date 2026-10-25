@@ -1143,6 +1143,40 @@ async function playing(g, viewport = { width: 390, height: 844 }, ready = '.live
   return p;
 }
 
+step('a pitch limit: the pitcher’s button turns amber five before it and red at it, and the rest he needs is on his sheet and in the box score');
+{
+  const g = sampleUntil(7, S => S.inn === 5 && S.half === 1 && S.pitching[0][0]?.np >= 78 && !S.seq);
+  g.id = 'gsample7limit';
+  g.limit = { by: 'll', age: '11-12', max: 85 };
+  const p = await playing(g);
+  const chip = () => p.evaluate(() => { const b = document.querySelector('.live .pitcher'); return [b.className, b.querySelector('b').textContent, b.querySelector('small').textContent]; });
+  assert.deepEqual(await chip(), ['pitcher', '78', 'pitches']);
+  await p.click('[data-p=f]');
+  await p.click('[data-p=f]');
+  assert.deepEqual(await chip(), ['pitcher near', '80', 'of 85']);
+  for (let i = 0; i < 5; i++) await p.click('[data-p=f]');
+  assert.deepEqual(await chip(), ['pitcher finish', '85', 'finish this batter']);
+  assert.match(await p.getAttribute('.live .pitcher', 'aria-label'), /85 pitches, at the limit of 85: finish this batter\./);
+  await p.click('[data-r=BB]');
+  assert.deepEqual(await chip(), ['pitcher over', '86', 'limit reached']);
+  assert.ok(await p.evaluate(() => { const b = document.querySelector('.live .pitcher').getBoundingClientRect(), f = document.querySelector('.live .field').getBoundingClientRect(); return b.left >= f.left && b.right <= f.right; }), 'the red button stays on the field');
+  await p.click('[data-a=pitcher]');
+  assert.match(await p.textContent('.sheet'), /At the limit of 85 \(Little League, 11–12\): finish the batter it was reached on, then a new pitcher\.\s*Rest after today: 4 days \(66 or more pitches\)\.\s*41 or more pitches today: can’t catch for the rest of the day\./);
+  await p.keyboard.press('Escape');
+  await p.click('[data-v=box]');
+  assert.match(await p.textContent('.pane[data-p=box]'), /Days of rest \(Little League, 11–12\): Whitlock 4 days\.\s*Can’t catch today \(41 or more pitches\): Whitlock\./);
+  // Game settings: Little League and the age are picked; a number of one's own shows no table of rest.
+  await p.click('[data-v=live]');
+  await p.click('[data-a=menu]');
+  await p.click('.sheet [data-y=settings]');
+  assert.deepEqual(await p.$$eval('.sheet .limit-row [aria-pressed=true]', b => b.map(x => x.textContent)), ['Little League', '11–12']);
+  await p.click('.sheet [data-limit=n]');
+  await p.fill('.sheet [data-lk=max]', '100');
+  await p.keyboard.press('Escape');
+  assert.deepEqual(await chip(), ['pitcher', '86', 'pitches']);
+  await p.context().close();
+}
+
 step('only the pane on screen is drawn, and the one shown next is drawn as it’s shown');
 {
   const drawn = p => p.evaluate(() => [...document.querySelectorAll('.side .pane')].map(x => `${x.dataset.p}:${x.childElementCount ? 'drawn' : 'empty'}`).join(' '));

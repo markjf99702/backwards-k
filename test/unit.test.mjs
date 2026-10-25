@@ -1,7 +1,7 @@
 // The rules of scoring, without a browser:  node --test test/unit.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { replay, suggest, check, runsCount, scoredAs, mark, now, columns, halfLabel, RESULTS, runnersOn, pitchDay, pitchStat, pitchWork, pitchCount, winningRun, fits, official, winner, endNote, regulation } from '../js/engine.js';
+import { replay, suggest, check, runsCount, scoredAs, mark, now, columns, halfLabel, RESULTS, runnersOn, pitchDay, pitchStat, pitchWork, pitchCount, winningRun, fits, official, winner, endNote, regulation, limitState, restDays, restBand, noCatch } from '../js/engine.js';
 import { newGame, cleanGame, cleanDoc, parseLineup, parsePaste, takeBack, putBack, starters, newer, merge, seenOf } from '../js/model.js';
 import { sampleGame } from '../js/sample.js';
 // The card is drawn with ui.js, which looks for the page's sheet as it loads: here there's no page, so no sheet.
@@ -661,6 +661,53 @@ test('extra innings that start with a runner on second: the batter before the le
   assert.equal(play(game({ innings: 1 }), ...threeK, ...threeK).bases[2], null);
   assert.deepEqual(cleanGame(JSON.parse(JSON.stringify(g))), g);
   assert.deepEqual([game().tie, cleanGame({ ...g, tie: 'x' }).tie, cleanGame({ ...g, tie: 99 }).tie], [0, 0, 30]);
+});
+
+test('pitch limits: amber five before, red at it with a batter to finish, and the rest each pitcher needs (Little League Regulation VI)', () => {
+  const L = { by: 'll', age: '11-12', max: 85 };
+  const g = game({ limit: L });
+  let S = play(g, P('c'), P('c'), ...Array(77).fill(P('f')));
+  assert.deepEqual([S.pitching[1][0].np, limitState(S)], [79, '']);
+  S = play(g, P('f'));
+  assert.equal(limitState(S), 'near', 'five from it');
+  S = play(g, P('f'), P('f'), P('f'), P('f'));
+  assert.deepEqual([S.pitching[1][0].np, limitState(S)], [84, 'near']);
+  S = play(g, P('f'));
+  assert.equal(limitState(S), 'finish', 'at it, during the at-bat that reached it');
+  S = play(g, P('s'));
+  assert.deepEqual([S.pitching[1][0].np, limitState(S)], [86, 'over'], 'that batter done, a new one up');
+  assert.deepEqual([restDays(L, 86), restBand(L, 86), noCatch(L, 86), noCatch(L, 40)], [4, '66 or more pitches', true, false]);
+  const box = boxHtml(S);
+  assert.match(box, /Days of rest \(Little League, 11–12\):<\/b> Pitcher 4 days\./);
+  assert.match(box, /Can’t catch today \(41 or more pitches\):<\/b> Pitcher\./);
+  assert.equal((box.match(/Days of rest/g) || []).length, 1, 'only the team whose pitcher threw');
+  // The rest by Regulation VI(d): 14 and under, and 15 to 18; Pitch Smart's 19-22 has a fifth day.
+  assert.deepEqual([1, 20, 21, 35, 36, 50, 51, 65, 66].map(n => restDays(L, n)), [0, 0, 1, 1, 2, 2, 3, 3, 4]);
+  const old = { by: 'll', age: '15-16', max: 95 };
+  assert.deepEqual([30, 31, 45, 46, 60, 61, 75, 76].map(n => restDays(old, n)), [0, 1, 1, 2, 2, 3, 3, 4]);
+  assert.deepEqual([105, 106].map(n => restDays({ by: 'ps', age: '19-22', max: 120 }, n)), [4, 5]);
+  assert.equal(noCatch({ by: 'ps', age: '11-12', max: 85 }, 60), false, 'the catching rule is Little League’s');
+  // A number of the scorer's own: the colours, but no table of rest; and nothing without a limit or a pitch count.
+  const n = game({ limit: { by: '', age: '', max: 10 } });
+  S = play(n, ...Array(5).fill(P('b')), P('c'), P('c'));
+  assert.deepEqual([limitState(S), restDays(n.limit, 7)], ['near', null]);
+  assert.doesNotMatch(boxHtml(S), /Days of rest/);
+  assert.equal(limitState(play(game(), ...Array(4).fill(P('f')))), '');
+  const off = game({ limit: L, pitches: false });
+  assert.equal(limitState(play(off, ...Array(30).fill('K'))), '');
+});
+
+test('a pitch limit is kept from a file, a link and Drive', () => {
+  const L = { by: 'ps', age: '13-14', max: 95 };
+  const g = game({ limit: L });
+  play(g, P('b'));
+  assert.deepEqual(cleanGame(JSON.parse(JSON.stringify(g))), g);
+  assert.deepEqual([game().limit, newer(g)], [0, false]);
+  const t = limit => cleanGame({ ...g, limit }).limit;
+  assert.deepEqual([t(null), t(85), t({ max: 0 }), t({ by: 'll', age: '99-100', max: '70' }), t({ by: 'xx', age: '9-10', max: 500 })],
+    [0, 0, 0, { by: 'll', age: '', max: 70 }, { by: '', age: '', max: 300 }]);
+  const later = cleanGame({ ...g, limit: { ...L, warnAt: 3 } });
+  assert.deepEqual([later.limit.warnAt, newer(later)], [3, true]);
 });
 
 test('a play that makes the third out leaves the other runners where they were', () => {

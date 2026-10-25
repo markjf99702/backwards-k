@@ -37,7 +37,7 @@ const canon = v => JSON.stringify(sorted(v));
 
 // ---------- a game, and the game screen's steps (js/game.js) ----------
 function makeGame(setup) {
-  const g = M.newGame({ away: 'Foxes', home: 'Comets', innings: setup.innings, pitches: setup.pitches, rules: setup.rules || null, tie: setup.tie || 0, date: '2026-10-25', place: 'Fuzz' });
+  const g = M.newGame({ away: 'Foxes', home: 'Comets', innings: setup.innings, pitches: setup.pitches, rules: setup.rules || null, tie: setup.tie || 0, limit: setup.limit || 0, date: '2026-10-25', place: 'Fuzz' });
   g.id = 'gfuzz' + setup.seed; g.created = g.updated = 1;
   g.teams.forEach((t, s) => {
     t.lineup = Array.from({ length: setup.size[s] }, (_, i) => [i % 4 === 3 ? M.blank() : { name: `${s ? 'H' : 'V'}${i + 1}`, num: String(i + 1) }]);
@@ -496,6 +496,8 @@ for (let n = 0; n < GAMES; n++) {
     [1, { set: 'custom', runs: 1 + Math.floor(rnd() * 4), last: rnd() < 0.5, all: rnd() < 0.5, mercy: rnd() < 0.5 ? [[1 + Math.floor(rnd() * 3), 2 + Math.floor(rnd() * 5)]] : [] }]]);
   // Extra innings that start with a runner on second in some, now and then from an inning before them.
   setup.tie = weighed(rnd, [[6, 0], [3, setup.innings + 1], [1, Math.max(2, setup.innings - 1)]]);
+  // A pitch limit in some (the box score's days of rest, and who can't catch).
+  setup.limit = weighed(rnd, [[6, 0], [1, { by: 'll', age: '9-10', max: 75 }], [1, { by: 'ps', age: '15-16', max: 95 }], [1, { by: '', age: '', max: 40 }]]);
   // Make up the game a step at a time, keeping the steps the screen would take.
   const C = { setup, g: makeGame(setup), redo: [], kept: null, tapped: { e: null, r: '' } };
   save(C);

@@ -60,6 +60,13 @@ written out in plain words.
   on in New game (from the first extra inning) or pick the inning in Game settings. Each half-inning from then on
   starts with the batter before its leadoff man on second (OBR 7.01(b)), in a box of his own marked AR, with a line in
   the plays. He isn't a trip to the plate, and his run is unearned for the pitcher.
+- **Pitch limits for youth pitchers.** With pitches counted, pick Little League's limit by league age (Regulation
+  VI(c): 50 at 7-8, 75 at 9-10, 85 at 11-12, 95 at 13-16, 105 at 17-18), Pitch Smart's (the same, and 120 at 19-22),
+  or a number. The pitcher's button turns amber 5 pitches before it, and red at it, with "finish this batter" (Little
+  League lets the pitcher finish the batter the limit was reached on). The pitcher's sheet and the box score say the
+  days of rest each pitcher needs after the game (VI(d): through 14, none after 1-20 pitches, then a day each after
+  21, 36, 51 and 66; at 15 and up the steps are 31, 46, 61 and 76, and Pitch Smart's 19-22 has a fifth after 106),
+  and in Little League, who threw 41 or more and can't catch that day.
 - **Phone or tablet.** On a phone the buttons, the card, the box score and the play-by-play are tabs. On a tablet
   held sideways (or any screen 1000 pixels wide or more) the buttons and the card sit side by side, and the card
   fills in while you watch; on one held upright, the card is under the buttons.

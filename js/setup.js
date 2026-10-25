@@ -4,7 +4,7 @@ import { newGame, blank, starters, today, parsePaste } from './model.js';
 import { store } from './store.js';
 import { $, $$, esc, openSheet, closeSheet, go, nextName } from './ui.js';
 import { drive } from './sync.js';
-import { rulesRow } from './rules.js';
+import { rulesRow, limitRow } from './rules.js';
 
 // Teams from earlier games, newest first, with the order they started with. Each player's name and number, and
 // nothing else: anything a newer Backwards K saved on a player belongs to that game, and in a new one would make it
@@ -26,13 +26,14 @@ function pastTeams() {
 export function showSetup(el) {
   const past = pastTeams();
   const T = [0, 1].map(() => ({ name: '', lineup: Array.from({ length: 9 }, blank), pitcher: blank() }));
-  // The innings, the pitch counting, the league rules and the runner on second in extra innings start as they were
-  // for the last game on this device: a league that plays six innings without counting pitches, under Little
-  // League's rules, doesn't have to say so every week.
+  // The innings, the pitch counting and limit, the league rules and the runner on second in extra innings start as
+  // they were for the last game on this device: a league that plays six innings without counting pitches, under
+  // Little League's rules, doesn't have to say so every week.
   const last = store.all()[0], INN = [9, 7, 6, 5, 4, 3];
   const opt = {
     innings: last && INN.includes(last.innings) ? last.innings : 9, pitches: last ? last.pitches !== false : true,
-    rules: last && last.rules ? structuredClone(last.rules) : null, tie: !!(last && last.tie), date: today(), place: '',
+    rules: last && last.rules ? structuredClone(last.rules) : null, tie: !!(last && last.tie),
+    limit: last && last.limit ? structuredClone(last.limit) : 0, date: today(), place: '',
   };
 
   el.innerHTML = `<header class="bar">
@@ -51,6 +52,7 @@ export function showSetup(el) {
           <div class="rules-row"></div>
           <label class="switch"><input type="checkbox" name="tie"${opt.tie ? ' checked' : ''}><span>Extra innings start with a runner on second<small>The batter before the leadoff man, as the majors have done since 2020.</small></span></label>
           <label class="switch"><input type="checkbox" name="pitches"${opt.pitches ? ' checked' : ''}><span>Count balls and strikes<small>Keeps the count and each pitcher’s pitch count. Turn it off to only tap what each batter did.</small></span></label>
+          <div class="limit-row"${opt.pitches ? '' : ' hidden'}></div>
           <div class="two-sm">
             <label><span>Date</span><input type="date" name="date" value="${opt.date}"></label>
             <label><span>Where</span><input name="place" maxlength="80" placeholder="Optional" autocapitalize="words" autocorrect="off" spellcheck="false"></label>
@@ -98,6 +100,9 @@ export function showSetup(el) {
   }
   [0, 1].forEach(rows);
   rulesRow($('.rules-row', el), () => opt.rules, r => { opt.rules = r; });
+  // (A pitch limit needs the pitches counted.)
+  limitRow($('.limit-row', el), () => opt.limit, L => { opt.limit = L; });
+  el.querySelector('input[name=pitches]').addEventListener('change', e => { $('.limit-row', el).hidden = !e.target.checked; });
 
   el.addEventListener('input', e => {
     const f = e.target.closest('.team-set');
@@ -147,7 +152,7 @@ export function showSetup(el) {
   form.addEventListener('submit', e => { e.preventDefault(); start(); });
   el.querySelector('[data-go]').addEventListener('click', start);
   function start() {
-    const g = newGame({ away: T[0].name, home: T[1].name, innings: opt.innings, pitches: form.pitches.checked, rules: opt.rules, tie: form.tie.checked ? opt.innings + 1 : 0, date: form.date.value || today(), place: form.place.value.trim() });
+    const g = newGame({ away: T[0].name, home: T[1].name, innings: opt.innings, pitches: form.pitches.checked, rules: opt.rules, tie: form.tie.checked ? opt.innings + 1 : 0, limit: form.pitches.checked ? opt.limit : 0, date: form.date.value || today(), place: form.place.value.trim() });
     T.forEach((t, s) => {
       g.teams[s].lineup = t.lineup.map(p => [{ ...p }]);
       g.teams[s].pitchers = [{ ...t.pitcher }];

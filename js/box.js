@@ -1,5 +1,5 @@
 // The box score (batting and pitching lines for both teams) and the play-by-play.
-import { batKey, pitchStat, pitcherLabel, ip, teamName, label, player, ord, pitchWords, POS_NAME, RESULTS, AUTO } from './engine.js';
+import { batKey, pitchStat, pitcherLabel, ip, teamName, label, player, ord, pitchWords, POS_NAME, RESULTS, AUTO, restDays, noCatch, LIMIT_BY } from './engine.js';
 import { esc, KL } from './ui.js';
 import { abbr } from './card.js';
 
@@ -72,7 +72,8 @@ function pinch(S, side) {
 
 // The notes under one team's box score, the way a newspaper prints them: its pinch hitters and runners, extra-base
 // hits, sacrifices, hit batters, steals, runners left on base and errors, then its pitchers' wild pitches, hit
-// batters and balks. Lines with nothing to say are left out.
+// batters and balks, and under a pitch limit by league age, the days of rest each pitcher needs and who can't catch
+// today (Little League Regulation VI). Lines with nothing to say are left out.
 function notes(S, side) {
   const g = S.g, cells = S.cells.filter(c => c.side === side), who = c => label(player(g, side, c.slot, c.p), c.slot);
   const of = r => names(cells.filter(c => c.r === r).map(c => [who(c), 1]));
@@ -94,8 +95,20 @@ function notes(S, side) {
     ['Unearned runs, from the runner put on second', names(arms.map(([n, p]) => [n, p.ur || 0]))],
     ['Hit batters', names(hit.map(c => [`${pitcherLabel(g, side, c.pi)} (${label(player(g, c.side, c.slot, c.p), c.slot)})`, 1]))],
     ['Balks', names(arms.map(([n, p]) => [n, p.bk]))],
+    ...rest(S, arms),
   ];
   return lines.filter(([, t]) => t).map(([w, t]) => `<p><b>${w}:</b> ${esc(t)}.</p>`).join('');
+}
+
+// Under a pitch limit by league age, with pitches counted: each pitcher's days of rest, and in Little League, those who
+// threw 41 or more and can't catch today.
+function rest(S, arms) {
+  const L = S.g.limit, thrown = arms.filter(([, p]) => p.np);
+  if (!L || !LIMIT_BY[L.by] || !S.g.pitches || !thrown.length) return [];
+  return [
+    [`Days of rest (${LIMIT_BY[L.by]}, ${L.age.replace('-', '–')})`, thrown.map(([n, p]) => { const d = restDays(L, p.np); return `${n} ${d ? `${d} day${d > 1 ? 's' : ''}` : 'none'}`; }).join(', ')],
+    ['Can’t catch today (41 or more pitches)', thrown.filter(([, p]) => noCatch(L, p.np)).map(([n]) => n).join(', ')],
+  ];
 }
 
 // How one player's day is going, for the batter sheet: each trip to the plate in order (its inning, mark and words),

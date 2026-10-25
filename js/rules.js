@@ -1,6 +1,8 @@
 // League rules for a game, picked in New game and in Game settings: none, Little League's, the Minors', or a league's
-// own (Custom): the most runs a half-inning, and a mercy rule. engine.js plays them, and model.js keeps them.
+// own (Custom): the most runs a half-inning, and a mercy rule. And a pitch limit for youth pitchers. engine.js plays
+// them, and model.js keeps them.
 import { $, esc } from './ui.js';
+import { PITCH_AGES, LIMIT_BY } from './engine.js';
 
 // Little League's mercy rule (4.10(e)): 15 runs ahead after 3 innings, or 10 after 4, half an inning sooner when it's
 // the home team. The Minors add a common local rule: a half-inning ends at 5 runs, except in the last inning, and the
@@ -61,4 +63,50 @@ export function rulesRow(host, get, set) {
   };
   host.addEventListener('input', change);
   host.addEventListener('change', change);
+}
+
+// ---------- pitch limits ----------
+const LIMITS = [['none', 'None'], ['ll', 'Little League'], ['ps', 'Pitch Smart'], ['n', 'A number']];
+const ageWords = a => a.replace('-', '–');
+// The limit in words, under the choice.
+export function limitWords(L) {
+  if (!L) return 'No limit. Each pitcher’s count is still kept.';
+  const warn = 'The pitcher’s button turns amber 5 pitches before it, and red at it: finish that batter.';
+  if (!L.by) return `${L.max} pitches. ${warn}`;
+  return `${L.max} pitches a day for ${ageWords(L.age)}-year-olds${L.by === 'll' ? ' (Regulation VI(c))' : ', as Pitch Smart has it'}. ${warn} The pitcher’s sheet and the box score say the days of rest each needs${L.by === 'll' ? ', and who can’t catch today' : ''}.`;
+}
+// The Pitch limit row, drawn into host: the four choices, the league ages or a number, and the limit in words. get()
+// gives the limit now; set(limit) takes a new one (0 for none).
+export function limitRow(host, get, set) {
+  const preset = (by, age) => ({ by, age, max: PITCH_AGES[age] });
+  const draw = () => {
+    const L = get(), k = !L ? 'none' : L.by || 'n';
+    const ages = Object.keys(PITCH_AGES).filter(a => k === 'ps' || a !== '19-22');
+    host.innerHTML = `<div class="opt"><span class="lbl" id="limitLbl">Pitch limit</span>
+        <span class="chips" role="group" aria-labelledby="limitLbl">${LIMITS.map(([v, w]) => `<button type="button" data-limit="${v}" aria-pressed="${v === k}">${w}</button>`).join('')}</span></div>
+      ${LIMIT_BY[k] ? `<div class="opt"><span class="lbl" id="ageLbl">League age</span><span class="chips" role="group" aria-labelledby="ageLbl">${ages.map(a => `<button type="button" data-age="${a}" aria-pressed="${a === L.age}">${ageWords(a)}</button>`).join('')}</span></div>` : ''}
+      ${k === 'n' ? `<p class="rule-row"><span>At most</span><input type="text" inputmode="numeric" maxlength="3" data-lk="max" value="${L.max}" aria-label="Most pitches" autocomplete="off"><span>pitches a pitcher</span></p>` : ''}
+      <p class="hint limit-words">${esc(limitWords(L))}</p>`;
+  };
+  draw();
+  host.addEventListener('click', e => {
+    const b = e.target.closest('[data-limit], [data-age]'), L = get();
+    if (!b) return;
+    if (b.dataset.age) set(preset(L.by, b.dataset.age));
+    else {
+      const v = b.dataset.limit;
+      if (v === (!L ? 'none' : L.by || 'n')) return;
+      set(v === 'none' ? 0 : v === 'n' ? { by: '', age: '', max: (L && L.max) || 75 } : preset(v, L && PITCH_AGES[L.age] ? L.age : '11-12'));
+    }
+    const sel = b.dataset.age ? `[data-age="${b.dataset.age}"]` : `[data-limit="${b.dataset.limit}"]`;
+    draw();
+    $(sel, host).focus();
+  });
+  // A number of the scorer's own: changed as it's typed (blank or 0 is no limit).
+  host.addEventListener('input', e => {
+    if (!e.target.closest('[data-lk]')) return;
+    const n = parseInt(e.target.value, 10);
+    set(n > 0 ? { by: '', age: '', max: Math.min(n, 300) } : 0);
+    $('.limit-words', host).textContent = limitWords(get());
+  });
 }

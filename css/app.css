@@ -397,6 +397,10 @@ details.lineup summary small { color: var(--muted); font-weight: 400; }
 .pitcher span { grid-column: 1 / -1; }
 .pitcher b { justify-self: end; font: 800 17px/1 var(--board-font); }
 .pitcher small { justify-self: start; color: var(--muted); font-size: 12px; }
+/* Near the game's pitch limit, amber; at it, red, with what to do. */
+.pitcher.near { box-shadow: 0 2px 0 rgba(0, 0, 0, .25), 0 0 0 3px var(--lamp-s); }
+.pitcher.finish, .pitcher.over { box-shadow: 0 2px 0 rgba(0, 0, 0, .25), 0 0 0 3px var(--red); }
+.pitcher.finish b, .pitcher.over b, .pitcher.finish small, .pitcher.over small { color: var(--red); font-weight: 800; }
 /* The count and the outs, a row of lamps each, as a ballpark's board has them. */
 .count {
   position: absolute; right: 8px; bottom: 8px; display: grid; gap: 3px;
