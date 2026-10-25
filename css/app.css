@@ -693,19 +693,49 @@ li.scored { border-left: 4px solid var(--red); }
 }
 
 /* ---------- on paper ---------- */
+/* A page each: the title, the line score and the visitors' card; the home card; the box score. Rows are half an inch,
+   or less when a long order wouldn't otherwise fit (--rows is the order's size), and every inning column is as wide as
+   the next, so innings still to come have room to pencil in. Ink only, even from a phone in dark mode. */
 #print { display: none; }
 @media print {
-  :root { color-scheme: light; --bg: #fff; --paper: #fff; --card: #fff; --ink: #000; --ink-2: #222; --muted: #555; --grid: #7d93a8; --grid-2: #b9c6d3; --pencil: #000; --soft: #f2f2f2; --now: transparent; --board: #fff; --board-2: #fff; --board-ink: #000; --board-dim: #444; --shadow: none; }
+  @page { margin: .4in; }
+  :root { color-scheme: light; --bg: #fff; --paper: #fff; --card: #fff; --ink: #000; --ink-2: #222; --muted: #555; --grid: #7d93a8; --grid-2: #b9c6d3; --pencil: #000; --soft: #f2f2f2; --now: transparent; --board: #fff; --board-2: #fff; --board-ink: #000; --board-dim: #444; --shadow: none; --red: #c0392b; --red-2: #a12e22; --run: rgba(192, 57, 43, .2); --run-line: #c0392b; --lamp-s: #000; }
   body > :not(#print) { display: none !important; }
   #print { display: block; font-size: 12px; }
   #print h1 { font: 800 26px/1 var(--board-font); text-transform: uppercase; }
-  #print h2 { font: 800 18px/1 var(--board-font); text-transform: uppercase; margin: 14px 0 6px; }
+  #print h2 { font: 800 18px/1 var(--board-font); text-transform: uppercase; margin: 14px 0 6px; break-after: avoid; }
   #print .linescore { border-spacing: 0; border: 1px solid #000; margin: 8px 0; }
   #print .linescore th, #print .linescore td { border: 1px solid #999; position: static; box-shadow: none; }
+  #print .linescore tbody th { max-width: none; }
   #print .linescore .rhe { color: #000; }
-  #print .card { width: 100%; break-inside: avoid; }
-  #print .card td { width: auto; min-width: 0; height: 48px; }
-  #print .card tbody .who { height: 48px; position: static; }
-  #print .stats { box-shadow: none; }
+  #print .pcard { break-before: page; break-inside: avoid; --budget: 5.4in; --row: min(.5in, calc(var(--budget) / var(--rows))); }
+  #print .pcard:first-of-type { break-before: auto; }
+  #print .pbox { break-before: page; }
+  #print .card { width: 100%; table-layout: fixed; }
+  #print .card thead th { padding: 4px 2px; }
+  #print .card .who { width: 1.4in; min-width: 0; max-width: none; position: static; box-shadow: none; }
+  #print .card .tot { width: .34in; min-width: 0; }
+  #print .card td { width: auto; min-width: 0; height: var(--row); }
+  #print .card .box, #print .card .cs { height: var(--row); }
+  #print .card td.end { box-shadow: none; border-bottom: 3px solid var(--red); }
+  #print .card tbody .who { display: table-cell; vertical-align: middle; height: var(--row); padding: 1px 4px; line-height: 1; white-space: nowrap; overflow: hidden; }
+  #print .card tbody .who .ord { display: inline-block; vertical-align: middle; margin-right: 4px; }
+  #print .card tbody .who .names { display: inline-grid; vertical-align: middle; max-width: calc(100% - 22px); }
+  #print .card .pl { font-size: 14px; line-height: 1.1; }
+  #print .card .pl.was { font-size: 11px; }
+  #print .card tfoot th, #print .card tfoot td, #print .card tfoot .who { height: .22in; font-size: 13px; }
+  #print .cs .ct { font-size: 9px; }
+  #print .cs .nt { font-size: 10.5px; }
+  #print .cs .onn { font-size: 9.5px; }
+  #print .stats { box-shadow: none; break-inside: avoid; margin-bottom: 8px; }
+  #print .stats th, #print .stats td { padding: 3px 5px; font-size: 12px; }
+  #print .stats thead th { font-size: 10px; }
+  #print .stats thead th:first-child { font-size: 14px; }
+  #print .stats small { font-size: 10px; }
+  #print .extras p { font-size: 12px; margin-bottom: 2px; }
   #print .box-grid { grid-template-columns: 1fr 1fr; display: grid; }
+}
+@media print and (orientation: landscape) {
+  /* Less height: the first card shares its page with the title and the line score. */
+  #print .pcard { --budget: 4in; }
 }

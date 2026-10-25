@@ -75,15 +75,22 @@ export function saveFile(g) {
   download(`${g.date} ${slug(teamName(g, 0))}-at-${slug(teamName(g, 1))}.backwards-k.json`, JSON.stringify({ app: 'backwards-k', v: 1, games: { [g.id]: g } }, null, 1));
 }
 
-// Fills the print-only part of the page with both cards and the box score, then prints.
+// Fills the print-only part of the page with both cards and the box score, then prints. Each card is a page of its
+// own, with its heading, and its rows as tall as the page allows (--rows: the order, and half a row more for each name
+// past two in one slot); the box score starts another.
 export function printGame(g) {
   const S = replay(g);
+  const rows = s => {
+    const subs = Array(S.size[s]).fill(0);
+    for (const e of g.ev) if (e.t === 'sub' && e.s === s && e.slot < subs.length) subs[e.slot]++;
+    return subs.reduce((n, k) => n + Math.max(0, k - 1) / 2, S.size[s]);
+  };
   let el = document.getElementById('print');
   if (!el) { el = document.createElement('div'); el.id = 'print'; document.body.append(el); }
   el.innerHTML = `<h1>${esc(teamName(g, 0))} at ${esc(teamName(g, 1))}</h1>
     <p>${esc([fmtDate(g.date, true), g.place].filter(Boolean).join(' · '))}</p>
     ${lineHtml(S)}
-    ${[0, 1].map(s => `<h2>${esc(teamName(g, s))}</h2>${cardHtml(S, s, { live: false })}`).join('')}
-    <h2>Box score</h2>${boxHtml(S)}`;
+    ${[0, 1].map(s => `<section class="pcard" style="--rows:${rows(s)}"><h2>${esc(teamName(g, s))}</h2>${cardHtml(S, s, { live: false })}</section>`).join('')}
+    <section class="pbox"><h2>Box score</h2>${boxHtml(S)}</section>`;
   setTimeout(() => window.print(), 50);
 }

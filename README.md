@@ -40,7 +40,8 @@ written out in plain words.
   a group text or a game preview, starting pitcher included), or reuse a team from an earlier game. Pinch hitters and pitching changes are a tap on the batter or the pitcher, and a
   pinch runner is a tap on the runner.
 - **Sharing.** Send a link that carries the whole game (nothing is uploaded to share it), copy the score as text for
-  a group chat, print both cards, or save the game as a file.
+  a group chat, print both cards and the box score (a page each, Letter or A4, upright or sideways), or save the
+  game as a file.
 - **Google Drive, if you like.** Each game is saved as its own file in a "Backwards K" folder in your Drive, and shows
   up on every phone, tablet and computer where you turn it on.
 - No account and no server. Games are saved in your browser. It works offline, keeps the screen awake during a game,

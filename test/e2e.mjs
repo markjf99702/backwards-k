@@ -964,6 +964,22 @@ step('on paper, the line score’s R H E are in black');
   await p.emulateMedia({ media: 'print' });
   const inks = await p.evaluate(() => [...document.querySelectorAll('#print .linescore td.rhe')].map(td => getComputedStyle(td).color));
   assert.deepEqual([...new Set(inks)], ['rgb(0, 0, 0)']);
+  // A page each: the title, the line score and the visitors' card on the first, then the home card, then the box
+  // score; each card whole on its page, and every inning column (played or not) as wide as the next. Letter, with
+  // the .4in margins, upright and on its side.
+  for (const [w, h] of [[7.7, 10.2], [10.2, 7.7]]) {
+    await p.setViewportSize({ width: Math.round(w * 96), height: Math.round(h * 96) });
+    const got = await p.evaluate(() => {
+      const r = el => el.getBoundingClientRect(), [a, b] = document.querySelectorAll('#print .pcard');
+      const cols = [...a.querySelectorAll('tbody tr:first-child td:not(.tot)')].map(td => r(td).width);
+      return { first: r(a).bottom - r(document.querySelector('#print h1')).top, second: r(b).height, cols, breaks: [a, b, document.querySelector('#print .pbox')].map(x => getComputedStyle(x).breakBefore) };
+    });
+    const page = h * 96;
+    assert.ok(got.first < page && got.second < page, `${w}x${h}in: the cards take ${got.first} and ${got.second} of ${page}`);
+    assert.ok(Math.max(...got.cols) - Math.min(...got.cols) < 1, `${w}x${h}in: inning columns ${got.cols.join(', ')}`);
+    assert.equal(got.cols.length, 9);
+    assert.deepEqual(got.breaks, ['auto', 'page', 'page']);
+  }
   await p.context().close();
 }
 
