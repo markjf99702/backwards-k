@@ -1,5 +1,5 @@
 // Games on this device, in localStorage. Every change is saved straight away; nothing waits for Google Drive.
-import { cleanDoc, cleanGame, canon } from './model.js';
+import { cleanDoc, cleanGame } from './model.js';
 
 export const KEY = 'backwards-k.v1';
 const listeners = [];
@@ -14,8 +14,19 @@ function read() {
   try { return cleanDoc(JSON.parse(raw || 'null')); } catch { return cleanDoc(null); }
 }
 function write() {
-  try { localStorage.setItem(KEY, canon(doc)); problem = ''; } catch (e) { problem = isFull(e) ? 'full' : 'blocked'; }
+  try { localStorage.setItem(KEY, text()); problem = ''; } catch (e) { problem = isFull(e) ? 'full' : 'blocked'; }
   return !problem;
+}
+// Each game's JSON as it was last saved, so saving one game doesn't write out every other game again (with hundreds
+// saved, that was most of a tap). A game's is made again when it's saved, added or read again from storage.
+const json = new Map();
+// Everything, as JSON: the same as JSON.stringify(doc), from the games' saved JSON.
+function text() {
+  const games = Object.entries(doc.games).map(([id, g]) => {
+    if (!json.has(id)) json.set(id, JSON.stringify(g));
+    return `${JSON.stringify(id)}:${json.get(id)}`;
+  });
+  return `{"app":${JSON.stringify(doc.app)},"v":${JSON.stringify(doc.v)},"games":{${games.join(',')}},"gone":${JSON.stringify(doc.gone)}}`;
 }
 const isFull = e => !!e && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED' || e.code === 22 || e.code === 1014);
 const tell = why => listeners.forEach(f => { try { f(why); } catch (e) { console.error(e); } });
@@ -27,6 +38,7 @@ export const store = {
   save(g) {
     g.updated = Math.max(Date.now(), (g.updated || 0) + 1);
     doc.games[g.id] = g;
+    json.delete(g.id);
     delete doc.gone[g.id];
     const ok = write();
     tell();
@@ -35,6 +47,7 @@ export const store = {
   // Returns false if that couldn't be stored.
   remove(id) {
     delete doc.games[id];
+    json.delete(id);
     doc.gone[id] = Date.now();
     const ok = write();
     tell();
@@ -50,6 +63,7 @@ export const store = {
       const mine = doc.games[g.id];
       if (mine && mine.updated >= g.updated) continue;
       doc.games[g.id] = g;
+      json.delete(g.id);
       delete doc.gone[g.id];
       n++;
     }
@@ -65,6 +79,7 @@ export const store = {
   reload() {
     const was = doc;
     doc = read();
+    json.clear();
     for (const g of Object.values(was.games)) {
       const there = doc.games[g.id];
       if ((there ? there.updated : doc.gone[g.id] || 0) < g.updated) { doc.games[g.id] = g; delete doc.gone[g.id]; }

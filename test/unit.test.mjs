@@ -954,6 +954,36 @@ test('two copies that each have plays the other lacks are both kept, the second 
   assert.equal(merge(a, b).game, a);
 });
 
+// The browser's storage, pretend: localStorage and the window store.js listens to.
+function pretendStorage(start = {}) {
+  const m = new Map(Object.entries(start));
+  globalThis.localStorage = { getItem: k => (m.has(k) ? m.get(k) : null), setItem: (k, v) => { m.set(k, String(v)); }, removeItem: k => { m.delete(k); } };
+  globalThis.window ??= { addEventListener() {} };
+  return m;
+}
+
+test('saving one game writes the others as they were saved, not made into JSON again', async () => {
+  const m = pretendStorage();
+  const { store } = await import('../js/store.js?' + Math.random());
+  const [a, b] = [sampleGame(3), sampleGame(5)];
+  b.id = 'gsampleb';
+  store.save(a);
+  store.save(b);
+  assert.equal(m.get('backwards-k.v1'), JSON.stringify(store.doc()), 'the same as the whole thing made into JSON');
+  // b changed without being saved (as a name being typed is, until a pause): saving a writes b as it was saved.
+  const was = m.get('backwards-k.v1');
+  b.place = 'Not saved yet';
+  play(a, 'K');
+  store.save(a);
+  const now = JSON.parse(m.get('backwards-k.v1'));
+  assert.equal(now.games[b.id].place, JSON.parse(was).games[b.id].place);
+  assert.deepEqual(now.games[a.id], JSON.parse(JSON.stringify(a)));
+  store.save(b);
+  assert.equal(m.get('backwards-k.v1'), JSON.stringify(store.doc()));
+  store.remove(a.id);
+  assert.equal(m.get('backwards-k.v1'), JSON.stringify(store.doc()));
+});
+
 test('a game can have up to 30 innings', () => {
   assert.equal(cleanGame({ ...game(), innings: 25 }).innings, 25);
   assert.equal(cleanGame({ ...game(), innings: 99 }).innings, 30);
