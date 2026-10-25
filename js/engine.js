@@ -584,6 +584,37 @@ export function check(S, moves, code) {
   return '';
 }
 
+// Whether a play Undo took back can go back in as it was, now that something else has gone in before it (a forgotten
+// steal, say): '' if it can, else why not. at: how things stood when it was first made ({ half, inn, outs, over }).
+// Nothing goes back into another half-inning than it was made in, or past the end of the game ('over'). A pitch goes
+// back as it was; a plate appearance or a runner's move only with the same runners on, where they could all have
+// gone ('runners'), and one with runs crossing that ends the half-inning, now or when it was made, with the same outs
+// (whether the runs counted was answered for those). A substitution needs its spot in the order ('gone').
+export function fits(S, e, at) {
+  if (S.half !== at.half || S.inn !== at.inn || S.over !== at.over) return 'over';
+  if (e.t === 'pa' && RESULTS[e.r]) {
+    const m = e.m || suggest(S, e.r), from = [...new Set(m.map(x => x[0]))].sort().join();
+    if (from !== [0, ...runnersOn(S)].sort().join() || check(S, m, e.r)) return 'runners';
+    if (S.outs !== at.outs && m.some(x => x[1] === 4) && (e.x || S.outs + m.filter(x => x[1] === 0).length >= 3)) return 'runners';
+  }
+  if (e.t === 'r') {
+    if (!e.m.length || !e.m.every(([b]) => S.bases[b])) return 'runners';
+    // Where everyone on base ends up: nobody goes back, passes the runner ahead or shares a base, and no more than
+    // three are out.
+    const to = b => { const x = e.m.find(y => y[0] === b); return x ? x[1] : b; };
+    let ahead = 5, outs = S.outs;
+    for (const b of runnersOn(S)) {
+      const t = to(b);
+      if (!t) { outs++; continue; }
+      if (t < b || (t < 4 && t >= ahead)) return 'runners';
+      if (t < 4) ahead = t;
+    }
+    if (outs > 3) return 'runners';
+  }
+  if (e.t === 'sub' && !(e.slot < S.size[e.s])) return 'gone';
+  return '';
+}
+
 // When a play makes the third out, do the runs that crossed on it count? Not if the batter was out before reaching
 // first or the third out was a force; usually yes otherwise (a runner scores before another is tagged out, or
 // before the batter is thrown out stretching a hit: OBR 5.08(a)). The scorer can say.

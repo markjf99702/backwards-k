@@ -1293,6 +1293,55 @@ step('Fix runners after the next pitch: the fix goes in, and the pitch stays');
   await p.context().close();
 }
 
+step('a play forgotten a few plays back: Undo to it, score it, and Put back the rest');
+{
+  const p = await phone();
+  const id = await startGame(p);
+  await p.click('[data-r="1B"]');
+  await p.click('[data-p=b]');
+  await p.click('[data-p=b]');
+  await p.click('[data-r="1B"]');
+  await p.click('.sheet [data-x=save]');
+  assert.equal(await bases(p), '2:Batter 1 1:Batter 2');
+  // Batter 1 had stolen second before those two balls: back to there, and score the steal.
+  for (let i = 0; i < 3; i++) await p.click('.ticker [data-a=undo]');
+  assert.equal(await bases(p), '1:Batter 1');
+  await p.click('[data-runner="1"]');
+  await p.click('.sheet [data-k=SB]');
+  const links = () => p.$$eval('.ticker .acts button', b => b.map(x => x.textContent));
+  assert.deepEqual(await links(), ['Undo', 'Put back 3 plays']);
+  // The balls go back as they were; the single moved a runner from first, who's on second now, so it asks.
+  await p.click('.ticker [data-a=putback]');
+  await p.waitForSelector('.sheet .moves');
+  assert.equal(await p.textContent('.sheet h2'), 'Single');
+  assert.deepEqual(await p.$$eval('.sheet .mv p', ps => ps.map(x => x.textContent)), ['Batter 1was on second', 'Batter 2at bat']);
+  // Cancel: the balls are back, and the single waits to be put back.
+  await p.click('.sheet [data-close]');
+  assert.equal(await plays(p, id), 'pa1B r p p');
+  assert.deepEqual(await links(), ['Undo', 'Put back 1 play']);
+  await p.click('.ticker [data-a=putback]');
+  await p.click('.sheet [data-x=save]');
+  assert.equal(await plays(p, id), 'pa1B r p p pa1B');
+  assert.equal(await bases(p), '3:Batter 1 1:Batter 2');
+  assert.equal(await tickerOf(p), 'Batter 2 singles. Batter 1 to third.');
+  await p.waitForFunction(() => /^Put back 1 play\./.test(document.querySelector('#said').textContent));
+  assert.deepEqual(await links(), ['Undo', 'Fix runners']);
+  // Each one is its own play again: Undo takes back one at a time.
+  await p.click('.ticker [data-a=undo]');
+  assert.equal(await plays(p, id), 'pa1B r p p');
+  await p.click('.ticker [data-a=redo]');
+  // A steal that no longer fits is left out, and the message says so: Batter 2 was picked off instead.
+  await p.click('[data-runner="1"]');
+  await p.click('.sheet [data-k=SB]');
+  await p.click('.ticker [data-a=undo]');
+  await p.click('[data-runner="1"]');
+  await p.click('.sheet [data-k=PO]');
+  await p.click('.ticker [data-a=putback]');
+  assert.equal(await seen(p), 'That play doesn’t fit where the game is now, so it’s left out: Batter 2 steals second.');
+  assert.equal(await plays(p, id), 'pa1B r p p pa1B r');
+  await p.context().close();
+}
+
 step('Fix runners starts from the play that was tapped: a line out that scored the run, then held, is a line out');
 {
   const p = await phone(), id = await startGame(p);

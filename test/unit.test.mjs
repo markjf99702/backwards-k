@@ -1,7 +1,7 @@
 // The rules of scoring, without a browser:  node --test test/unit.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { replay, suggest, check, runsCount, scoredAs, mark, now, columns, halfLabel, RESULTS, runnersOn, pitchDay, pitchStat, pitchWork, pitchCount, winningRun } from '../js/engine.js';
+import { replay, suggest, check, runsCount, scoredAs, mark, now, columns, halfLabel, RESULTS, runnersOn, pitchDay, pitchStat, pitchWork, pitchCount, winningRun, fits } from '../js/engine.js';
 import { newGame, cleanGame, cleanDoc, parseLineup, parsePaste, takeBack, putBack, starters, newer, merge, seenOf } from '../js/model.js';
 import { sampleGame } from '../js/sample.js';
 // The card is drawn with ui.js, which looks for the page's sheet as it loads: here there's no page, so no sheet.
@@ -1435,6 +1435,52 @@ test('undoing someone brought back in keeps the player an earlier change still p
   assert.equal(g.teams[0].lineup[0].length, 2);
   putBack(g, r2);
   assert.deepEqual(g.teams[0].lineup[0].map(p => p.name), ['Morris', 'Diaz', 'Kim']);
+});
+
+test('a play Undo took back fits back in after a forgotten one only where it still could have happened', () => {
+  const at = S => ({ half: S.half, inn: S.inn, outs: S.outs, over: S.over });
+  // Scored: a single, a ball, a single that moved the runner to second. Forgotten: he stole second first.
+  const g = game();
+  let S = play(g, '1B', P('b'));
+  const was = at(S), single = { t: 'pa', r: '1B', m: [[1, 2], [0, 1]] };
+  assert.equal(fits(S, single, was), '');
+  S = play(g, { t: 'r', m: [[1, 2, 'SB']] });
+  assert.equal(fits(S, P('b'), was), '', 'a pitch goes back as it was');
+  assert.equal(fits(S, single, was), 'runners', 'the single moved a runner from first, and he’s on second now');
+  assert.equal(fits(S, { t: 'pa', r: '1B', m: [[2, 3], [0, 1]] }, was), '');
+  assert.equal(fits(S, { t: 'r', m: [[1, 2, 'SB']] }, was), 'runners', 'nobody on first to steal second');
+  assert.equal(fits(S, { t: 'r', m: [[2, 3, 'SB']] }, was), '');
+  // A runner's move can't pass the runner ahead or share his base.
+  S = play(g, 'BB');
+  assert.equal(fits(S, { t: 'r', m: [[1, 2, 'SB']] }, at(S)), 'runners');
+  assert.equal(fits(S, { t: 'r', m: [[2, 3, 'WP'], [1, 2, 'WP']] }, at(S)), '');
+  // Nothing goes into another half-inning, or after the final.
+  const h = play(game(), 'K', 'K');
+  S = play(game(), 'K', 'K', 'K');
+  assert.equal(fits(S, P('b'), at(h)), 'over');
+  // The third out with a run crossing: only with the same outs (whether it counted was answered for those).
+  const one = play(game(), '3B', 'K'), two = play(game(), '3B', 'K', 'K');
+  const third = { t: 'pa', r: 'GO', m: [[3, 4], [0, 0]], x: 1 }, early = { t: 'pa', r: 'GO', m: [[3, 4], [0, 0]] };
+  assert.equal(fits(two, third, at(two)), '');
+  assert.equal(fits(one, third, at(two)), 'runners', 'not the third out now: the run would count');
+  assert.equal(fits(two, early, at(one)), 'runners', 'the third out now: did the run cross before it?');
+  assert.equal(fits(play(game(), '3B'), early, at(one)), '', 'still not the third out');
+  // A substitution needs its spot in the order.
+  assert.equal(fits(S, { t: 'sub', s: 0, slot: 9, i: 1, ty: 'ph' }, at(S)), 'gone');
+});
+
+test('a player brought in by a play put back after other changes goes at the end of the list, and the play points at him', () => {
+  const g = game();
+  g.teams[0].lineup[0].push({ name: 'Kim', num: '' });
+  g.ev.push({ t: 'sub', s: 0, slot: 0, i: 1, ty: 'ph' });
+  const r = takeBack(g);
+  // Meanwhile someone else came in for the same spot.
+  g.teams[0].lineup[0].push({ name: 'Lee', num: '' });
+  g.ev.push({ t: 'sub', s: 0, slot: 0, i: 1, ty: 'def' });
+  assert.deepEqual(putBack(g, r), { t: 'sub', s: 0, slot: 0, i: 2, ty: 'ph' });
+  assert.deepEqual(g.teams[0].lineup[0].map(p => p.name || 'Batter 1'), ['Batter 1', 'Lee', 'Kim']);
+  assert.equal(r.e.i, 1, 'the record Undo kept is left as it was');
+  assert.equal(replay(g).text.at(-1), 'Kim pinch-hits for Lee.');
 });
 
 test('a pitcher’s day in words: plurals, and outs below an inning said as outs', () => {

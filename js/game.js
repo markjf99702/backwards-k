@@ -2,7 +2,7 @@
 // away on a phone) the scorecard, the box score and the play-by-play.
 import {
   replay, suggest, check, runsCount, scoredAs, now, RESULTS, BASE, POS, POS_NAME, halfLabel, label, player, teamName,
-  pitcherLabel, ord, runnersOn, mark, pitchStat, pitchWords, pitchDay, pitchWork, pitchCount, winningRun,
+  pitcherLabel, ord, runnersOn, mark, pitchStat, pitchWords, pitchDay, pitchWork, pitchCount, winningRun, fits,
 } from './engine.js';
 import { store } from './store.js';
 import { blank, takeBack, putBack, newer, plays } from './model.js';
@@ -14,7 +14,9 @@ import { drive } from './sync.js';
 import { shareSheet, saveFile } from './share.js';
 import { helpSheet } from './help.js';
 
-let G = null, S = null, root = null, redo = [];
+// redo: what Undo took back, latest last. kept: what it took back before a new play went in, to put back after it
+// (see moved()).
+let G = null, S = null, root = null, redo = [], kept = null;
 let view = 'live', pane = 'card', cardSide = null, readOnly = false, onSave = null, lastInn = '', note = '', later = false;
 // The play the scorer tapped for the latest plate appearance, before it was scored from where everyone ended up (a line
 // out that brought the run in from third is saved as a sacrifice fly): Fix runners starts again from it. Only kept
@@ -27,7 +29,7 @@ const BASES = ['', '1st', '2nd', '3rd', 'Home'];
 // that version.
 export function showGame(el, game, opts = {}) {
   later = newer(game);
-  G = game; root = el; redo = []; readOnly = !!opts.shared || later; onSave = opts.onSave || null; tapped = { e: null, r: '' };
+  G = game; root = el; redo = []; kept = null; readOnly = !!opts.shared || later; onSave = opts.onSave || null; tapped = { e: null, r: '' };
   view = 'live'; cardSide = null; lastInn = '';
   if (readOnly) { view = matchMedia('(min-width: 700px)').matches ? 'live' : 'card'; pane = 'card'; }
   S = replay(G);
@@ -64,7 +66,10 @@ store.onChange(why => {
     return;
   }
   told = '';
-  if (fresh !== G) { G = fresh; S = replay(G); draw(); }
+  if (fresh === G) return;
+  // (Plays changed somewhere else: the ones kept to put back may not belong after them.)
+  if (plays(fresh.ev) !== plays(G.ev)) kept = null;
+  G = fresh; S = replay(G); draw();
 });
 
 // ---------- keep the screen on during a game ----------
@@ -92,9 +97,16 @@ window.addEventListener('pagehide', flush);
 function act(e) {
   if (readOnly) return;
   G.ev.push(e);
-  redo = [];
+  moved();
   save();
   say();
+}
+// A new play (or a fix) after Undo. What Undo took back isn't thrown away: it's kept to put back after the new play,
+// a forgotten steal scored where it happened, say (Put back, under the field, once the game has that many plays
+// again: it waits while the new play is taken back with Undo). Plays Undo takes back after that go, as before.
+function moved() {
+  if (redo.length && !kept) kept = { stack: redo, n: G.ev.length };
+  redo = [];
 }
 // (If this device can't save, the line under the bar says so: see trouble().)
 function save() {
@@ -122,11 +134,13 @@ function flush() {
   if (g === G) trouble();
 }
 function undo() {
-  const was = `Took back: ${tidy(S.text[G.ev.length - 1])}`;
+  const said = tidy(S.text[G.ev.length - 1]), was = `Took back: ${said}`;
   const r = takeBack(G);
   if (!r) return;
   redo.push(r);
   save();
+  // How things stood before it, to tell whether it can go back as it was after other plays (fits() in engine.js).
+  Object.assign(r, { at: { half: S.half, inn: S.inn, outs: S.outs, over: S.over }, said });
   if (wide() || view === 'live') return say(was);
   // On a phone's Card, Box score or Plays tab, the line under the field (and its Redo) is out of sight, so a message
   // says which play went, with Redo on it. What a screen reader hears then only adds where things stand.
@@ -139,6 +153,56 @@ function redoIt() {
   putBack(G, r);
   save();
   say();
+}
+// Put back: the plays kept from before a new play went in go back after it, oldest first, each as it was if it still
+// fits where the game is now (fits() in engine.js). A plate appearance with other runners on now opens its runners
+// sheet, with the result kept (Cancel leaves it, and the rest, to put back). Anything else that no longer fits, a
+// play from a half-inning that's over now or a steal by a runner who isn't there, is left out, and the message says so.
+function putBackKept() {
+  if (!kept) return;
+  const list = kept.stack.slice().reverse();
+  kept = null;
+  redo = [];
+  goBack(list, { put: 0, left: [], of: list.length });
+}
+function goBack(list, n) {
+  for (let r; (r = list.shift());) {
+    const e = r.e, why = fits(S, e, r.at);
+    if (!why) putBack(G, r);
+    else if (why === 'runners' && e.t === 'pa') {
+      const m = suggest(S, e.r);
+      if (!quiet(e.r)) return askBack(r, list, n, m);
+      G.ev.push(withF({ t: 'pa', r: e.r, m }, e.f));
+    } else { n.left.push(r.said); continue; }
+    n.put++;
+    S = replay(G);
+  }
+  save();
+  const left = n.left.length, put = `Put back ${n.put === n.of ? few(n.put, 'play') : `${n.put} of ${few(n.of, 'play')}`}.`;
+  if (!left) return say(put);
+  const which = `${n.left.slice(0, 2).join(' ')}${left > 2 ? ` And ${left - 2} more.` : ''}`;
+  const t = !n.put ? `${n.of > 1 ? `None of the ${n.of} plays fit` : 'That play doesn’t fit'} where the game is now, so ${n.of > 1 ? 'they’re' : 'it’s'} left out: ${which}`
+    : `${put} ${left > 1 ? `${left} don’t` : 'One doesn’t'} fit where the game is now, so ${left > 1 ? 'they’re' : 'it’s'} left out: ${which}`;
+  say(t);
+  toast(t, { ms: 8000 });
+}
+// A play to put back whose runners are different now: its runners sheet, from where they are. What's back so far is
+// saved, and the rest is kept to put back, in case of Cancel.
+function askBack(r, list, n, m) {
+  save();
+  kept = { stack: [...list].reverse().concat([r]), n: G.ev.length };
+  draw();
+  const id = G.id, was = plays(G.ev);
+  runnersSheet(r.e.r, r.e.f || null, m, {
+    done: e2 => {
+      if (!G || G.id !== id || plays(G.ev) !== was) return toast('The game changed somewhere else while this was open, so the play wasn’t put back.');
+      kept = null;
+      G.ev.push(e2);
+      n.put++;
+      S = replay(G);
+      goBack(list, n);
+    },
+  });
 }
 
 // ---------- what a screen reader hears ----------
@@ -366,9 +430,10 @@ function liveHtml() {
   // The links have a row of their own (beside the play, on a big screen), each a thumb's height, and the line a fixed
   // height, so the buttons below never move. Undo comes first: it takes back the play just above it.
   const k = fixable(), fix = k < 0 ? '' : `Fix runners: ${S.text[k]}`, back = last && `Undo: ${last}`;
+  const keep = !redo.length && kept && G.ev.length >= kept.n ? kept.stack.length : 0;
   const ticker = `<div class="ticker">
       <p>${last ? esc(last) : 'Tap what happens. Every tap can be undone.'}</p>
-      <div class="acts">${back ? `<button type="button" class="link-btn" data-a="undo" title="${esc(back)}" aria-label="${esc(back)}">Undo</button>` : ''}${fix ? `<button type="button" class="link-btn" data-a="fixlast" title="${esc(fix)}" aria-label="${esc(fix)}">Fix runners</button>` : ''}${redo.length ? '<button type="button" class="link-btn" data-a="redo">Redo</button>' : ''}</div>
+      <div class="acts">${back ? `<button type="button" class="link-btn" data-a="undo" title="${esc(back)}" aria-label="${esc(back)}">Undo</button>` : ''}${fix ? `<button type="button" class="link-btn" data-a="fixlast" title="${esc(fix)}" aria-label="${esc(fix)}">Fix runners</button>` : ''}${redo.length ? '<button type="button" class="link-btn" data-a="redo">Redo</button>' : ''}${keep ? `<button type="button" class="link-btn" data-a="putback">Put back ${few(keep, 'play')}</button>` : ''}</div>
     </div>`;
   if (S.over) {
     const w = S.R[0] === S.R[1] ? null : S.R[1] > S.R[0] ? 1 : 0;
@@ -424,6 +489,7 @@ function onClick(e) {
   switch (t.dataset.a) {
     case 'undo': return undo();
     case 'redo': return redoIt();
+    case 'putback': return putBackKept();
     case 'fixlast': return fixLast();
     case 'more': return moreSheet();
     case 'batter': return batterSheet();
@@ -440,13 +506,11 @@ function onClick(e) {
 function choose(code, f) {
   const R = RESULTS[code];
   if (R.f && f === undefined) return pickFielders(code, null, got => choose(code, got));
-  const m = suggest(S, code), on = runnersOn(S).length;
+  const m = suggest(S, code);
   // With two out, a runner on second is off with the pitch and usually scores on a single: Home is picked for him.
   if (code === '1B' && S.outs === 2 && S.bases[2]) m.find(x => x[0] === 2)[1] = 4;
-  // Nobody on, a play where runners only move when they're forced, the batter making the third out (nobody can move
-  // up or score on that), or a double play with one runner on or a triple play with two (everyone is out): nothing
-  // to ask. (For the odd one that went differently, Fix runners is right under the field.)
-  if (!on || QUIET.has(code) || (S.outs === 2 && R.kind === 'out') || (code === 'DP' && on === 1) || (code === 'TP' && on === 2)) {
+  // (For the odd one that went differently, Fix runners is right under the field.)
+  if (quiet(code)) {
     closeSheet();
     const e = withF({ t: 'pa', r: code, m }, f);
     tapped = { e, r: code };
@@ -456,6 +520,13 @@ function choose(code, f) {
 }
 const withF = (e, f) => { if (f && f.length) e.f = f; return e; };
 const QUIET = new Set(['K', 'KL', 'PU', 'BB', 'IBB', 'HBP', 'CI']);
+// Nothing to ask about the runners: nobody on, a play where runners only move when they're forced, the batter making
+// the third out (nobody can move up or score on that), or a double play with one runner on or a triple play with two
+// (everyone is out).
+function quiet(code) {
+  const on = runnersOn(S).length;
+  return !on || QUIET.has(code) || (S.outs === 2 && RESULTS[code].kind === 'out') || (code === 'DP' && on === 1) || (code === 'TP' && on === 2);
+}
 
 const HINT = {
   GO: 'Tap the fielder who got the ball, then whoever made the out. Short to first is 6, then 3.',
@@ -620,7 +691,7 @@ function fixLast() {
       }
       G.ev[k] = e2;
       tapped = { e: e2, r: code };
-      redo = [];
+      moved();
       save();
       say(`Fixed: ${S.text[k]}`);
     },
@@ -901,7 +972,7 @@ function lineupSheet(side = S.half, { focus, top } = {}) {
     const ls = e.target.closest('[data-ls]'), sub = e.target.closest('[data-sub]'), y = e.target.closest('[data-y]');
     if (ls) lineupSheet(+ls.dataset.ls);
     if (sub) { const at = body.scrollTop; subForm(side, +sub.dataset.sub, side === S.half && S.up[side] === +sub.dataset.sub ? 'ph' : 'def', () => lineupSheet(side, { top: at })); }
-    if (y && y.dataset.y === 'add') { G.teams[side].lineup.push([blank()]); G.ev.push({ t: 'add', s: side }); redo = []; save(); lineupSheet(side, { focus: S.size[side] - 1 }); }
+    if (y && y.dataset.y === 'add') { G.teams[side].lineup.push([blank()]); G.ev.push({ t: 'add', s: side }); moved(); save(); lineupSheet(side, { focus: S.size[side] - 1 }); }
     if (y && y.dataset.y === 'pitcher') newPitcher(side);
   });
   const name = focus != null && body.querySelector(`[data-slot="${focus}"][data-f=name]`);

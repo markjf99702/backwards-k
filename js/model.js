@@ -240,11 +240,18 @@ export function takeBack(g) {
   if (list && list.length - 1 === e.i && !g.ev.some(same)) r.player = list.pop();
   return r;
 }
-// Redo: what takeBack took, put back.
+// Redo: what takeBack took, put back. Put back later, after other changes (see game.js), a player it brought in goes at
+// the end of the list again, and the event points at him there. Returns the event as it went in.
 export function putBack(g, r) {
-  if (r.slot) g.teams[r.e.s].lineup.push(r.slot);
-  if (r.player) (r.e.t === 'sub' ? g.teams[r.e.s].lineup[r.e.slot] : g.teams[r.e.s].pitchers).push(r.player);
-  g.ev.push(r.e);
+  let e = r.e;
+  if (r.slot) g.teams[e.s].lineup.push(r.slot);
+  if (r.player) {
+    const list = e.t === 'sub' ? g.teams[e.s].lineup[e.slot] : g.teams[e.s].pitchers;
+    list.push(r.player);
+    if (e.i !== list.length - 1) e = { ...e, i: list.length - 1 };
+  }
+  g.ev.push(e);
+  return e;
 }
 
 // Two copies of one game made one, for Google Drive and for saving a shared link: a, the copy that keeps the game,

@@ -31,8 +31,10 @@ written out in plain words.
   Undo, or for Fix runners, which stays until the next batter's turn is over.
 - **Undo anything.** A game is a list of what happened, so Undo takes plays back, latest first, as many as you like.
   It's at the top of the screen, and under the field beside the play it would take back, and it says which one it
-  took (with Redo) when the line under the field is out of sight. A change made in a box has its own Undo, right
-  after it.
+  took (with Redo) when the line under the field is out of sight. Forgot a play a few back, a steal or a pitching
+  change? Undo back to it and score it, and **Put back** brings back the plays Undo took, each as it was if it still
+  fits: a batter's play with other runners on now asks where they went, and anything that can't have happened any
+  more is left out, with a message saying which. A change made in a box has its own Undo, right after it.
 - **It knows when the game is over.** Final comes when the last inning is decided, or the moment the home team goes
   ahead in it. That run is the last to count, and a hit that brings it in counts for the bases it needed, as an
   official scorer has it: with the bases loaded, a double that wins the game is a single (a home run still scores
