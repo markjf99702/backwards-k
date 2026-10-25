@@ -754,9 +754,10 @@ step('a double that wins it with the bases loaded is a single on the card, and i
   for (let i = 0; i < 15; i++) await p.click('[data-r=K]');
   for (let i = 0; i < 3; i++) await p.click('[data-r=BB]');
   await p.click('[data-r="2B"]');
+  assert.equal(await p.textContent('.sheet .tally'), 'The winning run scores, and that’s the game. It went for a double, but counts as a single: the winning run needed only one base.');
   await p.click('.sheet [data-x=save]');
   assert.match(await p.textContent('.final h2'), /Home win, 1–0/);
-  assert.equal(await p.textContent('.ticker p'), 'Batter 1 doubles, but it counts as a single: the winning run needed only one base. Batter 7 scores the winning run. Batter 8 to third. Batter 9 to second.');
+  assert.equal(await p.textContent('.ticker p'), 'Batter 1 singles. Batter 7 scores the winning run. Batter 8 to third. Batter 9 to second. It went for a double, but counts as a single: the winning run needed only one base.');
   await p.click('[data-v=card]');
   await p.click('[data-cs="1"]');
   await p.click('[data-cell="18"]');

@@ -246,8 +246,7 @@ function pa(S, e) {
   const moves = (e.m || suggest(S, e.r)).slice().sort((a, b) => b[0] - a[0]);
   // A hit that wins the game counts for the bases the winning run needed, and nobody behind that run gets further
   // (OBR 9.06(f)): with the bases loaded, a double that wins it is a single.
-  const need = winningRun(S, e.r, moves, e.x), tapped = RESULTS[e.r];
-  const code = need && tapped.kind === 'hit' && need < tapped.go && !moves.some(m => m[0] === 0 && m[1] === 0) ? HITS[need] : e.r, R = RESULTS[code];
+  const need = winningRun(S, e.r, moves, e.x), code = creditedHit(e.r, need, moves), R = RESULTS[code];
   S.fresh = false;
   const P = pstat(S);
   if (!e.auto && R.pitch) {
@@ -341,13 +340,13 @@ function pa(S, e) {
   }
   if (runs && R.rbi !== 0) { cell.rbi = runs; B.rbi += runs; }
 
-  let text = `${batterName} ${tapped.say}${fielderWords(code, e.f)}`;
-  if (code !== e.r) text += `, but it counts as a ${R.label.toLowerCase()}: the winning run needed only ${['', 'one base', 'two bases'][need]}`;
+  let text = `${batterName} ${R.say}${fielderWords(code, e.f)}`;
   if (R.kind !== 'out' && bOut) text += R.go === 4 ? ', but is called out on the bases' : `, but is out trying for ${BASE[(R.go || 1) + 1]}`;
   else if (R.kind !== 'out' && bTo > R.go && bTo < 4) text += ` and takes ${BASE[bTo]}`;
   else if (R.kind !== 'out' && bTo === 4 && R.go < 4) text += ` and comes all the way home${need === 4 ? ' with the winning run' : ''}`;
   else if (R.kind === 'out' && !bOut && bTo > 0) text += ` but reaches ${BASE[bTo]}`;
   text += '.' + (bits.length ? ' ' + sentences(bits) + '.' : '');
+  if (code !== e.r) text += ` ${credit(e.r, code)}`;
   cell.text = text;
   S.text[S.i] = text;
   S.plays.push({ i: S.i, inn: S.inn, half: side, text, kind: 'pa', runs, cell: cell.n, r: code });
@@ -460,6 +459,15 @@ const won = S => !S.hold && S.half === 1 && S.inn >= S.g.innings && S.R[1] > S.R
 function walkoff(S) {
   if (won(S)) S.over = true;
 }
+// The hit a batter gets when it wins the game: no more bases than the winning run took (need), when he made it that
+// far (OBR 9.06(f)). A home run is still a home run.
+export function creditedHit(code, need, moves) {
+  const R = RESULTS[code];
+  return need && R.kind === 'hit' && need < R.go && !moves.some(m => m[0] === 0 && m[1] === 0) ? HITS[need] : code;
+}
+// Why a hit that won the game is scored as less: "It went for a double, but counts as a single: the winning run
+// needed only one base."
+export const credit = (code, as) => `It went for a ${RESULTS[code].label.toLowerCase()}, but counts as a ${RESULTS[as].label.toLowerCase()}: the winning run needed only ${['', 'one base', 'two bases'][RESULTS[as].go]}.`;
 // On a play in the home team's last turn, how many bases the run that puts it ahead takes, from where it was (0 when
 // none does): the game ends as it scores, so nobody behind it gets further than that, and a hit counts for that many
 // bases (OBR 5.08(b), 9.06(f)). Not on a home run, when everyone scores (9.06(g)), nor when the runs on the play

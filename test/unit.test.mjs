@@ -197,7 +197,7 @@ test('a hit that wins the game: the winning run is the last to score, and the hi
   assert.equal(S.over, true);
   assert.deepEqual(S.R, [0, 1]);
   assert.deepEqual([c.r, c.mark, c.reach, c.rbi], ['1B', '1B', 1, 1]);
-  assert.equal(S.text.at(-1), 'Batter 4 doubles, but it counts as a single: the winning run needed only one base. Batter 1 scores the winning run. Batter 2 to third. Batter 3 to second.');
+  assert.equal(S.text.at(-1), 'Batter 4 singles. Batter 1 scores the winning run. Batter 2 to third. Batter 3 to second. It went for a double, but counts as a single: the winning run needed only one base.');
   assert.deepEqual([1, 2, 3].map(b => S.bases[b] && S.bases[b].slot), [3, 2, 1]);
   assert.deepEqual(S.lob[1], [3], 'the three still on are left on base');
   assert.equal(Object.values(S.bat).reduce((a, b) => a + b.d, 0), 0, 'no double in the box score');
@@ -210,7 +210,7 @@ test('a hit that wins the game: the winning run is the last to score, and the hi
   S = play(g, '3B');
   assert.deepEqual(S.R, [1, 2]);
   assert.equal(S.cells.at(-1).r, '2B');
-  assert.equal(S.text.at(-1), 'Batter 3 triples, but it counts as a double: the winning run needed only two bases. Batter 1 scores, and Batter 2 scores the winning run.');
+  assert.equal(S.text.at(-1), 'Batter 3 doubles. Batter 1 scores, and Batter 2 scores the winning run. It went for a triple, but counts as a double: the winning run needed only two bases.');
   // A home run: everyone scores (9.06(g)).
   S = play(game({ innings: 1 }), ...threeK, '1B', '1B', '1B', 'HR');
   assert.deepEqual(S.R, [0, 4]);

@@ -2,7 +2,7 @@
 // away on a phone) the scorecard, the box score and the play-by-play.
 import {
   replay, suggest, check, runsCount, scoredAs, now, RESULTS, BASE, POS, POS_NAME, halfLabel, label, player, teamName,
-  pitcherLabel, ord, runnersOn, mark, pitchStat, pitchWords, pitchDay, pitchWork, pitchCount, winningRun, fits,
+  pitcherLabel, ord, runnersOn, mark, pitchStat, pitchWords, pitchDay, pitchWork, pitchCount, winningRun, creditedHit, credit, fits,
 } from './engine.js';
 import { store } from './store.js';
 import { blank, takeBack, putBack, newer, plays } from './model.js';
@@ -641,10 +641,12 @@ function runnersSheet(code, f, moves, { st = S, editing = false, done = act } = 
     const outs = m.filter(x => x[1] === 0).length, runs = m.filter(x => x[1] === 4).length;
     const third = st.outs + outs >= 3 && runs > 0;
     if (userSaid == null) counts.v = runsCount(st, code, m);
+    const need = winningRun(st, code, m, third && !counts.v);
     let t = '';
     if (err) t = `<span class="err">${esc(err)}</span>`;
-    // The run that puts the home team ahead in its last turn ends the game: the runs behind it don't score.
-    else if (winningRun(st, code, m, third && !counts.v)) t = 'The winning run scores, and that’s the game.';
+    // The run that puts the home team ahead in its last turn ends the game: the runs behind it don't score, and a hit
+    // counts for the bases it took.
+    else if (need) t = `The winning run scores, and that’s the game.${creditedHit(code, need, m) !== code ? ' ' + credit(code, creditedHit(code, need, m)) : ''}`;
     else {
       const bits = [];
       if (runs) bits.push(`${runs} run${runs > 1 ? 's' : ''} ${third && !counts.v ? (runs > 1 ? 'cross' : 'crosses') : (runs > 1 ? 'score' : 'scores')}`);
