@@ -238,6 +238,7 @@ h1[tabindex="-1"]:focus { outline: none; } /* a screen's heading, given the keyb
 .tile:hover { border-color: var(--ink-2); }
 .card-box h2 { margin-bottom: 8px; }
 .card-box p { color: var(--ink-2); }
+.card-box p.err { color: var(--red); }
 .card-box .row { justify-content: flex-start; margin-top: 10px; }
 
 /* ---------- a new game ---------- */

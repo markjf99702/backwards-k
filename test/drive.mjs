@@ -151,6 +151,48 @@ await newGame(a, 'Larks', 'Wrens');
 await a.waitForTimeout(3000);
 assert.equal(google.calls.length, n, 'no Drive calls after stopping: ' + google.calls.slice(n).join(', '));
 
+step('no signal and Drive off: the home says nothing about Google until someone asks');
+{
+  const GIS = 'https://accounts.google.com/gsi/client';
+  // A phone with Google's script blocked, as with no signal.
+  const offPhone = async () => {
+    const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
+    await google.install(ctx, { rewrite: { '**/js/sync.js': s => s.replace("['https://backwards-k.junkdrawer.works']", `['${origin}']`) } });
+    await ctx.route(GIS, noSignal); // (the route added last is the one used)
+    const p = await ctx.newPage();
+    p.on('pageerror', e => problems.push(`no signal: ${e.message}`));
+    const gone = p.waitForEvent('requestfailed', r => r.url() === GIS);
+    await p.goto(base);
+    await gone;
+    await p.waitForTimeout(100);
+    return p;
+  };
+  const p = await offPhone();
+  assert.equal(await p.locator('.drive-card .err').count(), 0, 'nothing said: ' + await p.textContent('.drive-card'));
+  // Someone taps it: now it says why nothing happened, in red.
+  const gone = p.waitForEvent('requestfailed', r => r.url() === GIS);
+  await p.click('.drive-card [data-a=on]');
+  await gone;
+  await p.waitForFunction(() => document.querySelector('.drive-card .err')?.textContent === 'Google sign-in didn’t load. Check the connection.');
+  assert.equal(await p.$eval('.drive-card .err', el => getComputedStyle(el).color), 'rgb(192, 57, 43)');
+  // With a signal again, the home screen shown again loads Google's script, and the line goes.
+  await p.context().unroute(GIS, noSignal);
+  await p.goto(base + '#/new');
+  await p.goto(base);
+  await p.waitForFunction(() => window.__cfg);
+  assert.equal(await p.locator('.drive-card .err').count(), 0, 'gone: ' + await p.textContent('.drive-card'));
+  await p.context().close();
+
+  step('and when the signal comes back, Google’s script loads, so the first tap signs in');
+  const q = await offPhone();
+  await q.context().unroute(GIS, noSignal);
+  await q.evaluate(() => window.dispatchEvent(new Event('online')));
+  await q.waitForFunction(() => window.__cfg);
+  await q.click('.drive-card [data-a=on]');
+  await q.waitForFunction(() => document.querySelector('.drive-card h2')?.textContent === 'Saved to Google Drive', null, { timeout: 8000 });
+  await q.context().close();
+}
+
 // The expired sign-in's 401 and the dropped connection are logged by the browser itself; those are expected.
 assert.deepEqual(problems.filter(p => !/status of 401|net::ERR_INTERNET_DISCONNECTED/.test(p)), [], 'problems while syncing');
 await browser.close();

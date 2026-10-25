@@ -195,6 +195,10 @@ function sync() {
 }
 
 // ---------- signing in (Google Identity Services, in a pop-up) ----------
+// Google's script is fetched ahead of time (on the home screen, or when Drive is on), so the sign-in window can open
+// from the first tap. With no signal and Drive off, that's nothing to mention, until someone asks to sign in.
+const NOLOAD = 'Google sign-in didn’t load. Check the connection.';
+let asked = false;
 function loadGis() {
   if (!CLIENT_ID || client) return;
   if (window.google?.accounts?.oauth2) { init(); return; }
@@ -203,7 +207,7 @@ function loadGis() {
   const s = document.createElement('script');
   s.src = 'https://accounts.google.com/gsi/client'; s.async = true;
   s.onload = init;
-  s.onerror = () => { gisLoading = false; setStatus(st.on ? 'tap' : 'off', 'Google sign-in didn’t load. Check the connection.'); };
+  s.onerror = () => { gisLoading = false; s.remove(); setStatus(st.on ? 'tap' : 'off', asked || st.on ? NOLOAD : ''); };
   document.head.append(s);
 }
 function init() {
@@ -212,7 +216,7 @@ function init() {
     client_id: CLIENT_ID, scope: SCOPE, callback: gotToken,
     error_callback: e => setStatus(st.on ? 'tap' : 'off', e?.type === 'popup_closed' ? '' : 'Google sign-in didn’t finish.'),
   });
-  setStatus(status, note);
+  setStatus(status, note === NOLOAD ? '' : note); // it has loaded now
 }
 function gotToken(r) {
   if (!r || r.error || !google.accounts.oauth2.hasGrantedAllScopes(r, SCOPE)) {
@@ -239,6 +243,7 @@ function gotToken(r) {
 }
 function start() {
   if (!CLIENT_ID) return;
+  asked = true;
   tok = get(KT);
   if (!live()) { signIn(); return; }
   st.on = true; if (!st.email && tok.email) st.email = tok.email; saveSt();
@@ -246,6 +251,7 @@ function start() {
 }
 // Google only opens its window from a tap, so this has to run inside a click handler.
 function signIn() {
+  asked = true;
   if (!client) { loadGis(); setStatus(status, 'Google sign-in is still loading. Tap again in a second.'); return; }
   const hint = st.email || tok?.email || '';
   client.requestAccessToken(hint ? { prompt: '', login_hint: hint } : { prompt: 'select_account' });
@@ -352,8 +358,8 @@ if (CLIENT_ID) {
     else if (st.on && live() && Date.now() - st.last > 30000) sync();
   });
   setInterval(() => { if (!document.hidden && st.on) { if (live()) sync(); else setStatus('tap'); } }, 5 * 60000);
-  // The signal came back: send what was saved here meanwhile.
-  window.addEventListener('online', () => { if (st.on) { if (live()) sync(); else setStatus('tap'); } });
+  // The signal came back: fetch Google's script if it didn't load, and send what was saved here meanwhile.
+  window.addEventListener('online', () => { if (!client) loadGis(); if (st.on) { if (live()) sync(); else setStatus('tap'); } });
   window.addEventListener('storage', e => {
     if (e.key === KS || e.key === KT) {
       st = { ...fresh(), ...(get(KS) || {}) };
