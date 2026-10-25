@@ -3,7 +3,7 @@
 import { newGame, blank, carryLineup, today, parsePaste } from './model.js';
 import { replay } from './engine.js';
 import { store } from './store.js';
-import { $, $$, esc, openSheet, closeSheet, go } from './ui.js';
+import { $, $$, esc, openSheet, closeSheet, go, nextName } from './ui.js';
 import { drive } from './sync.js';
 
 // Teams from earlier games, newest first, with the order they finished with.
@@ -73,7 +73,7 @@ export function showSetup(el) {
     const t = T[side], ol = $('.lineup-edit', fs(side));
     ol.innerHTML = t.lineup.map((p, i) => `<li><span class="ord">${i + 1}</span><div class="name-row">
         <label class="num"><span>No.</span><input data-i="${i}" data-f="num" inputmode="numeric" maxlength="4" value="${esc(p.num)}" aria-label="Batter ${i + 1} number"></label>
-        <label class="nm"><span>Name</span><input data-i="${i}" data-f="name" maxlength="40" value="${esc(p.name)}" placeholder="Batter ${i + 1}" autocapitalize="words" aria-label="Batter ${i + 1} name"></label>
+        <label class="nm"><span>Name</span><input data-i="${i}" data-f="name" maxlength="40" value="${esc(p.name)}" placeholder="Batter ${i + 1}" autocapitalize="words" enterkeyhint="${i < t.lineup.length - 1 ? 'next' : 'done'}" aria-label="Batter ${i + 1} name"></label>
       </div></li>`).join('');
     $('[data-size]', fs(side)).innerHTML = `${t.lineup.length}<span class="sr"> batter${t.lineup.length === 1 ? '' : 's'}</span>`;
     $('[data-name]', fs(side)).value = t.name;
@@ -97,6 +97,8 @@ export function showSetup(el) {
     if (e.target.dataset.pf) t.pitcher[e.target.dataset.pf] = e.target.value.trim();
     if (e.target.dataset.f || e.target.dataset.pf) chips(+f.dataset.side);
   });
+  // Enter in a batter's name goes to the next batter's name (past the number, which needs another keyboard).
+  el.addEventListener('keydown', e => nextName(e, '.lineup-edit [data-f=name]'));
   el.addEventListener('click', e => {
     const b = e.target.closest('button');
     if (!b) return;

@@ -141,3 +141,12 @@ export async function copy(text) {
   try { await navigator.clipboard.writeText(text); return true; } catch { return false; }
 }
 export const slug = s => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'game';
+
+// Enter in one of a list of name fields (sel) moves on to the next one in the same list, and the last one is done:
+// the keyboard goes away. Typing names down a lineup then never stops at the jersey numbers.
+export function nextName(e, sel) {
+  if (e.key !== 'Enter' || e.isComposing || !e.target.matches(sel)) return;
+  e.preventDefault();
+  const list = [...e.target.closest('ol, ul').querySelectorAll(sel)], next = list[list.indexOf(e.target) + 1];
+  if (next) next.focus(); else e.target.blur();
+}

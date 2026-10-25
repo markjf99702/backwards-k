@@ -9,7 +9,7 @@ import { blank, takeBack, putBack } from './model.js';
 import { cardHtml, lineHtml, cellSvg } from './card.js';
 import { boxHtml, playsHtml } from './box.js';
 import { infieldSvg, fieldSvg, BASE_AT } from './field.js';
-import { $, $$, esc, openSheet, closeSheet, toast, KL, markHtml, fmtDate, go, inFrame } from './ui.js';
+import { $, $$, esc, openSheet, closeSheet, toast, KL, markHtml, fmtDate, go, inFrame, nextName } from './ui.js';
 import { drive } from './sync.js';
 import { shareSheet, saveFile } from './share.js';
 import { helpSheet } from './help.js';
@@ -806,6 +806,9 @@ function lineupSheet(side = S.half) {
     <h3>Pitchers</h3>
     <ol class="lineup-edit">${t.pitchers.map((p, i) => `<li><span class="ord">${i === S.pit[side] ? '●' : i + 1}</span>${nameFields(p, `data-pi="${i}" `, `Pitcher ${i + 1}`)}</li>`).join('')}</ol>
     <div class="row"><button type="button" class="btn quiet" data-y="pitcher">New pitcher</button><button type="button" class="btn primary" data-close>Done</button></div>`);
+  const names = $$('[data-slot][data-f=name]', body);
+  names.forEach((i, k) => { i.enterKeyHint = k < names.length - 1 ? 'next' : 'done'; });
+  body.addEventListener('keydown', e => nextName(e, '[data-slot][data-f=name]'));
   $$('[data-slot][data-f]', body).forEach(i => i.addEventListener('input', () => {
     const slot = +i.dataset.slot;
     t.lineup[slot][S.pl[side][slot] ?? 0][i.dataset.f] = i.value.trim(); saveSoon(); draw();

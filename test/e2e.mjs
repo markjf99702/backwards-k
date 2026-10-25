@@ -258,6 +258,29 @@ step('pasting a lineup from a group text: names with commas, and the pitcher');
   await p.context().close();
 }
 
+step('naming a lineup: Enter goes to the next batter’s name, past the number');
+{
+  const p = await phone();
+  await p.goto(base + '#/new');
+  await p.click('[data-side="0"] summary');
+  const focused = () => p.evaluate(() => { const a = document.activeElement; return `${a.dataset.i ?? a.dataset.slot}:${a.dataset.f}:${a.enterKeyHint}`; });
+  await p.fill('[data-side="0"] [data-i="0"][data-f=name]', 'Emma');
+  await p.press('[data-side="0"] [data-i="0"][data-f=name]', 'Enter');
+  assert.equal(await focused(), '1:name:next');
+  await p.fill('[data-side="0"] [data-i="8"][data-f=name]', 'Eli');
+  await p.press('[data-side="0"] [data-i="8"][data-f=name]', 'Enter');
+  assert.equal(await p.evaluate(() => document.activeElement.tagName), 'BODY', 'the last one is done');
+  assert.equal(await p.getAttribute('[data-side="0"] [data-i="8"][data-f=name]', 'enterkeyhint'), 'done');
+  assert.match(await p.url(), /#\/new$/, 'and the game hasn’t started');
+  await p.click('[data-go]');
+  await p.waitForSelector('.live .field');
+  await p.click('[data-a=menu]');
+  await p.click('.sheet [data-y=lineup]');
+  await p.press('.sheet [data-slot="0"][data-f=name]', 'Enter');
+  assert.equal(await focused(), '1:name:next');
+  await p.context().close();
+}
+
 step('a pinch runner, and then the starter back in from Lineups: the same player, not a new one');
 {
   const p = await phone(), id = await startGame(p);
