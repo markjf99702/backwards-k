@@ -311,7 +311,7 @@ h1[tabindex="-1"]:focus { outline: none; } /* a screen's heading, given the keyb
 .season th:first-child button { justify-content: flex-start; }
 .season th[aria-sort="ascending"], .season th[aria-sort="descending"] { color: var(--ink); }
 .season th button i { font-style: normal; font-size: 9px; }
-.season a { color: inherit; text-decoration-color: var(--line-2); text-underline-offset: 3px; }
+.stats a { color: inherit; text-decoration-color: var(--line-2); text-underline-offset: 3px; }
 .season.one tbody th { color: var(--muted); }
 /* The game log: the day, who against, and the result; on a player's page, her day and her boxes from the card too. */
 .game-log { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
@@ -791,6 +791,8 @@ html:has(dialog.sheet[open]) { overflow: hidden; scrollbar-gutter: stable; }
 .li b { font-size: 17px; }
 .li span { font-size: 14.5px; color: var(--muted); }
 .li:hover { border-color: var(--line-2); }
+a.li { text-decoration: none; color: inherit; }
+.season-link { margin-top: 14px; }
 .li.danger b { color: var(--red); }
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .row2 .res { min-height: 64px; padding: 8px 6px; }

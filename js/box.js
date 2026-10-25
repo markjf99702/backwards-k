@@ -3,13 +3,21 @@ import { batKey, pitchStat, pitcherLabel, ip, teamName, label, player, ord, pitc
 import { esc, KL, clockAt, hm } from './ui.js';
 import { abbr } from './card.js';
 import { sprayField } from './field.js';
+import { teamHref } from './stats.js';
 
 // How each substitute first came in, as the card says it: PH, PR, or sub (a change in the field).
 const HOW = { ph: ['PH', 'Pinch hitter'], pr: ['PR', 'Pinch runner'], def: ['sub', 'Substitute'] };
 
+// A player's name, as a link to his season with this team (team.js), when links are wanted (a game on this device:
+// not a shared link's, nor on paper) and there's a team name, and a name or number to go by.
+function linked(S, side, p, html, links) {
+  const team = S.g.teams[side].name.trim();
+  return links && team && p && (p.name || p.num) ? `<a href="${esc(teamHref(team, String(S.g.date).slice(0, 4), p))}">${html}</a>` : html;
+}
+
 // One row for each player who was in each spot (a starter who came back in still has one), substitutes under the
 // starter with how they came in. Someone who hasn't batted (or run) yet has dashes, not a row of zeros.
-function batting(S, side) {
+function batting(S, side, links) {
   const g = S.g, team = g.teams[side];
   const rows = [], tot = { ab: 0, r: 0, h: 0, rbi: 0, bb: 0, k: 0 };
   for (let slot = 0; slot < S.size[side]; slot++) {
@@ -21,7 +29,7 @@ function batting(S, side) {
       const how = ty && HOW[ty] ? `<abbr class="how" title="${HOW[ty][1]}">${HOW[ty][0]}</abbr> ` : '';
       const cells = Object.keys(tot).map(x => `<td>${b ? b[x] : '<span aria-label="none">–</span>'}</td>`).join('');
       const ps = p.pos ? ` <small class="ps">${esc(p.pos)}</small>` : '';
-      rows.push(`<tr${pi ? ' class="sub"' : ''}><th scope="row">${pi ? how : `<span class="ord">${slot + 1}</span>`}${esc(label(p, slot))}${ps}</th>${cells}</tr>`);
+      rows.push(`<tr${pi ? ' class="sub"' : ''}><th scope="row">${pi ? how : `<span class="ord">${slot + 1}</span>`}${linked(S, side, p, esc(label(p, slot)), links)}${ps}</th>${cells}</tr>`);
       if (b) for (const x in tot) tot[x] += b[x];
     }
   }
@@ -31,12 +39,12 @@ function batting(S, side) {
 
 // (W, L or S beside a name: the win, the loss or the save, once the game is won.)
 const DEC = { w: ['W', 'Winning pitcher'], l: ['L', 'Losing pitcher'], s: ['S', 'Save'] };
-function pitching(S, side) {
+function pitching(S, side, links) {
   const g = S.g, used = new Set([0]), d = decisions(S);
   for (const e of g.ev) if (e.t === 'pch' && e.s === side) used.add(e.i);
   const rows = [...used].map(i => {
     const p = pitchStat(S, side, i), k = d && (side === d.win ? (i === d.w ? 'w' : i === d.s ? 's' : '') : i === d.l ? 'l' : '');
-    return `<tr><th scope="row">${esc(pitcherLabel(g, side, i))}${k ? ` <abbr class="dec" title="${DEC[k][1]}">${DEC[k][0]}</abbr>` : ''}</th><td>${ip(p.outs)}</td><td>${p.h}</td><td>${p.r}</td><td>${p.er}</td><td>${p.bb}</td><td>${p.k}</td><td>${p.hr}</td><td>${p.bf}</td>${g.pitches ? `<td>${p.np}-${p.str}</td>` : ''}</tr>`;
+    return `<tr><th scope="row">${linked(S, side, g.teams[side].pitchers[i], esc(pitcherLabel(g, side, i)), links)}${k ? ` <abbr class="dec" title="${DEC[k][1]}">${DEC[k][0]}</abbr>` : ''}</th><td>${ip(p.outs)}</td><td>${p.h}</td><td>${p.r}</td><td>${p.er}</td><td>${p.bb}</td><td>${p.k}</td><td>${p.hr}</td><td>${p.bf}</td>${g.pitches ? `<td>${p.np}-${p.str}</td>` : ''}</tr>`;
   });
   // Pitches and strikes as a newspaper prints them: 106-69.
   return `<table class="stats"><thead><tr><th scope="col">${esc(teamName(g, side))} pitching</th>${['IP', 'H', 'R', 'ER', 'BB', 'K', 'HR', 'BF', ...(g.pitches ? ['P-S'] : [])].map(k => `<th scope="col">${abbr(k)}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table>`;
@@ -132,11 +140,12 @@ export function dayOf(S, side, slot, p) {
   return { trips, line: line.filter(Boolean).join(', ') };
 }
 
-export function boxHtml(S) {
+// links: each name a link to the player's season (for a game on this device).
+export function boxHtml(S, { links = false } = {}) {
   // Scored from partway through: the lines are from then on, and the runs before are only in the score.
   const j = S.joined, from = j ? `<p class="joined">Scored from the ${j.half ? 'bottom' : 'top'} of the ${ord(j.inn)}. The batting and pitching lines are from then on; the ${j.r[0] + j.r[1] === 1 ? 'run' : 'runs'} before (${esc(teamName(S.g, 0))} ${j.r[0]}, ${esc(teamName(S.g, 1))} ${j.r[1]}) count in the score.</p>` : '';
   return `${from}<div class="box-grid">${[0, 1].map(side => `
-    <div>${batting(S, side)}${pitching(S, side)}
+    <div>${batting(S, side, links)}${pitching(S, side, links)}
       <div class="extras">${notes(S, side)}</div>
       ${spray(S, c => c.side === side, `Where the ${teamName(S.g, side)} hit it`)}
     </div>`).join('')}

@@ -123,7 +123,8 @@ written out in plain words.
   ERA, BB, K, HR, pitches and strike %), with a heading to tap to sort by it, its games, and a season to pick (a team
   is its name in one year, whatever the capitals; Every year puts its seasons together). With a pitch limit by league
   age, **Pitching this week** has who pitched in the last 7 days, how many pitches, and the day each can pitch again.
-  Tap a player for his season: his line, each game with his boxes from the card, where his hits went, his pitching
+  Tap a player (on the team's page, in a game's box score, or on his box's, the batter's or the pitcher's sheet) for
+  his season: his line, each game with his boxes from the card, where his hits went, his pitching
   by date (with the win, loss or save, and the days of rest), **Copy the season as text** for a group chat or the
   grandparents, and **Save as a spreadsheet**, as a team's page has too. A player is the same player from game to
   game by name, or by number when he has no name; a courtesy runner's run and steals stay the player's she ran for.

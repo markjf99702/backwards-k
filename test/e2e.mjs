@@ -2622,7 +2622,8 @@ step('positions: kept from a pasted lineup, changed in Lineups, on the card and 
   await p.click('[data-cs="1"]');
   assert.match(await p.innerHTML('.card'), /title="Nakamura 2B #22">Nakamura <small>2B #22<\/small>/);
   await p.click('[data-v=box]');
-  assert.match(await p.innerHTML('.pane[data-p=box]'), /Nakamura <small class="ps">2B<\/small>/);
+  // (The name a link to his season: a game on this device.)
+  assert.match(await p.innerHTML('.pane[data-p=box]'), />Nakamura<\/a> <small class="ps">2B<\/small>/);
   assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'the box score with positions scrolls sideways');
   await p.context().close();
 }
@@ -2824,6 +2825,48 @@ step('season stats: a player’s page has her line, each game with her boxes fro
   // Someone who didn't play for them says so.
   await p.goto(base + '#/team/Foxes/2026/Nobody');
   assert.match(await p.textContent('.team'), /Nobody called Nobody played for the Foxes in a 2026 game on this device/);
+  await p.context().close();
+}
+
+step('season stats: a name in the box score, a box’s sheet, the batter’s and the pitcher’s go to the player’s season');
+{
+  const games = seasonOf();
+  // (And a game going on: the batter's and the pitcher's sheets.)
+  games.push({ ...sampleUntil(5, S => S.inn === 3 && S.half === 0 && !S.seq), id: 'gseason5', date: '2026-08-01', updated: 1010 });
+  const p = await seasonPhone(games);
+  await p.goto(base + '#/g/gseason1');
+  await p.click('[data-v=box]');
+  assert.equal(await p.getAttribute('.pane[data-p=box] .stats th a >> text=Ruiz', 'href'), '#/team/Foxes/2026/Ruiz');
+  assert.equal(await p.getAttribute('.pane[data-p=box] .stats th a >> text=Whitlock', 'href'), '#/team/Foxes/2026/Whitlock');
+  await p.click('.pane[data-p=box] .stats th a >> text=Ruiz');
+  await p.waitForFunction(() => document.querySelector('.team h1')?.textContent === 'Ruiz');
+  // A box on the card: its sheet ends with the season.
+  await p.goBack();
+  await p.waitForSelector('.vtabs');
+  await p.click('[data-v=card]');
+  await p.click('[data-cell="0"]');
+  assert.equal(await p.textContent('.sheet .season-link b'), 'Ruiz’s season');
+  await p.click('.sheet .season-link a');
+  await p.waitForFunction(() => document.querySelector('.team h1')?.textContent === 'Ruiz');
+  assert.equal(await p.evaluate(() => document.getElementById('sheet').open), false, 'the sheet closed');
+  // The batter's sheet, and the pitcher's, in a game going on.
+  await p.goto(base + '#/g/gseason5');
+  await p.waitForSelector('.live .field');
+  const up = upNow(replay(games[4]));
+  await p.click('[data-a=batter]');
+  assert.equal(await p.getAttribute('.sheet a.li', 'href'), `#/team/Foxes/2026/${up.name}`);
+  await p.click('.sheet [data-close]');
+  await p.click('[data-a=pitcher]');
+  assert.equal(await p.getAttribute('.sheet a.li', 'href'), `#/team/Comets/2026/${up.pitcherName}`);
+  await p.click('.sheet [data-close]');
+  // A shared link's game, and the sample, aren't games here: no links.
+  await p.goto(base + '#/sample');
+  await p.waitForSelector('.vtabs');
+  await p.click('[data-v=box]');
+  assert.equal(await p.locator('.pane[data-p=box] .stats a').count(), 0);
+  await p.click('[data-v=card]');
+  await p.click('[data-cell="0"]');
+  assert.equal(await p.locator('.sheet .season-link').count(), 0);
   await p.context().close();
 }
 

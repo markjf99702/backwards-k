@@ -16,6 +16,7 @@ import { drive } from './sync.js';
 import { shareSheet, saveFile } from './share.js';
 import { helpSheet } from './help.js';
 import { rulesRow, limitRow } from './rules.js';
+import { teamHref } from './stats.js';
 
 // redo: what Undo took back, latest last. kept: what it took back before a new play went in, to put back after it
 // (see moved()).
@@ -362,7 +363,8 @@ matchMedia('(min-width: 700px)').addEventListener('change', () => { if (root) dr
 function drawSide() {
   const shown = onScreen();
   for (const el of $$('.side .pane', root)) if (el.dataset.p !== shown) el.replaceChildren();
-  if (shown === 'box') $('.pane[data-p=box]', root).innerHTML = `<div class="line-wrap">${lineHtml(S)}</div>${boxHtml(S)}`;
+  // (Each name a link to the player's season, for a game on this device.)
+  if (shown === 'box') $('.pane[data-p=box]', root).innerHTML = `<div class="line-wrap">${lineHtml(S)}</div>${boxHtml(S, { links: !!store.get(G.id) })}`;
   if (shown === 'plays') $('.pane[data-p=plays]', root).innerHTML = `<div class="plays">${playsHtml(S)}</div>`;
   if (shown === 'card') drawCard();
   // A line score wider than the screen (extra innings on a phone) shows its end: the latest innings and R H E.
@@ -1017,6 +1019,14 @@ function bindName(body, who, sel = '') {
   }));
 }
 
+// A link to a player's season with his team (team.js), for the batter's, the pitcher's and a box's sheets: for a game on
+// this device, with a team name, and a name or number to go by. '' otherwise.
+function seasonLink(side, p) {
+  const team = G.teams[side].name.trim();
+  if (!store.get(G.id) || !team || !p || !(p.name || p.num)) return '';
+  const who = label(p, 0);
+  return `<a class="li" href="${esc(teamHref(team, String(G.date).slice(0, 4), p))}"><b>${esc(who)}’s season</b><span>Every ${esc(team)} game this year on this device, added up, with the boxes from the card.</span></a>`;
+}
 function batterSheet() {
   const n = now(S), p = G.teams[n.side].lineup[n.slot][n.p];
   // Their day so far, for the parent whose kid just walked up: every trip in order, then what it adds up to.
@@ -1030,6 +1040,7 @@ function batterSheet() {
       ${S.gone[n.side].size < S.size[n.side] - 1 ? `<button type="button" class="li" data-y="gone"><b>Left the game</b><span>For a team that bats everyone: skip this spot from now on, with no out.</span></button>` : ''}
       <button type="button" class="li" data-y="add"><b>Add a batter to the order</b><span>For a team that bats everyone: a new spot after ${esc(label(player(G, n.side, S.size[n.side] - 1, S.pl[n.side][S.size[n.side] - 1] || 0), S.size[n.side] - 1))}.</span></button>
       <button type="button" class="li" data-y="lineup"><b>The whole lineup</b><span>Names, numbers and substitutions for both teams.</span></button>
+      ${seasonLink(n.side, p)}
     </div>
     ${spray(S, c => c.side === n.side && c.slot === n.slot && c.p === n.p, `Where ${n.name} hit it today`)}
     <div class="row"><button type="button" class="btn primary" data-close>Done</button></div>`);
@@ -1130,6 +1141,7 @@ function pitcherSheet(side) {
     <div class="list">
       <button type="button" class="li" data-y="new"><b>New pitcher</b><span>Bring in a reliever. Their pitch count starts at zero.</span></button>
       ${G.teams[side].pitchers.length > 1 ? '<button type="button" class="li" data-y="back"><b>Bring back an earlier pitcher</b><span>Someone who already pitched today.</span></button>' : ''}
+      ${seasonLink(side, p)}
     </div>
     <div class="row"><button type="button" class="btn primary" data-close>Done</button></div>`);
   bindName(body, () => G.teams[side].pitchers[i]);
@@ -1378,7 +1390,7 @@ function cellSheet(c) {
   const hit = !readOnly && !!e && e.t === 'pa' && R.kind === 'hit' && (G.spray || !!c.f);
   const why = group && e.t === 'pa' ? cantBe(c, e) : {};
   // (With when the at-bat began, from its first pitch.)
-  const at = clockAt(G, c.at);
+  const at = clockAt(G, c.at), link = seasonLink(c.side, player(G, c.side, c.slot, c.p));
   const body = openSheet(`<h2 id="sheetTitle">${esc(name)} <small>${c.side ? 'Bottom' : 'Top'} of the ${ord(c.inn)}${at ? `, ${at}` : ''}</small></h2>
     <div class="cell-big"><div class="cell-pic">${cellSvg(c, { count: G.pitches })}</div>
       <div><p><b>${markHtml(c.r, c.mark)}</b> ${esc(R.label)}</p><p>${esc(c.text)}</p>${c.story.length ? `<p>${esc(c.story.join(' '))}</p>` : ''}
@@ -1389,6 +1401,7 @@ function cellSheet(c) {
     ${!readOnly && e && !group ? `<p class="hint">${hit ? 'The rest of it' : 'This one'} can’t be changed here. Undo takes plays back, latest first, and until the next batter’s turn is over, Fix runners changes where everyone ended up on the play before.</p>` : ''}
     ${c.auto ? `<p class="hint">Extra innings start with a runner on second: the batter before the leadoff man (OBR 7.01(b)). He didn’t bat, and his run is unearned. Game settings has when it starts.</p>` : ''}
     ${spray(S, x => x.side === c.side && x.slot === c.slot && x.p === c.p, `Where ${name} hit it today`, { now: c })}
+    ${link ? `<div class="list season-link">${link}</div>` : ''}
     <div class="row"><button type="button" class="btn primary" data-close>Done</button></div>`);
   // Undo takes back plays, not a change made here, so each change has its own Undo, in a message right after it.
   const old = { r: e && e.r, f: e && e.f, k: e && e.k, tap: tapped.e === e ? tapped.r : null };
