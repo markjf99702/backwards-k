@@ -87,7 +87,8 @@ It's a static site: plain HTML, CSS and JavaScript, with no build step.
 
 ```sh
 npm start                     # serves it at http://localhost:9600 (any static file server will do)
-npm test                      # the rules, a game played in Chromium, and Drive saving against a pretend Google
+npm test                      # the rules, 100 random games, a game played in Chromium, Drive against a pretend Google
+FUZZ_GAMES=1500 node test/fuzz.mjs  # a longer run of random games (FUZZ_SEED=n starts from another one)
 node tools/screenshots.mjs    # redraws docs/*.png and og.png
 node tools/make-icons.mjs     # redraws the PNG icons from icon.svg
 npm run build                 # dist/backwards-k.html: the whole app in one file
@@ -117,9 +118,12 @@ To put it online with GitHub Pages: **Settings → Pages → Build and deploymen
   second and a half for a file it does send). The copy is always one whole version of the app, and a page gets one
   version, the network's or the copy's, never some files of each. A little script in `index.html` reloads a page
   that didn't start (which a copy kept by an older `sw.js` could cause).
-- `test/unit.test.mjs`: the rules, including 300 simulated games whose totals have to agree. `test/e2e.mjs`: a game
-  scored in Chromium, and the offline copy on one bar of signal, with today's `sw.js` and the one before it
-  (`test/sw-before.js`). `test/drive.mjs`: two devices sharing one pretend Drive (`test/fake-google.mjs`).
+- `test/unit.test.mjs`: the rules, including 300 simulated games whose totals have to agree. `test/fuzz.mjs`: random
+  games played through the game screen's own steps (Undo, Fix runners, substitutions and the rest), with the rules,
+  the totals, the scorer's proof, Undo and the saved copies checked after every tap; when something breaks it prints
+  the fewest taps that break it. `test/e2e.mjs`: a game scored in Chromium, and the offline copy on one bar of
+  signal, with today's `sw.js` and the one before it (`test/sw-before.js`). `test/drive.mjs`: two devices sharing
+  one pretend Drive (`test/fake-google.mjs`).
 - `tools/screenshots.mjs`: the pictures in this README and the link preview, `og.png`, drawn from the sample game.
   `tools/make-icons.mjs`: the PNG icons, from `icon.svg`, and from `tools/icon-full-bleed.svg` (for iPhones, which
   round the corners themselves) and `tools/icon-maskable.svg` (for Android, which crops to a circle).
