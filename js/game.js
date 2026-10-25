@@ -22,10 +22,12 @@ const BASES = ['', '1st', '2nd', '3rd', 'Home'];
 // onSave to keep a copy.
 export function showGame(el, game, opts = {}) {
   G = game; root = el; redo = []; readOnly = !!opts.shared; onSave = opts.onSave || null;
-  note = opts.note || 'A scorecard someone shared with you. Tap any box to see what happened.';
   view = 'live'; cardSide = null; lastInn = '';
   if (readOnly) { view = matchMedia('(min-width: 700px)').matches ? 'live' : 'card'; pane = 'card'; }
   S = replay(G);
+  // A link carries the game as it was when it was sent: one sent mid-game says so, so nobody waits on it for runs.
+  note = opts.note || (S.over ? 'A scorecard someone shared with you. Tap any box to see what happened.'
+    : `The scorecard as it stood in the ${S.half ? 'bottom' : 'top'} of the ${ord(S.inn)}. The link doesn’t update: ask for a new one to see the rest. Tap any box to see what happened.`);
   el.innerHTML = frame();
   el.addEventListener('click', onClick);
   drive.chip($('.bar .cloud', el));

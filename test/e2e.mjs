@@ -205,6 +205,8 @@ fp.on('pageerror', e => problems.push('friend: ' + e.message));
 await fp.goto(base + link.slice(link.indexOf('#')));
 await fp.waitForSelector('[data-a=keep]');
 assert.match(await fp.textContent('.bar .title'), /Foxes\s*0\s*–\s*1\s*Comets/);
+// Sent mid-game, so it says the link is the game as it stood then.
+assert.equal(await fp.textContent('.shared-bar p'), 'The scorecard as it stood in the bottom of the 1st. The link doesn’t update: ask for a new one to see the rest. Tap any box to see what happened.');
 await fp.click('[data-a=keep]');
 await fp.waitForSelector('.live .field');
 await fp.goto(base);
@@ -214,6 +216,15 @@ await fp.goto(base + link.slice(link.indexOf('#')));
 await fp.click('[data-a=keep]');
 await fp.waitForSelector('.live .field');
 assert.equal(await fp.textContent('#toast'), 'You already have this game.');
+// A finished game's link says nothing about waiting for more.
+const final = await fp.evaluate(async () => {
+  const { linkFor } = await import('./js/share.js'), { sampleGame } = await import('./js/sample.js');
+  const l = await linkFor(sampleGame(7));
+  return l.slice(l.indexOf('#'));
+});
+await fp.goto(base + final);
+await fp.waitForSelector('.shared-bar');
+assert.equal(await fp.textContent('.shared-bar p'), 'A scorecard someone shared with you. Tap any box to see what happened.');
 await friend.close();
 
 step('the sample game');
