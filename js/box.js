@@ -1,5 +1,5 @@
 // The box score (batting and pitching lines for both teams) and the play-by-play.
-import { batKey, pitchStat, pitcherLabel, ip, teamName, label, player, ord, pitchWords, POS_NAME, RESULTS, AUTO, restDays, noCatch, LIMIT_BY, decisions, decisionWords, clockOf } from './engine.js';
+import { batKey, pitchStat, pitcherLabel, ip, teamName, label, player, ord, pitchWords, POS_NAME, RESULTS, AUTO, restDays, noCatch, LIMIT_BY, decisions, decisionWords, clockOf, pitchesIn } from './engine.js';
 import { esc, KL, clockAt, hm } from './ui.js';
 import { abbr } from './card.js';
 
@@ -176,8 +176,8 @@ export function playsHtml(S, { limit = 0 } = {}) {
     h += `<section class="half"><h3>${grp.half ? 'Bottom' : 'Top'} of the ${ord(grp.inn)} <span>${esc(teamName(g, grp.half))} batting${at ? ` · ${at}` : ''}</span></h3><ol>`;
     for (const p of order(grp.list)) {
       if (limit && n++ >= limit) break;
-      const cell = p.kind === 'pa' && S.cells[p.cell], c = g.pitches && cell, np = c ? c.seq.length : 0;
-      const more = np ? `<small class="pc" title="${esc(cap(pitchWords(c.seq)))}">${c.count[0]}-${c.count[1]} · ${np} pitch${np === 1 ? '' : 'es'}</small>`
+      const cell = p.kind === 'pa' && S.cells[p.cell], c = g.pitches && cell, np = c ? pitchesIn(c.seq) : 0;
+      const more = c && c.seq ? `<small class="pc" title="${esc(cap(pitchWords(c.seq)))}">${c.count[0]}-${c.count[1]} · ${np} pitch${np === 1 ? '' : 'es'}</small>`
         : p.sum ? `<small>${esc(p.sum)}</small>` : '';
       const mk = cell ? markCol(cell.r, cell.mark) : p.kind === 'run' ? markCol('', p.mark) : '';
       h += `<li class="${p.kind}${p.runs ? ' scored' : ''}">${mk}<span class="pw">${esc(p.text)}${p.runs ? ` <b class="runs">+${p.runs}</b>` : ''}${more}</span></li>`;

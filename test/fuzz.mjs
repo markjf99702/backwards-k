@@ -113,6 +113,8 @@ function run(C, a) {
   const { S, g } = C;
   switch (a.a) {
     case 'p': if (S.over || S.delayed || !g.pitches) return false; act(C, { t: 'p', k: a.k }); return true;
+    // An automatic ball or strike (More's pitch clock), with pitches counted.
+    case 'ap': if (S.over || S.delayed || !g.pitches) return false; act(C, { t: 'p', k: a.k, v: 1 }); return true;
     case 'pa': {
       if (!RESULTS[a.r] || !offered(C, a.r)) return false;
       if (quiet(S, a.r)) {
@@ -230,7 +232,7 @@ function run(C, a) {
     case 'box': { // a box on the card: Change what it was
       const c = S.cells[a.n], e = c && g.ev[c.ev];
       if (!e) return false;
-      const group = e.t === 'pa' ? SAME.find(gr => gr.includes(e.r)) : e.t === 'p' && (c.r === 'K' || c.r === 'KL') ? ['K', 'KL'] : null;
+      const group = e.t === 'pa' ? SAME.find(gr => gr.includes(e.r)) : e.t === 'p' && !e.v && (c.r === 'K' || c.r === 'KL') ? ['K', 'KL'] : null;
       if (!group || !group.includes(a.to) || a.to === c.r || (e.t === 'pa' && cantBe(C, c, e)[a.to])) return false;
       if (e.t === 'p') e.k = a.to === 'KL' ? 'c' : 's';
       else { e.r = a.to; if (!RESULTS[e.r].f) delete e.f; else if (a.f) e.f = a.f; }
@@ -276,7 +278,7 @@ function choose(C, rnd) {
   if (S.over) w.push([5, 'stop'], [3, 'on'], [1.5, 'undo'], [0.5, 'sub'], [0.3, 'pitcher'], [0.4, 'box']);
   else if (S.delayed) w.push([3, 'on'], [0.5, 'end'], [0.5, 'undo'], [0.3, 'sub'], [0.2, 'pitcher'], [0.2, 'back'], [0.2, 'box']);
   else {
-    if (g.pitches) w.push([6, 'p']);
+    if (g.pitches) w.push([6, 'p'], [0.12, 'ap']);
     w.push([3.2, 'pa'], [0.12, 'sub'], [0.05, 'pitcher'], [0.08, 'back'], [0.03, 'add'], [0.02, 'eoh'], [0.012, 'end'], [0.01, 'delay'], [0.4, 'undo'], [0.08, 'box'], [0.03, 'gone'], [0.02, 'in'], [0.03, 'up']);
     if (runnersOn(S).length) w.push([0.7, 'run']);
   }
@@ -287,6 +289,7 @@ function choose(C, rnd) {
   switch (k) {
     case 'stop': return null;
     case 'p': return { a: 'p', k: weighed(rnd, [[2.2, 'b'], [1.2, 'c'], [0.8, 's'], [1.2, 'f']]) };
+    case 'ap': return { a: 'ap', k: rnd() < 0.6 ? 'b' : 'c' };
     case 'pa': {
       const ok = Object.keys(RESULTS).filter(c => offered(C, c));
       const r = rnd() < 0.5 ? pick(rnd, ok) : weighed(rnd, LIKELY.filter(([, c]) => ok.includes(c))), f = fielders(rnd, r);
@@ -369,6 +372,10 @@ function rules(C, fresh) {
     add('ur', sum(arms.map(p => p.ur)), cells.filter(c => c.auto && c.scored).length, 'unearned runs by the runner put on second'); add('rbi', sum(bats.map(b => b.rbi)), sum(cells.map(c => c.rbi)), 'RBI');
     for (const k of ['k', 'bb', 'hbp']) add(k, sum(bats.map(b => b[k])), sum(arms.map(p => p[k])), `batters’ ${k} vs pitchers’`);
     for (const p of arms) if (p.np !== p.balls + p.str) bad('pitches', `${p.np} pitches aren’t ${p.balls} balls and ${p.str} strikes`);
+    // An automatic ball or strike (the pitch clock) isn't a pitch: the pitchers' counts are never more than the pitches
+    // tapped and the results tapped without them.
+    const thrown = g.ev.filter(e => (e.t === 'p' && !e.v) || e.t === 'pa').length;
+    if (side === 1 && sum([0, 1].flatMap(t => S.pitching[t].filter(Boolean).map(p => p.np))) > thrown) bad('np', `more pitches counted than the ${thrown} tapped`);
     // Earned runs: some of a pitcher's runs, none of the runner put on second's (OBR 9.16, 7.01(b)).
     for (const p of arms) if (!(Number.isInteger(p.er) && p.er >= 0 && p.er <= p.r - p.ur)) bad('er', `${p.er} earned of ${p.r} runs (${p.ur} by the runner put on second)`);
     for (const c of cells) {
@@ -519,6 +526,7 @@ function say(a) {
   const mv = m => (m ? ` [${m.map(([f, t]) => `${f}>${t}`).join(', ')}]` : '');
   switch (a.a) {
     case 'p': return { b: 'Ball', c: 'Strike looking', s: 'Strike swinging', f: 'Foul' }[a.k];
+    case 'ap': return `Automatic ${a.k === 'b' ? 'ball' : 'strike'}`;
     case 'pa': return `${a.r}${a.f ? ' ' + a.f.join('-') : ''}${mv(a.m)}${a.said != null ? ` (runs count: ${a.said ? 'yes' : 'no'})` : ''}`;
     case 'fix': return `Fix runners${mv(a.m)}`;
     case 'run': return `runner on ${a.b}: ${a.how}${['WP', 'PB', 'E', 'DI', 'OA'].includes(a.how) ? ' to ' + a.to + (a.also ? ', the others up one' : '') : ''}`;

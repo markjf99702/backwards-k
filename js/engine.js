@@ -58,9 +58,12 @@ export const RUNS = {
   OB: { label: 'Out on the bases', out: true },
 };
 
-// Each pitch in words, from the letters kept for an at-bat (b ball, c called strike, s swinging, f foul, x in play).
-export const PITCH = { b: 'ball', c: 'called strike', s: 'swinging strike', f: 'foul', x: 'in play' };
+// Each pitch in words, from the letters kept for an at-bat (b ball, c called strike, s swinging, f foul, x in play), and
+// an automatic ball or strike (B, C: the pitch clock), which moves the count but isn't a pitch.
+export const PITCH = { b: 'ball', c: 'called strike', s: 'swinging strike', f: 'foul', x: 'in play', B: 'automatic ball', C: 'automatic strike' };
 export const pitchWords = seq => [...seq].map(k => PITCH[k]).filter(Boolean).join(', ');
+// How many pitches an at-bat's letters are: not its automatic balls and strikes.
+export const pitchesIn = seq => seq.replace(/[BC]/g, '').length;
 
 // Names in a list, as said: "Ruiz", "Ruiz and Okafor", "Ruiz, Okafor and Brennan".
 const list = a => (a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a.at(-1));
@@ -217,7 +220,7 @@ function step(S, e) {
   if (e.t === 'p' && !S.seq) S.abAt = Number.isFinite(e.at) ? e.at : null;
   // (A kind of event or pitch from a newer version is passed over: see model.js.)
   switch (e.t) {
-    case 'p': return ['b', 'c', 's', 'f'].includes(e.k) ? pitch(S, e.k) : undefined;
+    case 'p': return ['b', 'c', 's', 'f'].includes(e.k) && (e.v == null || e.v === 1) ? pitch(S, e.k, e.v === 1) : undefined;
     case 'pa': return pa(S, e);
     case 'r': return runners(S, e);
     case 'sub': {
@@ -378,12 +381,22 @@ function pstat(S, side = 1 - S.half, i = S.pit[side]) {
   return S.pitching[side][i] ||= { np: 0, balls: 0, str: 0, bf: 0, outs: 0, h: 0, r: 0, er: 0, ur: 0, bb: 0, k: 0, hr: 0, hbp: 0, wp: 0, bk: 0 };
 }
 
-function pitch(S, k) {
+// auto: an automatic ball or strike, for the pitch clock (OBR 5.07(c)): the pitcher too slow is a ball, and the batter
+// not ready in time a strike. (And a balk with nobody on is a ball, NFHS 6-2-4.) It moves the count, but it isn't a
+// pitch: it's not in the pitcher's count, nor his balls and strikes. Strike three on one is a strikeout looking.
+function pitch(S, k, auto = false) {
   S.fresh = false;
   pitching(S);
   const P = pstat(S);
-  P.np++; S.seq += k;
   const count = () => `${S.b}-${S.s}`;
+  if (auto) {
+    S.seq += k === 'b' ? 'B' : 'C';
+    if (k === 'b') { S.b++; if (S.b >= 4) return pa(S, { r: 'BB', auto: true }); }
+    else { S.s++; if (S.s >= 3) return pa(S, { r: 'KL', auto: true }); }
+    S.text[S.i] = `Automatic ${k === 'b' ? 'ball' : 'strike'} (${count()})`;
+    return;
+  }
+  P.np++; S.seq += k;
   if (k === 'b') {
     P.balls++; S.b++;
     if (S.b >= 4) return pa(S, { r: 'BB', auto: true });
@@ -1226,5 +1239,5 @@ export function limitState(S) {
   const np = pitchStat(S, fld, S.pit[fld]).np;
   if (np < L.max - 5) return '';
   if (np < L.max) return 'near';
-  return S.seq && np - S.seq.length < L.max ? 'finish' : 'over';
+  return S.seq && np - pitchesIn(S.seq) < L.max ? 'finish' : 'over';
 }

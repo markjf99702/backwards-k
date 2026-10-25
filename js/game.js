@@ -843,6 +843,12 @@ function moreSheet() {
       ${item('CI', 'Reached on catcher’s interference')}
       ${item('TP', 'Triple play')}
     </div>
+    ${G.pitches ? `<h3>The pitch clock</h3>
+    <p class="hint">Neither is a pitch: the count moves, and the pitch count doesn’t.</p>
+    <div class="row2">
+      <button type="button" class="res" data-ap="b"><b>Ball</b><span>Automatic ball: the pitcher took too long, or balked with nobody on</span></button>
+      <button type="button" class="res" data-ap="c"><b>Strike</b><span>Automatic strike: the batter wasn’t ready in time</span></button>
+    </div>` : ''}
     <h3>The inning or the game</h3>
     <div class="list">
       <button type="button" class="li" data-y="eoh"><b>End this half-inning</b><span>For a run limit or the clock. The next team comes up.</span></button>
@@ -850,8 +856,9 @@ function moreSheet() {
     </div>
     <div class="row"><button type="button" class="btn quiet" data-close>Close</button></div>`);
   body.addEventListener('click', e => {
-    const r = e.target.closest('[data-r2]'), y = e.target.closest('[data-y]');
+    const r = e.target.closest('[data-r2]'), y = e.target.closest('[data-y]'), ap = e.target.closest('[data-ap]');
     if (r && !r.disabled) choose(r.dataset.r2);
+    if (ap) { closeSheet(); return act({ t: 'p', k: ap.dataset.ap, v: 1 }); }
     if (y && y.dataset.y === 'end') return endSheet();
     if (y) { closeSheet(); act({ t: y.dataset.y }); }
   });
@@ -1353,8 +1360,9 @@ function cellSheet(c) {
   const e = G.ev[c.ev], R = RESULTS[c.r] || AUTO;
   const name = label(player(G, c.side, c.slot, c.p), c.slot);
   const seq = pitchWords(c.seq);
-  // A strikeout that came from counting pitches can still be switched between swinging and looking.
-  const fromPitch = e && e.t === 'p' && (c.r === 'K' || c.r === 'KL');
+  // A strikeout that came from counting pitches can still be switched between swinging and looking (not one on an
+  // automatic strike: nobody swung).
+  const fromPitch = e && e.t === 'p' && !e.v && (c.r === 'K' || c.r === 'KL');
   // (By what was tapped: a double that won the game and counts as a single is still a double, and can't be a walk.)
   const group = readOnly || !e ? null : e.t === 'pa' ? SAME.find(gr => gr.includes(e.r)) : fromPitch ? ['K', 'KL'] : null;
   const why = group && e.t === 'pa' ? cantBe(c, e) : {};

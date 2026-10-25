@@ -47,7 +47,7 @@ const KNOWN = new Map(Object.entries({
   game: ['id', 'created', 'updated', 'date', 'place', 'innings', 'pitches', 'rules', 'tie', 'limit', 'start', 'tz', 'teams', 'ev'],
   team: ['name', 'lineup', 'pitchers'], player: ['name', 'num', 'pos'], rules: ['set', 'runs', 'last', 'all', 'mercy'], limit: ['by', 'age', 'max'],
   // (Every kind of event has at, when it was scored.)
-  p: ['t', 'k', 'at'], pa: ['t', 'r', 'f', 'm', 'x', 'at'], r: ['t', 'm', 'at'], sub: ['t', 's', 'slot', 'i', 'ty', 'at'], pch: ['t', 's', 'i', 'at'],
+  p: ['t', 'k', 'v', 'at'], pa: ['t', 'r', 'f', 'm', 'x', 'at'], r: ['t', 'm', 'at'], sub: ['t', 's', 'slot', 'i', 'ty', 'at'], pch: ['t', 's', 'i', 'at'],
   add: ['t', 's', 'at'], eoh: ['t', 'at'], end: ['t', 'why', 'at'], delay: ['t', 'at'], on: ['t', 'at'], gone: ['t', 's', 'slot', 'at'], back: ['t', 's', 'slot', 'at'],
   cr: ['t', 's', 'b', 'slot', 'name', 'num', 'at'], up: ['t', 's', 'slot', 'at'], join: ['t', 'inn', 'half', 'r', 'up', 'at'],
 }));
@@ -103,7 +103,8 @@ function cleanEvent(e) {
   }
   let o;
   switch (e.t) {
-    case 'p': o = { t: 'p', k: e.k }; break;
+    // An automatic ball or strike (the pitch clock) is v: 1. (Another v, from a newer version, is kept.)
+    case 'p': o = { t: 'p', k: e.k }; if (e.v != null && plain(e.v) !== undefined) o.v = e.v === 1 ? 1 : plain(e.v); break;
     case 'pa':
       if (typeof e.r !== 'string') return null;
       o = { t: 'pa', r: e.r.slice(0, 4) };
@@ -201,7 +202,7 @@ export function cleanGame(g) {
 export function newer(g) {
   const extra = (o, k) => Object.keys(o).some(x => !KNOWN.get(k).includes(x));
   return extra(g, 'game') || (!!g.rules && extra(g.rules, 'rules')) || (!!g.limit && (extra(g.limit, 'limit') || !knownLimit(g.limit))) || g.teams.some(t => extra(t, 'team') || [...t.lineup.flat(), ...t.pitchers].some(p => extra(p, 'player')))
-    || g.ev.some(e => !EVENTS.has(e.t) || extra(e, e.t) || (e.t === 'p' && !KINDS.includes(e.k))
+    || g.ev.some(e => !EVENTS.has(e.t) || extra(e, e.t) || (e.t === 'p' && (!KINDS.includes(e.k) || ('v' in e && e.v !== 1)))
       || (e.t === 'pa' && !Object.hasOwn(RESULTS, e.r)) || (e.t === 'sub' && !SUBS.includes(e.ty)) || (e.t === 'end' && 'why' in e && !Object.hasOwn(ENDS, e.why)));
 }
 

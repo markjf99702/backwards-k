@@ -97,7 +97,12 @@ for (const k of ['f', 'f', 'f']) await tap(`[data-p=${k}]`);
 await tap('[data-a=more]');
 assert.equal(await page.locator('.sheet [data-r2=KD]').isDisabled(), true);
 assert.match(await page.textContent('.sheet [data-r2=KD]'), /No dropped third strike with a runner on first and fewer than two out/);
-await tap('.sheet [data-close]');
+// The pitch clock: an automatic ball moves the count, and isn't a pitch (taken back again here).
+await tap('.sheet [data-ap=b]');
+assert.equal(await ticker(), 'Automatic ball (1-2)');
+assert.match(await page.textContent('.pitcher'), /Pitcher7pitches/);
+assert.equal(await page.locator('.count .lamps').first().locator('.on').count(), 1, 'one ball on the board');
+await tap('.bar .undo');
 await tap('[data-p=c]');
 assert.match(await ticker(), /Okafor strikes out looking/);
 await tap('[data-r="K"]');

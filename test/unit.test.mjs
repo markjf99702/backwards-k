@@ -1314,6 +1314,33 @@ test('the clock: each half-inning from its first play, each at-bat from its firs
   assert.match(boxHtml(SJ), /<p class="clock">Scored from 7:10 pm<\/p>/);
 });
 
+test('an automatic ball or strike (the pitch clock) moves the count, but isn’t a pitch', () => {
+  const A = k => ({ t: 'p', k, v: 1 });
+  const g = game();
+  let S = play(g, P('b'), A('b'), A('c'), P('f'));
+  assert.deepEqual([S.b, S.s], [2, 2]);
+  assert.deepEqual(S.text, ['Ball (1-0)', 'Automatic ball (2-0)', 'Automatic strike (2-1)', 'Foul (2-2)']);
+  assert.deepEqual(pitchStat(S, 1, 0), { ...pitchStat(S, 1, 0), np: 2, balls: 1, str: 1 });
+  // Ball four on an automatic ball is a walk; strike three on an automatic strike, a strikeout looking.
+  S = play(g, A('b'), A('b'), A('c'), A('c'), A('c'));
+  assert.deepEqual(S.cells.map(c => c.r), ['BB', 'KL']);
+  assert.equal(S.cells[0].seq, 'bBCfBB');
+  assert.equal(pitchStat(S, 1, 0).np, 2, 'none of the automatic ones are pitches');
+  assert.equal(S.plays.length, 2);
+  assert.match(playsHtml(S), /3-2 · 2 pitches/);
+  assert.match(playsHtml(S), /title="Ball, automatic ball, automatic strike, foul, automatic ball, automatic ball"/);
+  assert.match(playsHtml(S), /0-2 · 0 pitches/);
+  // Kept as it is by a file, a link, Drive or storage, and nothing newer.
+  const c = cleanGame(JSON.parse(JSON.stringify(g)));
+  assert.deepEqual(c, g);
+  assert.equal(newer(c), false);
+  // A kind of automatic call from a newer version is kept, makes the game look-only, and is passed over.
+  const later = cleanGame({ ...JSON.parse(JSON.stringify(g)), ev: [...g.ev, { t: 'p', k: 'b', v: 'balk' }] });
+  assert.equal(later.ev.at(-1).v, 'balk');
+  assert.equal(newer(later), true);
+  assert.deepEqual([replay(later).b, replay(later).s], [0, 0]);
+});
+
 test('a link changed on its way, or cut short, doesn’t open as another game', async () => {
   const { pack, unpack } = await import('../js/share.js');
   const g = sampleGame(7), json = JSON.stringify(g), link = await pack(g);
