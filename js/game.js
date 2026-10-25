@@ -3,6 +3,7 @@
 import {
   replay, suggest, check, runsCount, scoredAs, now, RESULTS, BASE, POS, POS_NAME, halfLabel, label, player, teamName,
   pitcherLabel, ord, runnersOn, mark, pitchStat, pitchWords, pitchDay, pitchWork, pitchCount, winningRun, creditedHit, credit, fits,
+  ENDS, regulation, official, winner,
 } from './engine.js';
 import { store } from './store.js';
 import { blank, takeBack, putBack, newer, plays } from './model.js';
@@ -40,8 +41,8 @@ export function showGame(el, game, opts = {}) {
   el.innerHTML = frame();
   el.addEventListener('click', onClick);
   drive.chip($('.bar .cloud', el));
+  // (Drawing it keeps the screen on while the game goes on: see paint().)
   draw();
-  wake(true);
 }
 export function leaveGame() {
   flush();
@@ -293,7 +294,8 @@ function paint() {
   }
   drawSide();
   trouble();
-  wake(!S.over && !readOnly);
+  // (During a delay the screen can sleep: the game waits.)
+  wake(!S.over && !S.delayed && !readOnly);
 }
 const wide = () => matchMedia('(min-width: 700px)').matches;
 // The buttons and the card side by side (a tablet on its side, a computer).
@@ -395,18 +397,19 @@ function liveHtml() {
   // The first time through, the order coming back round to the top is worth a warning: a youth team that bats
   // everyone may have more kids than the order has spots yet.
   const top = n.deck === 0 && S.size[n.side] > 1 && !S.cells.some(c => c.side === n.side && c.slot === n.slot);
-  // After the final, whoever was left on base is still drawn there, but there's nothing more to tap.
+  // After the final, whoever was left on base is still drawn there, but there's nothing more to tap; and during a
+  // delay, nobody runs.
   const runner = b => {
     const r = S.bases[b];
     if (!r) return '';
     const [x, y] = BASE_AT[b], name = esc(label(player(g, r.side, r.slot, r.p), r.slot));
-    if (S.over) return `<span class="runner left" style="left:${x}%;top:${y}%"><span class="sr">Left on ${BASE[b]}: </span><span>${name}</span></span>`;
+    if (S.over || S.delayed) return `<span class="runner left" style="left:${x}%;top:${y}%"><span class="sr">${S.over ? 'Left on' : 'On'} ${BASE[b]}: </span><span>${name}</span></span>`;
     return `<button type="button" class="runner" data-runner="${b}" style="left:${x}%;top:${y}%" aria-label="Runner on ${BASE[b]}: ${name}. Tap for steals and other moves."><span>${name}</span></button>`;
   };
   const dots = (on, of, cls) => Array.from({ length: of }, (_, i) => `<i class="${cls}${i < on ? ' on' : ''}"></i>`).join('');
   const bug = `<div class="bug">
       <div class="bug-teams">
-        ${[0, 1].map(s => `<div class="bt${!S.over && S.half === s ? ' bat' : ''}${S.over && S.R[s] > S.R[1 - s] ? ' won' : ''}"><span class="nm">${esc(teamName(g, s))}</span><span class="r">${S.R[s]}</span>${!S.over && S.half === s ? '<span class="sr">, batting</span>' : ''}</div>`).join('')}
+        ${[0, 1].map(s => `<div class="bt${!S.over && S.half === s ? ' bat' : ''}${winner(S) === s ? ' won' : ''}"><span class="nm">${esc(teamName(g, s))}</span><span class="r">${S.R[s]}</span>${!S.over && S.half === s ? '<span class="sr">, batting</span>' : ''}</div>`).join('')}
       </div>
       <div class="bug-state">
         <div class="inn">${S.over ? `<b>${esc(halfLabel(S))}</b>` : `<span class="arrow" aria-hidden="true">${S.half ? '▼' : '▲'}</span><span class="sr">${S.half ? 'Bottom' : 'Top'} of the </span><b>${ord(S.inn)}</b>`}</div>
@@ -439,12 +442,27 @@ function liveHtml() {
       <p>${last ? esc(last) : 'Tap what happens. Every tap can be undone.'}</p>
       <div class="acts">${back ? `<button type="button" class="link-btn" data-a="undo" title="${esc(back)}" aria-label="${esc(back)}">Undo</button>` : ''}${fix ? `<button type="button" class="link-btn" data-a="fixlast" title="${esc(fix)}" aria-label="${esc(fix)}">Fix runners</button>` : ''}${redo.length ? '<button type="button" class="link-btn" data-a="redo">Redo</button>' : ''}${keep ? `<button type="button" class="link-btn" data-a="putback">Put back ${few(keep, 'play')}</button>` : ''}</div>
     </div>`;
+  // Over: who won, or for a game called before it counted, who's ahead (OBR 7.01(c)). A run rule or a time limit says
+  // so after the score.
   if (S.over) {
-    const w = S.R[0] === S.R[1] ? null : S.R[1] > S.R[0] ? 1 : 0;
+    const lead = S.R[1] > S.R[0] ? 1 : 0, n = regulation(g.innings);
+    const head = S.R[0] === S.R[1] ? `Tied, ${S.R[0]}–${S.R[1]}`
+      : `${esc(teamName(g, lead))} ${winner(S) == null ? 'ahead' : 'win'}, ${S.R[lead]}–${S.R[1 - lead]}${S.why ? ` <small>(${ENDS[S.why].short})</small>` : ''}`;
+    const says = !S.ended ? 'That’s the ballgame.' : S.why ? `${ENDS[S.why].text}` : official(S) ? 'The game was called, and it counts.'
+      : `The game was called before it was official: that takes ${n} innings, or ${n - 1}½ with the home team ahead. Keep playing picks it up where it stopped.`;
     return `${bug}<div class="field-col">${field}${ticker}</div><div class="final">
-        <h2>${w == null ? `Tied, ${S.R[0]}–${S.R[1]}` : `${esc(teamName(g, w))} win, ${S.R[w]}–${S.R[1 - w]}`}</h2>
-        <p>${S.ended ? 'The game was called.' : 'That’s the ballgame.'} The whole card is ${sideBySide() ? 'beside this' : wide() ? 'below' : 'under <b>Card</b>'}, and the box score under <b>Box score</b>.</p>
+        <h2>${head}</h2>
+        <p>${says} The whole card is ${sideBySide() ? 'beside this' : wide() ? 'below' : 'under <b>Card</b>'}, and the box score under <b>Box score</b>.</p>
         <div class="row"><button type="button" class="btn primary" data-a="share">Share this game</button><button type="button" class="btn" data-a="on">Keep playing</button></div>
+      </div>`;
+  }
+  // Stopped for a delay: where things stand stays drawn, and one tap picks it up again. A substitution or a new
+  // pitcher can go in meanwhile (tap the batter or the pitcher).
+  if (S.delayed) {
+    return `${bug}<div class="field-col">${field}${ticker}</div><div class="final delayed">
+        <h2>Delayed</h2>
+        <p>Play stopped in the ${S.half ? 'bottom' : 'top'} of the ${ord(S.inn)}. The game waits here, and the screen can sleep. Resume when play starts again.</p>
+        <div class="row"><button type="button" class="btn primary" data-a="on">Resume play</button><button type="button" class="btn" data-a="endgame">End the game here</button></div>
       </div>`;
   }
   const can = {
@@ -504,6 +522,7 @@ function onClick(e) {
     case 'share': return shareSheet(G);
     case 'file': return saveFile(G);
     case 'on': return act({ t: 'on' });
+    case 'endgame': return endSheet();
   }
 }
 
@@ -745,20 +764,43 @@ function moreSheet() {
     <h3>The inning or the game</h3>
     <div class="list">
       <button type="button" class="li" data-y="eoh"><b>End this half-inning</b><span>For a run limit or the clock. The next team comes up.</span></button>
-      <button type="button" class="li" data-y="end"><b>End the game here</b><span>Rain, a mercy rule, or out of time. You can keep playing later.</span></button>
+      <button type="button" class="li" data-y="end"><b>End the game here</b><span>Or stop for a delay. Rain, a run rule, or out of time. You can keep playing later.</span></button>
     </div>
     <div class="row"><button type="button" class="btn quiet" data-close>Close</button></div>`);
   body.addEventListener('click', e => {
     const r = e.target.closest('[data-r2]'), y = e.target.closest('[data-y]');
     if (r && !r.disabled) choose(r.dataset.r2);
+    if (y && y.dataset.y === 'end') return endSheet();
     if (y) { closeSheet(); act({ t: y.dataset.y }); }
+  });
+}
+
+// Ending the game early. Stopping for a delay: the game waits, as it was. Over on a run rule or a time limit: the game
+// is complete, and reads Final. Called for rain or darkness: it reads Called, and until it has gone far enough to
+// count (OBR 7.01(c)), the team in front is ahead, not the winner.
+function endSheet() {
+  const n = regulation(G.innings);
+  const body = openSheet(`<h2 id="sheetTitle">End the game here</h2>
+    <div class="list">
+      ${S.delayed ? '' : '<button type="button" class="li" data-end="delay"><b>Stop for a delay</b><span>Rain, lightning, or the field. The game waits, the screen can sleep, and one tap picks it up again.</span></button>'}
+      <button type="button" class="li" data-end="rule"><b>Game over: run rule</b><span>A team far enough ahead. It reads Final (run rule).</span></button>
+      <button type="button" class="li" data-end="time"><b>Game over: time limit</b><span>Out of time. It reads Final (time limit).</span></button>
+      <button type="button" class="li" data-end="called"><b>Called: rain or darkness</b><span>It reads Called. Until ${n} innings are in (${n - 1}½ with the home team ahead), the team in front is ahead, not the winner.</span></button>
+    </div>
+    <div class="row"><button type="button" class="btn quiet" data-close>Cancel</button></div>`);
+  body.addEventListener('click', e => {
+    const b = e.target.closest('[data-end]');
+    if (!b) return;
+    const k = b.dataset.end;
+    closeSheet();
+    act(k === 'delay' ? { t: 'delay' } : k === 'called' ? { t: 'end' } : { t: 'end', why: k });
   });
 }
 
 // ---------- a runner: steals, wild pitches, pickoffs ----------
 function runnerSheet(b) {
   const r = S.bases[b];
-  if (!r || S.over) return;
+  if (!r || S.over || S.delayed) return;
   const name = label(player(G, r.side, r.slot, r.p), r.slot), next = b + 1;
   // Where each runner ended up when they moved up without a hit. Everyone else on base can move up on the same wild
   // pitch, passed ball or throw; they stayed unless the scorer says otherwise.
@@ -1035,7 +1077,8 @@ function menuSheet() {
       <button type="button" class="li" data-y="settings"><b>Game settings</b><span>Teams, innings, counting pitches, date and place.</span></button>
       <button type="button" class="li" data-y="help"><b>How to read the card</b><span>What 6-3, F8 and the backwards K mean.</span></button>
       ${S.over ? '<button type="button" class="li" data-y="on"><b>Keep playing</b><span>Carry on scoring past the end.</span></button>'
-        : '<button type="button" class="li" data-y="eoh"><b>End this half-inning</b><span>For a run limit or the clock.</span></button><button type="button" class="li" data-y="end"><b>End the game here</b><span>Rain, a mercy rule, or out of time.</span></button>'}
+        : S.delayed ? '<button type="button" class="li" data-y="on"><b>Resume play</b><span>Pick the game up where it stopped.</span></button><button type="button" class="li" data-y="end"><b>End the game here</b><span>A run rule, the time limit, or called for rain or darkness.</span></button>'
+          : '<button type="button" class="li" data-y="eoh"><b>End this half-inning</b><span>For a run limit or the clock.</span></button><button type="button" class="li" data-y="end"><b>End the game here</b><span>Or stop for a delay. Rain, a run rule, or out of time.</span></button>'}
       <button type="button" class="li danger" data-y="delete"><b>Delete this game</b><span>From this device${drive.isOn() ? ' and your Google Drive' : ''}.</span></button>
     </div>
     <div class="row"><button type="button" class="btn quiet" data-close>Close</button></div>`);
@@ -1047,7 +1090,8 @@ function menuSheet() {
       case 'share': return shareSheet(G);
       case 'settings': return settingsSheet();
       case 'help': return helpSheet();
-      case 'on': case 'eoh': case 'end': closeSheet(); return act({ t: y.dataset.y });
+      case 'end': return endSheet();
+      case 'on': case 'eoh': closeSheet(); return act({ t: y.dataset.y });
       case 'delete': {
         if (y.dataset.armed) {
           const g = G;

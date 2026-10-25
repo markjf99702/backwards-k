@@ -191,7 +191,8 @@ step('ending the game early, and keeping going');
 await tap('[data-v=live]');
 await tap('[data-a=menu]');
 await tap('[data-y=end]');
-assert.match(await page.textContent('.final h2'), /Comets win, 1–0/);
+await tap('[data-end=rule]');
+assert.match(await page.textContent('.final h2'), /Comets win, 1–0 \(run rule\)/);
 await tap('[data-a=on]');
 assert.equal(await page.locator('.final').count(), 0);
 
@@ -770,6 +771,65 @@ step('a double that wins it with the bases loaded is a single on the card, and i
   await p.click('[data-a=on]');
   assert.match(await p.textContent('.bar .title'), /0\s*–\s*2/);
   assert.match(await p.textContent('.recent'), /Batter 1 doubles\. Batter 7 and Batter 8 score\. Batter 9 to third\./);
+  await p.context().close();
+}
+
+step('a delay: the game waits as it was, the screen can sleep, and Resume picks it up');
+{
+  // A stand-in for the screen's wake lock, to see when the app holds it.
+  const p = await phone(() => {
+    window.held = 0;
+    Object.defineProperty(navigator, 'wakeLock', { value: { request: async () => { window.held++; const l = new EventTarget(); l.release = async () => { window.held--; l.dispatchEvent(new Event('release')); }; return l; } } });
+  });
+  const id = await startGame(p);
+  await p.click('[data-r="1B"]');
+  await p.click('[data-p=b]');
+  assert.equal(await p.evaluate(() => window.held), 1, 'the screen stays on while scoring');
+  await p.click('[data-a=more]');
+  await p.click('.sheet [data-y=end]');
+  assert.deepEqual(await p.$$eval('.sheet [data-end]', b => b.map(x => x.querySelector('b').textContent)), ['Stop for a delay', 'Game over: run rule', 'Game over: time limit', 'Called: rain or darkness']);
+  await p.click('[data-end=delay]');
+  assert.match(await p.textContent('.bar .title small'), /^Delayed, top 1st/);
+  assert.match(await p.textContent('.final.delayed'), /Delayed\s+Play stopped in the top of the 1st/);
+  assert.equal(await p.locator('.live [data-p], .live [data-r], .live [data-runner]').count(), 0, 'nothing to tap for a play');
+  assert.equal(await p.textContent('.live .runner'), 'On first: Batter 1');
+  assert.equal(await p.evaluate(() => window.held), 0, 'the screen can sleep');
+  assert.match(await p.title(), /Delayed, top 1st/);
+  // A new pitcher can come in meanwhile, and the home screen says it's delayed.
+  await p.click('[data-a=pitcher]');
+  await p.click('.sheet [data-y=new]');
+  await p.click('.sheet [data-x=go]');
+  assert.ok(await p.locator('.final.delayed').count());
+  await p.click('.bar .back');
+  assert.match(await p.textContent('.back-to'), /Delayed · Batter 2 up/);
+  assert.match(await p.textContent('.game-list'), /Delayed, top 1st/i);
+  await p.click('.back-to .btn');
+  await p.waitForSelector('.final.delayed');
+  assert.equal(await p.evaluate(() => window.held), 0, 'opened again during the delay, the screen can still sleep');
+  await p.click('.final.delayed [data-a=on]');
+  assert.equal(await p.locator('.final').count(), 0);
+  assert.equal(await p.textContent('.ticker p'), 'Play resumes.');
+  assert.match(await p.textContent('.bar .title small'), /^Top 1st/);
+  assert.equal(await p.locator('.live [data-runner="1"]').count(), 1);
+  assert.equal(await p.evaluate(() => window.held), 1);
+  assert.deepEqual((await stored(p, id)).ev.map(e => e.t).slice(-4), ['p', 'delay', 'pch', 'on']);
+  // Called before it's official: ahead, not a win; and after the run rule, Final with the reason.
+  await p.click('[data-r=HR]');
+  await p.click('.sheet [data-x=save]');
+  await p.click('[data-a=menu]');
+  await p.click('.sheet [data-y=end]');
+  await p.click('[data-end=called]');
+  assert.equal(await p.textContent('.final h2'), 'Owls ahead, 2–0');
+  assert.match(await p.textContent('.final p'), /^The game was called before it was official: that takes 5 innings, or 4½ with the home team ahead\./);
+  assert.match(await p.textContent('.bar .title small'), /^Called/);
+  assert.deepEqual(await p.$$eval('.bug .bt', b => b.map(x => x.className)), ['bt', 'bt'], 'nobody is lit as the winner');
+  await p.click('[data-a=on]');
+  await p.click('[data-a=menu]');
+  await p.click('.sheet [data-y=end]');
+  await p.click('[data-end=time]');
+  assert.equal(await p.textContent('.final h2'), 'Owls win, 2–0 (time limit)');
+  assert.match(await p.textContent('.bar .title small'), /^Final/);
+  assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'the final, with its reason, scrolls sideways');
   await p.context().close();
 }
 

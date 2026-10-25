@@ -1,7 +1,7 @@
 // The rules of scoring, without a browser:  node --test test/unit.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { replay, suggest, check, runsCount, scoredAs, mark, now, columns, halfLabel, RESULTS, runnersOn, pitchDay, pitchStat, pitchWork, pitchCount, winningRun, fits } from '../js/engine.js';
+import { replay, suggest, check, runsCount, scoredAs, mark, now, columns, halfLabel, RESULTS, runnersOn, pitchDay, pitchStat, pitchWork, pitchCount, winningRun, fits, official, winner, endNote, regulation } from '../js/engine.js';
 import { newGame, cleanGame, cleanDoc, parseLineup, parsePaste, takeBack, putBack, starters, newer, merge, seenOf } from '../js/model.js';
 import { sampleGame } from '../js/sample.js';
 // The card is drawn with ui.js, which looks for the page's sheet as it loads: here there's no page, so no sheet.
@@ -315,6 +315,73 @@ test('a called game that picks up again ends the usual way', () => {
   assert.equal(S.over, true, 'a walk-off home run');
   assert.equal(halfLabel(S), 'Final');
   assert.equal(S.R[1], 1);
+});
+
+test('a delay stops play and the game waits: Delayed, top 5th, until Resume or the next play', async () => {
+  const g = game();
+  let S = play(g, ...Array(24).fill('K'), '1B', P('b'), { t: 'delay' });
+  assert.deepEqual([S.over, S.delayed, halfLabel(S)], [false, true, 'Delayed, top 5th']);
+  assert.equal(S.text.at(-1), 'Play stops for a delay.');
+  assert.deepEqual([S.b, !!S.bases[1], S.outs], [1, true, 0], 'the count, the runner and the outs wait with it');
+  const { summary } = await import('../js/share.js');
+  assert.match(summary(g), /^Foxes 0, Comets 0 \(Delayed, top 5th\)/);
+  S = play(g, { t: 'on' });
+  assert.deepEqual([S.delayed, halfLabel(S), S.text.at(-1), S.b], [false, 'Top 5th', 'Play resumes.', 1]);
+  // A play during a delay means play went on; and a delay can end in the game ending.
+  S = play(g, { t: 'delay' }, P('b'));
+  assert.deepEqual([S.delayed, S.b], [false, 2]);
+  S = play(g, { t: 'delay' }, { t: 'end' });
+  assert.deepEqual([S.over, S.delayed, halfLabel(S)], [true, false, 'Called']);
+  // Between half-innings: the delay is before the next half.
+  S = play(game(), ...threeK, { t: 'delay' });
+  assert.equal(halfLabel(S), 'Delayed, bottom 1st');
+});
+
+test('a game over on a run rule or a time limit is Final, and says why after the score', async () => {
+  const { summary } = await import('../js/share.js');
+  const g = game({ innings: 6 });
+  let S = play(g, 'HR', 'HR', 'HR', 'HR', 'HR', 'HR', 'HR', 'HR', 'HR', 'HR', 'HR', ...threeK, ...threeK, ...threeK, ...threeK, ...threeK, ...threeK, { t: 'end', why: 'rule' });
+  assert.deepEqual([S.over, halfLabel(S), endNote(S), winner(S)], [true, 'Final', 'run rule', 0]);
+  assert.equal(S.text.at(-1), 'The game is over on the run rule.');
+  assert.match(summary(g), /^Foxes 11, Comets 0 \(Final, run rule\)\n/);
+  // Keep playing picks it up where it stopped.
+  S = play(g, { t: 'on' });
+  assert.deepEqual([S.over, halfLabel(S), endNote(S)], [false, 'Top 4th', '']);
+  S = play(g, { t: 'end', why: 'time' });
+  assert.deepEqual([halfLabel(S), endNote(S), S.text.at(-1)], ['Final', 'time limit', 'The game is over on the time limit.']);
+  assert.match(summary(g), /\(Final, time limit\)/);
+  // Saved and read back, the reasons are kept; one from a newer version is kept too, reads as called, and makes the
+  // game look-only; one that isn't a word is left out.
+  const c = cleanGame(JSON.parse(JSON.stringify(g)));
+  assert.deepEqual(c, g);
+  assert.equal(newer(c), false);
+  g.ev.push({ t: 'on' }, { t: 'end', why: 'forfeit' });
+  assert.deepEqual([halfLabel(replay(g)), newer(cleanGame(g)), cleanGame(g).ev.at(-1)], ['Called', true, { t: 'end', why: 'forfeit' }]);
+  g.ev.push({ t: 'on' }, { t: 'end', why: { a: 1 } }, { t: 'delay', x: 1 });
+  assert.deepEqual(cleanGame(g).ev.slice(-2), [{ t: 'end' }, { t: 'delay', x: 1 }]);
+});
+
+test('a called game before it is official has no winner: the team in front is ahead (OBR 7.01(c))', async () => {
+  const { summary } = await import('../js/share.js');
+  // Nine innings: called in the top of the 5th, the Foxes ahead 1-0. Not official.
+  let g = game();
+  let S = play(g, 'HR', ...Array(26).fill('K'), { t: 'end' });
+  assert.deepEqual([halfLabel(S), official(S), winner(S), endNote(S)], ['Called', false, null, 'before it was official']);
+  assert.match(summary(g), /^Foxes 1, Comets 0 \(Called, before it was official\)/);
+  // After five innings it counts: the Foxes win.
+  g = game();
+  S = play(g, 'HR', ...Array(30).fill('K'), { t: 'end' });
+  assert.deepEqual([S.inn, S.half, official(S), winner(S), endNote(S)], [5, 1, true, 0, '']);
+  assert.match(summary(g), /^Foxes 1, Comets 0 \(Called\)/);
+  // Four and a half, with the home team ahead, counts too (OBR 7.01(c)(2)); with the visitors ahead, it doesn't.
+  S = play(game(), ...threeK, 'HR', ...Array(24).fill('K'), { t: 'end' });
+  assert.deepEqual([S.inn, S.half, official(S), winner(S)], [5, 0, true, 1]);
+  S = play(game(), 'HR', ...Array(27).fill('K'), { t: 'end' });
+  assert.deepEqual([S.inn, S.half, official(S), winner(S)], [5, 0, false, null]);
+  // Six innings (Little League 4.10(c)): four count.
+  S = play(game({ innings: 6 }), 'HR', ...Array(24).fill('K'), { t: 'end' });
+  assert.deepEqual([official(S), winner(S)], [true, 0]);
+  assert.deepEqual([3, 4, 5, 6, 7, 9].map(regulation), [2, 3, 4, 4, 5, 5]);
 });
 
 // The cells of one team's row in the line score, as text.
@@ -851,13 +918,15 @@ function everyKind() {
   play(g, add(0));
   play(g, 'E 6', '1B', '1B', 'K', 'KL', { t: 'pa', r: 'FC', f: [6, 4], m: [[0, 1], [1, 0], [2, 3], [3, 4]], x: 1 });
   play(g, 'PU 2', 'KD', { t: 'r', m: [[1, 2, 'OA']] }, { t: 'r', m: [[2, 0, 'OB']] }, { t: 'eoh' });
-  play(g, { t: 'sub', s: 0, slot: 1, i: 0, ty: 'def' }, 'IBB', 'CI', 'SAC 1 3', '3B', { t: 'end' }, { t: 'on' }, 'LO 6', '1B', 'DP 6 4 3');
+  play(g, { t: 'sub', s: 0, slot: 1, i: 0, ty: 'def' }, 'IBB', 'CI', 'SAC 1 3', '3B', { t: 'end' }, { t: 'on' }, 'LO 6', { t: 'delay' }, { t: 'on' }, '1B');
+  play(g, { t: 'end', why: 'rule' }, { t: 'on' }, 'DP 6 4 3');
   return g;
 }
 
 test('a game with every kind of event comes back the same from a file, Drive, storage and a link', async () => {
   const g = everyKind(), S = replay(g);
-  assert.deepEqual(new Set(g.ev.map(e => e.t)), new Set(['p', 'pa', 'r', 'sub', 'pch', 'add', 'eoh', 'end', 'on']));
+  assert.deepEqual(new Set(g.ev.map(e => e.t)), new Set(['p', 'pa', 'r', 'sub', 'pch', 'add', 'eoh', 'end', 'delay', 'on']));
+  assert.deepEqual(g.ev.filter(e => e.t === 'end').map(e => e.why), [undefined, 'rule']);
   assert.deepEqual([S.R, S.inn, S.half], [[5, 1], 3, 1]);
   for (const t of S.text) assert.doesNotMatch(t, /undefined|NaN/);
   const json = JSON.parse(JSON.stringify(g));

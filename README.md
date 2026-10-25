@@ -43,8 +43,13 @@ written out in plain words.
   ahead in it. That run is the last to count, and a hit that brings it in counts for the bases it needed, as an
   official scorer has it: with the bases loaded, a double that wins the game is a single (a home run still scores
   everyone). **Keep playing** after a Final finishes that half-inning, for a league that plays it out, and then every
-  run on the play that won it counts; a game you ended early (rain, a mercy rule) picks up where it stopped and ends
-  the usual way.
+  run on the play that won it counts; a game you ended early picks up where it stopped and ends the usual way.
+- **Rain, lightning, a run rule, the clock.** End the game here (under More, or in the game's menu) asks why. **Stop
+  for a delay** keeps the game as it was, reading "Delayed, top 5th" everywhere, lets the screen sleep, and one tap
+  resumes it. **Game over: run rule** or **time limit** is a complete game, Final, with "(run rule)" or "(time
+  limit)" after the score. **Called: rain or darkness** reads Called, and until the game has gone far enough to count
+  (five innings, or four and a half with the home team ahead; four of six in Little League), the team in front is
+  ahead, not the winner (OBR 7.01(c)).
 - **Phone or tablet.** On a phone the buttons, the card, the box score and the play-by-play are tabs. On a tablet
   held sideways (or any screen 1000 pixels wide or more) the buttons and the card sit side by side, and the card
   fills in while you watch; on one held upright, the card is under the buttons.

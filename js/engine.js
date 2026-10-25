@@ -127,6 +127,9 @@ export function replay(g, upTo = g.ev.length) {
     cells: [], extra: [[], []], col: { k: 0, used: new Set() }, last: null,
     plays: [], text: [], bat: {}, pitching: [[], []],
     over: false, ended: false, hold: false, between: false, batted: [false, false],
+    why: '', // why the scorer ended it: 'rule' (a run rule) or 'time' (a time limit), else '' (called: rain, darkness)
+    delayed: false, // play is stopped for a delay: the game waits, and goes on as it was
+
     fresh: false, // a half-inning has just started and nothing has happened in it yet
     relief: null, // the pitcher a walk goes to, when a new one came in with the batter ahead in the count
     ph: null, // the batter who left with two strikes, for a pinch hitter's strikeout
@@ -151,6 +154,8 @@ function step(S, e) {
   // A play after the final (fewer innings set since it was scored, or an older game): play went on, so it counts
   // for the team that was batting.
   if (S.over && S.between && PLAY.has(e.t)) resume(S);
+  // A play during a delay: play went on.
+  if (S.delayed && PLAY.has(e.t)) S.delayed = false;
   // (A kind of event or pitch from a newer version is passed over: see model.js.)
   switch (e.t) {
     case 'p': return ['b', 'c', 's', 'f'].includes(e.k) ? pitch(S, e.k) : undefined;
@@ -194,19 +199,32 @@ function step(S, e) {
       return endHalf(S, true);
     case 'end':
       if (S.fresh) unstart(S);
-      S.over = true; S.ended = true;
-      return note(S, 'The game is called.', 'end');
+      // (A reason from a newer version reads as called.)
+      S.over = true; S.ended = true; S.delayed = false; S.why = Object.hasOwn(ENDS, e.why) ? e.why : '';
+      return note(S, S.why ? ENDS[S.why].text : 'The game is called.', 'end');
+    case 'delay':
+      if (S.over) return;
+      S.delayed = true;
+      return note(S, 'Play stops for a delay.', 'sub');
     case 'on':
+      if (S.delayed) { S.delayed = false; return note(S, 'Play resumes.', 'sub'); }
       note(S, 'Play goes on.', 'sub');
       return resume(S);
   }
 }
 
+// Why the scorer can end a game before its last out, besides calling it: a run rule or a time limit. Either way the
+// game is complete, and reads Final.
+export const ENDS = {
+  rule: { text: 'The game is over on the run rule.', short: 'run rule' },
+  time: { text: 'The game is over on the time limit.', short: 'time limit' },
+};
+
 // Keep playing, after the game was over or called. After a final, the half-inning is played out (the home team
-// going ahead doesn't end it again) and the game ends when it's over; a called game goes on as usual.
+// going ahead doesn't end it again) and the game ends when it's over; a game ended by hand goes on as usual.
 function resume(S) {
   S.hold = S.over && !S.ended;
-  S.over = false; S.ended = false;
+  S.over = false; S.ended = false; S.why = '';
   if (S.between) nextHalf(S);
 }
 
@@ -680,10 +698,32 @@ export function now(S) {
     pitcher: S.pit[fld], pitcherName: pitcherLabel(g, fld, S.pit[fld]), pitches: pstat(S, fld, S.pit[fld]).np,
   };
 }
-// Where the game is, in a word or two: "Top 3rd", "Final", "Final/10" after extra innings, as box scores put it.
+// Where the game is, in a word or two: "Top 3rd", "Delayed, top 5th", "Final", "Final/10" after extra innings, as box
+// scores put it, or "Called". A game ended on a run rule or a time limit is complete, so it's Final.
 export function halfLabel(S) {
-  if (S.over) return S.ended ? 'Called' : S.inn > S.g.innings ? `Final/${S.inn}` : 'Final';
-  return `${S.half ? 'Bottom' : 'Top'} ${ord(S.inn)}`;
+  if (S.over) return S.ended && !S.why ? 'Called' : S.inn > S.g.innings ? `Final/${S.inn}` : 'Final';
+  const at = `${S.half ? 'Bottom' : 'Top'} ${ord(S.inn)}`;
+  return S.delayed ? `Delayed, ${at.toLowerCase()}` : at;
+}
+// How many innings a called game needs to count (to be a regulation game): five of nine, or of seven (OBR 7.01(c),
+// and high school's 4-2-2); four of six (Little League 4.10(c)); two thirds of a shorter game.
+export const regulation = innings => (innings >= 7 ? 5 : Math.ceil(innings * 2 / 3));
+// Whether a called game counts: it went that many innings, or half an inning fewer with the home team ahead (the
+// home team doesn't need its last turn), OBR 7.01(c)(2).
+export function official(S) {
+  const n = regulation(S.g.innings), done = (S.inn - 1) * 2 + S.half + (S.between ? 1 : 0);
+  return done >= 2 * n || (done >= 2 * n - 1 && S.R[1] > S.R[0]);
+}
+// Who won: 0 or 1, or null while the game goes on, for a tie, and for a game called before it counted.
+export function winner(S) {
+  if (!S.over || S.R[0] === S.R[1] || (S.ended && !S.why && !official(S))) return null;
+  return S.R[1] > S.R[0] ? 1 : 0;
+}
+// Why a game ended before its last out, for after the score: "run rule", "time limit", or for a called game that
+// didn't count, "before it was official". '' otherwise.
+export function endNote(S) {
+  if (!S.over || !S.ended) return '';
+  return S.why ? ENDS[S.why].short : official(S) ? '' : 'before it was official';
 }
 // Innings to draw on the scorecard: the scheduled ones, plus any extras played.
 export function innings(S) {

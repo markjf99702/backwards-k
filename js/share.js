@@ -1,6 +1,6 @@
 // Sharing a game: a link that carries the whole scorecard, the score as text for a group chat, a printout, a file.
 // The link holds the game itself (packed small after the #), so nothing is uploaded anywhere to share it.
-import { replay, teamName, halfLabel, label, player } from './engine.js';
+import { replay, teamName, halfLabel, endNote, label, player } from './engine.js';
 import { cardHtml, lineHtml } from './card.js';
 import { boxHtml } from './box.js';
 import { esc, openSheet, closeSheet, toast, copy, download, inFrame, SITE, slug, fmtDate } from './ui.js';
@@ -23,13 +23,15 @@ export async function unpack(s) {
 const base = () => (location.origin + '/' === SITE ? location.origin + location.pathname : SITE);
 export const linkFor = async g => base() + '#s=' + await pack(g);
 
+// The score as text: "Tigers 11, Bears 1 (Final, run rule)", the day and place, each team's runs, hits and errors, and
+// the home runs.
 export function summary(g, link) {
-  const S = replay(g), w = S.R[1] > S.R[0] ? 1 : 0;
+  const S = replay(g), w = S.R[1] > S.R[0] ? 1 : 0, why = endNote(S);
   const hrs = [];
   for (const [k, b] of Object.entries(S.bat)) if (b.hr) { const [s, slot, p] = k.split('.').map(Number); hrs.push(label(player(g, s, slot, p), slot) + (b.hr > 1 ? ' ' + b.hr : '')); }
   const line = s => `${teamName(g, s)}: ${S.R[s]} run${S.R[s] === 1 ? '' : 's'}, ${S.H[s]} hit${S.H[s] === 1 ? '' : 's'}, ${S.E[s]} error${S.E[s] === 1 ? '' : 's'}`;
   return [
-    `${teamName(g, w)} ${S.R[w]}, ${teamName(g, 1 - w)} ${S.R[1 - w]} (${halfLabel(S)})`,
+    `${teamName(g, w)} ${S.R[w]}, ${teamName(g, 1 - w)} ${S.R[1 - w]} (${halfLabel(S)}${why ? ', ' + why : ''})`,
     [fmtDate(g.date), g.place].filter(Boolean).join(' · '),
     '',
     line(0), line(1),

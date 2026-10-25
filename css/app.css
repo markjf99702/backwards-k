@@ -222,6 +222,7 @@ h1[tabindex="-1"]:focus { outline: none; } /* a screen's heading, given the keyb
 .back-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 14px; }
 .back-row p { margin: 0; color: var(--ink-2); }
 .back-row p b { color: var(--ink); }
+.back-row p b.delayed { color: var(--red); }
 .hero.short { padding-top: 0; }
 .hero.short h1 { font-size: 34px; }
 /* No games yet: four boxes from a card, each with what it says. */
@@ -461,6 +462,7 @@ details.lineup summary small { color: var(--muted); font-weight: 400; }
 .recent h3 { font: 800 16px/1 var(--board-font); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 6px; }
 .final { padding: 16px; border-radius: 14px; background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow); }
 .final h2 { font: 900 32px/1 var(--board-font); text-transform: uppercase; margin-bottom: 8px; }
+.final h2 small { font-size: 20px; font-weight: 800; color: var(--muted); white-space: nowrap; }
 .final .row { justify-content: flex-start; }
 .shared-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 10px 0 0; padding: 10px 14px; border-radius: 12px; background: var(--card); border: 1px solid var(--line); }
 .shared-bar p { flex: 1 1 14em; margin: 0; font-size: 15px; color: var(--ink-2); }

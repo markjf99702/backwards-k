@@ -1,5 +1,5 @@
 // The first screen: start a game, pick up one already going, the sample, Google Drive and backups.
-import { replay, teamName, halfLabel, now, ord } from './engine.js';
+import { replay, teamName, halfLabel, now, ord, winner } from './engine.js';
 import { store } from './store.js';
 import { $, esc, fmtDate, toast, download, pickFile, inFrame, ICON, whyNot } from './ui.js';
 import { today, cleanGame, newer } from './model.js';
@@ -25,9 +25,9 @@ function going(games) {
   return null;
 }
 // It comes first, as the scoreboard shows it: "Foxes 1, Comets 3 · Top 6th · Delgado up", with Keep scoring (or
-// Start scoring, for a game set up but not started yet).
+// Start scoring, for a game set up but not started yet). A game stopped for a delay says so.
 function backHtml({ g, S }) {
-  const n = now(S), inn = `${S.half ? 'Bottom' : 'Top'} ${ord(S.inn)}`;
+  const n = now(S), inn = halfLabel(S);
   return `<section class="back-to card-box" aria-labelledby="backTo">
       <h2 id="backTo">Back to the game</h2>
       <div class="bug" aria-hidden="true">
@@ -35,7 +35,7 @@ function backHtml({ g, S }) {
         <div class="bug-state"><div class="inn"><span class="arrow">${S.half ? '▼' : '▲'}</span><b>${ord(S.inn)}</b></div></div>
       </div>
       <p class="sr">${esc(`${teamName(g, 0)} ${S.R[0]}, ${teamName(g, 1)} ${S.R[1]} · ${inn}`)}</p>
-      <div class="back-row"><p><b>${esc(n.name)}</b> up${g.place ? ` · ${esc(g.place)}` : ''}</p><a class="btn primary" href="#/g/${esc(g.id)}">${g.ev.length ? 'Keep' : 'Start'} scoring</a></div>
+      <div class="back-row"><p>${S.delayed ? '<b class="delayed">Delayed</b> · ' : ''}<b>${esc(n.name)}</b> up${g.place ? ` · ${esc(g.place)}` : ''}</p><a class="btn primary" href="#/g/${esc(g.id)}">${g.ev.length ? 'Keep' : 'Start'} scoring</a></div>
     </section>`;
 }
 
@@ -48,7 +48,7 @@ export function showHome(el) {
     const fresh = !g.ev.length, live = !S.over && !fresh;
     const teams = fresh
       ? `<span><span class="gi-nm">${esc(teamName(g, 0))}</span> <span class="gi-at">at</span></span> <span><span class="gi-nm">${esc(teamName(g, 1))}</span></span>`
-      : [0, 1].map(s => `<span class="${S.over && S.R[s] > S.R[1 - s] ? 'won' : ''}"><span class="gi-nm">${esc(teamName(g, s))}</span> <b>${S.R[s]}</b></span>`).join(' ');
+      : [0, 1].map(s => `<span class="${winner(S) === s ? 'won' : ''}"><span class="gi-nm">${esc(teamName(g, s))}</span> <b>${S.R[s]}</b></span>`).join(' ');
     return `<li><a class="gi${live ? ' live' : ''}" href="#/g/${esc(g.id)}">
       <span class="gi-date">${esc(fmtDate(g.date))}${g.place ? ` · ${esc(g.place)}` : ''}</span>
       <span class="gi-teams${fresh ? ' fresh' : ''}">${teams}</span>

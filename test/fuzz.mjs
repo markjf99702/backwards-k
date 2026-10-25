@@ -4,7 +4,8 @@
 // Each game is seeded, so a run is the same every time. A step is what a tap on the game screen does (js/game.js):
 // a pitch, a result with its fielders and the runners sheet (check(), scoredAs() and "did the run count"), Fix
 // runners, a runner's steal, pickoff, wild pitch or balk, a substitution or someone back in, a pitching change, a
-// batter added, End this half-inning, End the game here, Keep playing, a box switched to another result, and Undo,
+// batter added, End this half-inning, End the game here (a delay, a run rule, a time limit, called), Keep playing
+// and Resume play, a box switched to another result, and Undo,
 // Redo and Put back. After each one: the outs, the count and the bases make sense; runs, hits and errors add up the
 // same way on the line score, the card, the batters and the pitchers; every half-inning passes the scorer's proof
 // (OBR 9.03(c)); the game ends when it should, and a walk-off counts only the winning run; Undo and Redo give back
@@ -50,7 +51,7 @@ const withF = (e, f) => { if (f && f.length) e.f = f; return e; };
 // The buttons that are there to tap (liveHtml's and moreSheet's can).
 function offered(C, code) {
   const S = C.S, on = runnersOn(S).length;
-  if (S.over) return false;
+  if (S.over || S.delayed) return false;
   return ({ SF: !!S.bases[3] && S.outs < 2, SAC: on && S.outs < 2, DP: on && S.outs < 2, FC: !!on, TP: on >= 2 && S.outs === 0,
     KD: (S.s >= 2 || !C.g.pitches) && !(S.bases[1] && S.outs < 2) })[code] ?? true;
 }
@@ -105,7 +106,7 @@ const where = S => ({ half: S.half, inn: S.inn, outs: S.outs, over: S.over });
 function run(C, a) {
   const { S, g } = C;
   switch (a.a) {
-    case 'p': if (S.over || !g.pitches) return false; act(C, { t: 'p', k: a.k }); return true;
+    case 'p': if (S.over || S.delayed || !g.pitches) return false; act(C, { t: 'p', k: a.k }); return true;
     case 'pa': {
       if (!RESULTS[a.r] || !offered(C, a.r)) return false;
       if (quiet(S, a.r)) {
@@ -133,7 +134,7 @@ function run(C, a) {
     }
     case 'run': {
       const r = S.bases[a.b];
-      if (S.over || !r) return false;
+      if (S.over || S.delayed || !r) return false;
       const next = a.b + 1;
       if (a.how === 'BK') { act(C, { t: 'r', m: runnersOn(S).map(x => [x, x + 1, 'BK']) }); return true; }
       if (a.how === 'SB') { if (S.bases[next] && next < 4) return false; act(C, { t: 'r', m: [[a.b, next, 'SB']] }); return true; }
@@ -171,8 +172,9 @@ function run(C, a) {
       return true;
     }
     case 'add': g.teams[a.side].lineup.push([M.blank()]); act(C, { t: 'add', s: a.side }); return true;
-    case 'eoh': case 'end': if (S.over) return false; act(C, { t: a.a }); return true;
-    case 'on': if (!S.over) return false; act(C, { t: 'on' }); return true;
+    case 'eoh': case 'delay': if (S.over || S.delayed) return false; act(C, { t: a.a }); return true;
+    case 'end': if (S.over) return false; act(C, a.why ? { t: 'end', why: a.why } : { t: 'end' }); return true;
+    case 'on': if (!S.over && !S.delayed) return false; act(C, { t: 'on' }); return true;
     case 'undo': {
       const r = M.takeBack(g);
       if (!r) return false;
@@ -236,9 +238,10 @@ const said = (rnd, S, m) => (S.outs + m.filter(x => x[1] === 0).length >= 3 && m
 function choose(C, rnd) {
   const { S, g } = C, w = [];
   if (S.over) w.push([5, 'stop'], [3, 'on'], [1.5, 'undo'], [0.5, 'sub'], [0.3, 'pitcher'], [0.4, 'box']);
+  else if (S.delayed) w.push([3, 'on'], [0.5, 'end'], [0.5, 'undo'], [0.3, 'sub'], [0.2, 'pitcher'], [0.2, 'back'], [0.2, 'box']);
   else {
     if (g.pitches) w.push([6, 'p']);
-    w.push([3.2, 'pa'], [0.12, 'sub'], [0.05, 'pitcher'], [0.08, 'back'], [0.03, 'add'], [0.02, 'eoh'], [0.012, 'end'], [0.4, 'undo'], [0.08, 'box']);
+    w.push([3.2, 'pa'], [0.12, 'sub'], [0.05, 'pitcher'], [0.08, 'back'], [0.03, 'add'], [0.02, 'eoh'], [0.012, 'end'], [0.01, 'delay'], [0.4, 'undo'], [0.08, 'box']);
     if (runnersOn(S).length) w.push([0.7, 'run']);
   }
   if (fixable(C) >= 0) w.push([0.15, 'fix']);
@@ -272,6 +275,7 @@ function choose(C, rnd) {
     case 'pitcher': return { a: 'pitcher', side: rnd() < 0.8 ? 1 - S.half : S.half };
     case 'back': return { a: 'back', j: Math.floor(rnd() * 5) };
     case 'add': return { a: 'add', side: rnd() < 0.5 ? 0 : 1 };
+    case 'end': return { a: 'end', why: pick(rnd, ['', '', 'rule', 'time']) };
     case 'box': {
       if (!S.cells.length) return { a: 'undo' };
       const c = pick(rnd, S.cells);
@@ -463,6 +467,7 @@ function say(a) {
     case 'back': return 'bring back an earlier pitcher';
     case 'add': return `add a batter for ${a.side ? 'home' : 'visitors'}`;
     case 'box': return `box ${a.n} switched to ${a.to}`;
+    case 'end': return `End the game${a.why ? ` (${a.why})` : ''}`;
     default: return a.a === 'putback' ? 'Put back' : a.a[0].toUpperCase() + a.a.slice(1);
   }
 }

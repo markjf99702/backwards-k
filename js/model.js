@@ -7,7 +7,7 @@
 // Anything a newer Backwards K saves that this one doesn't know (a new kind of event, pitch, play or substitution, or a
 // new value on a game, team, player or event) is kept as it came, as long as it's small, so this copy can show the
 // game and save it again without losing it; and a game holding any of it opens look-only (see newer()).
-import { RESULTS } from './engine.js';
+import { RESULTS, ENDS } from './engine.js';
 
 export const APP = 'backwards-k';
 export const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -36,9 +36,9 @@ const KNOWN = new Map(Object.entries({
   game: ['id', 'created', 'updated', 'date', 'place', 'innings', 'pitches', 'teams', 'ev'],
   team: ['name', 'lineup', 'pitchers'], player: ['name', 'num'],
   p: ['t', 'k'], pa: ['t', 'r', 'f', 'm', 'x'], r: ['t', 'm'], sub: ['t', 's', 'slot', 'i', 'ty'], pch: ['t', 's', 'i'],
-  add: ['t', 's'], eoh: ['t'], end: ['t'], on: ['t'],
+  add: ['t', 's'], eoh: ['t'], end: ['t', 'why'], delay: ['t'], on: ['t'],
 }));
-const EVENTS = new Set(['p', 'pa', 'r', 'sub', 'pch', 'add', 'eoh', 'end', 'on']), KINDS = ['b', 'c', 's', 'f'], SUBS = ['ph', 'pr', 'def'];
+const EVENTS = new Set(['p', 'pa', 'r', 'sub', 'pch', 'add', 'eoh', 'end', 'delay', 'on']), KINDS = ['b', 'c', 's', 'f'], SUBS = ['ph', 'pr', 'def'];
 // A value from a newer version, as plain JSON: text (200 characters at most), numbers, true, false and null, and lists
 // (50 long) and objects (20 values) of those, four deep. Anything else is left out (undefined).
 function plain(v, deep = 0) {
@@ -92,6 +92,8 @@ function cleanEvent(e) {
     case 'sub': o = { t: 'sub', s: int(e.s, 0, 1, 0), slot: int(e.slot, 0, 40, 0), i: int(e.i, 0, 40, 0), ty: typeof e.ty === 'string' && /^\w{1,8}$/.test(e.ty) ? e.ty : 'def' }; break;
     case 'pch': o = { t: 'pch', s: int(e.s, 0, 1, 0), i: int(e.i, 0, 40, 0) }; break;
     case 'add': o = { t: 'add', s: int(e.s, 0, 1, 0) }; break;
+    // Why the game ended: a run rule or a time limit (none: called). A reason from a newer version is kept.
+    case 'end': o = { t: 'end' }; if (typeof e.why === 'string' && /^\w{1,12}$/.test(e.why)) o.why = e.why; break;
     default: o = { t: e.t };
   }
   return Object.assign(o, more(e, KNOWN.get(e.t), 1000));
@@ -130,7 +132,7 @@ export function newer(g) {
   const extra = (o, k) => Object.keys(o).some(x => !KNOWN.get(k).includes(x));
   return extra(g, 'game') || g.teams.some(t => extra(t, 'team') || [...t.lineup.flat(), ...t.pitchers].some(p => extra(p, 'player')))
     || g.ev.some(e => !EVENTS.has(e.t) || extra(e, e.t) || (e.t === 'p' && !KINDS.includes(e.k))
-      || (e.t === 'pa' && !Object.hasOwn(RESULTS, e.r)) || (e.t === 'sub' && !SUBS.includes(e.ty)));
+      || (e.t === 'pa' && !Object.hasOwn(RESULTS, e.r)) || (e.t === 'sub' && !SUBS.includes(e.ty)) || (e.t === 'end' && 'why' in e && !Object.hasOwn(ENDS, e.why)));
 }
 
 // Everything on this device: { app, v, games: { id: game }, gone: { id: when it was deleted } }.
