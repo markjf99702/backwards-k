@@ -596,6 +596,8 @@ step('after a walk-off, the runner left on is still drawn, and can’t be moved'
   await p.click('[data-r="3B"]');
   await p.click('.sheet [data-x=save]');
   assert.match(await p.textContent('.final h2'), /Home win, 1–0/);
+  assert.deepEqual(await p.$$eval('.bug .bt', b => b.map(x => x.className)), ['bt', 'bt won'], 'the winner is lit on the board');
+  assert.equal(await p.textContent('.bug .inn'), 'Final');
   assert.equal(await p.locator('.live [data-runner]').count(), 0);
   assert.equal(await p.textContent('.live .runner'), 'Left on third: Batter 8');
   await p.context().close();

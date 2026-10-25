@@ -319,6 +319,17 @@ test('a tie after the last inning goes to extra innings', () => {
   assert.equal(columns(S, 0).length, 2);
 });
 
+test('a game that went to extra innings is Final/10, as box scores put it', () => {
+  const g = game();
+  let S = play(g, ...Array(54).fill('K'), 'HR', ...threeK);
+  assert.equal(halfLabel(S), 'Bottom 10th');
+  S = play(g, ...threeK);
+  assert.deepEqual([S.over, halfLabel(S)], [true, 'Final/10']);
+  // Nine innings is just Final, and a game called in extra innings is still Called.
+  assert.equal(halfLabel(play(game(), ...threeK, 'HR', ...Array(48).fill('K'))), 'Final');
+  assert.equal(halfLabel(play(game(), ...Array(54).fill('K'), { t: 'end' })), 'Called');
+});
+
 test('a team that bats around gets another column for that inning', () => {
   const g = game();
   const S = play(g, ...Array(10).fill('1B'));

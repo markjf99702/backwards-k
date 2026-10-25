@@ -571,8 +571,9 @@ export function now(S) {
     pitcher: S.pit[fld], pitcherName: pitcherLabel(g, fld, S.pit[fld]), pitches: pstat(S, fld, S.pit[fld]).np,
   };
 }
+// Where the game is, in a word or two: "Top 3rd", "Final", "Final/10" after extra innings, as box scores put it.
 export function halfLabel(S) {
-  if (S.over) return S.ended ? 'Called' : 'Final';
+  if (S.over) return S.ended ? 'Called' : S.inn > S.g.innings ? `Final/${S.inn}` : 'Final';
   return `${S.half ? 'Bottom' : 'Top'} ${ord(S.inn)}`;
 }
 // Innings to draw on the scorecard: the scheduled ones, plus any extras played.

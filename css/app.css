@@ -315,6 +315,8 @@ details.lineup summary small { color: var(--muted); font-weight: 400; }
 .bt + .bt { margin-left: 2px; }
 .bt .nm { flex: 1; min-width: 0; font: 700 18px/1.1 var(--board-font); letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--board-dim); }
 .bt.bat .nm { color: var(--board-ink); }
+.bt.won .nm { color: var(--board-ink); }
+.bt.won .r { color: var(--lamp-s); }
 .bt.bat .nm::before { content: ''; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--lamp-s); margin-right: 6px; vertical-align: 3px; }
 .bt .r { font: 800 30px/1 var(--board-font); font-variant-numeric: tabular-nums; min-width: 1.2ch; text-align: right; }
 .bug-state { flex: none; display: flex; align-items: center; gap: 10px; padding: 6px 12px; background: var(--board); }

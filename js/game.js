@@ -310,10 +310,10 @@ function liveHtml() {
   const dots = (on, of, cls) => Array.from({ length: of }, (_, i) => `<i class="${cls}${i < on ? ' on' : ''}"></i>`).join('');
   const bug = `<div class="bug">
       <div class="bug-teams">
-        ${[0, 1].map(s => `<div class="bt${!S.over && S.half === s ? ' bat' : ''}"><span class="nm">${esc(teamName(g, s))}</span><span class="r">${S.R[s]}</span>${!S.over && S.half === s ? '<span class="sr">, batting</span>' : ''}</div>`).join('')}
+        ${[0, 1].map(s => `<div class="bt${!S.over && S.half === s ? ' bat' : ''}${S.over && S.R[s] > S.R[1 - s] ? ' won' : ''}"><span class="nm">${esc(teamName(g, s))}</span><span class="r">${S.R[s]}</span>${!S.over && S.half === s ? '<span class="sr">, batting</span>' : ''}</div>`).join('')}
       </div>
       <div class="bug-state">
-        <div class="inn">${S.over ? `<b>${S.ended ? 'Called' : 'Final'}</b>` : `<span class="arrow" aria-hidden="true">${S.half ? '▼' : '▲'}</span><span class="sr">${S.half ? 'Bottom' : 'Top'} of the </span><b>${ord(S.inn)}</b>`}</div>
+        <div class="inn">${S.over ? `<b>${esc(halfLabel(S))}</b>` : `<span class="arrow" aria-hidden="true">${S.half ? '▼' : '▲'}</span><span class="sr">${S.half ? 'Bottom' : 'Top'} of the </span><b>${ord(S.inn)}</b>`}</div>
         ${S.over ? '' : `<div class="outs">${dots(S.outs, 3, 'o')}<span class="sr">${few(S.outs, 'out')}</span></div>`}
       </div>
     </div>`;
