@@ -38,7 +38,8 @@ written out in plain words.
   fills in while you watch; on one held upright, the card is under the buttons.
 - **Lineups when you want them.** Start with two team names, and name batters as they come up, paste a lineup (from
   a group text or a game preview, starting pitcher included), or reuse a team from an earlier game. Pinch hitters and pitching changes are a tap on the batter or the pitcher, and a
-  pinch runner is a tap on the runner.
+  pinch runner is a tap on the runner. A starter who comes back in (or the runner who ran for him) goes back in as
+  the same player, with one line in the box score.
 - **Sharing.** Send a link that carries the whole game (nothing is uploaded to share it), copy the score as text for
   a group chat, print both cards and the box score (a page each, Letter or A4, upright or sideways), or save the
   game as a file.

@@ -63,6 +63,7 @@ function subsOf(g, side) {
 }
 
 const TYPE = { ph: 'PH', pr: 'PR', def: 'in' };
+const BACK = 'back'; // someone who was in the spot before, coming back in
 
 // As on paper: a heavy line along the top of the first box a new pitcher faced, and down the left of a substitute's
 // first box. Gives the boxes' numbers, with the pitcher's name for the first.
@@ -122,7 +123,8 @@ export function cardHtml(S, side, { live = true } = {}) {
     shown.forEach((pi, j) => {
       const p = players[pi] || players[0], e = j ? subs[slot][j - 1] : null;
       const inn = e && innOf.get(g.ev.indexOf(e));
-      h += `<span class="pl${j < shown.length - 1 ? ' was' : ''}">${e ? `<i>${TYPE[e.ty]}${inn ? ' ' + ord(inn) : ''}</i> ` : ''}${esc(label(p, slot))}</span>`;
+      const ty = e && (shown.slice(0, j).includes(pi) ? BACK : TYPE[e.ty]);
+      h += `<span class="pl${j < shown.length - 1 ? ' was' : ''}">${e ? `<i>${ty}${inn ? ' ' + ord(inn) : ''}</i> ` : ''}${esc(label(p, slot))}</span>`;
     });
     h += `</span>${nowAt ? '<span class="sr">, at bat</span>' : ''}</th>`;
     for (const col of cols) {
@@ -133,7 +135,7 @@ export function cardHtml(S, side, { live = true } = {}) {
       h += `<td${cls ? ` class="${cls}"` : ''}${from ? ` title="${esc(from)}"` : ''}>${c ? `<button type="button" class="box" data-cell="${c.n}" aria-label="${esc(boxWords(c, g.pitches) + (from ? ` ${from}.` : ''))}">${cellSvg(c, { count: g.pitches })}</button>` : up}</td>`;
     }
     const t = { ab: 0, r: 0, h: 0, rbi: 0 };
-    shown.forEach(pi => { const b = S.bat[batKey(side, slot, pi)]; if (b) for (const x in t) t[x] += b[x]; });
+    new Set(shown).forEach(pi => { const b = S.bat[batKey(side, slot, pi)]; if (b) for (const x in t) t[x] += b[x]; });
     h += `<td class="tot">${t.ab}</td><td class="tot">${t.r}</td><td class="tot">${t.h}</td><td class="tot">${t.rbi}</td></tr>`;
   }
   h += '</tbody><tfoot>';

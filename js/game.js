@@ -5,7 +5,7 @@ import {
   pitcherLabel, ord, runnersOn, mark, pitchStat, ip, pitchWords,
 } from './engine.js';
 import { store } from './store.js';
-import { blank } from './model.js';
+import { blank, takeBack, putBack } from './model.js';
 import { cardHtml, lineHtml, cellSvg } from './card.js';
 import { boxHtml, playsHtml } from './box.js';
 import { infieldSvg, fieldSvg, BASE_AT } from './field.js';
@@ -113,13 +113,8 @@ function flush() {
 }
 function undo() {
   const was = S.text[G.ev.length - 1];
-  const e = G.ev.pop();
-  if (!e) return;
-  const r = { e };
-  if (e.t === 'add') r.slot = G.teams[e.s].lineup.pop();
-  if (e.t === 'sub') { const slot = G.teams[e.s].lineup[e.slot]; if (slot.length - 1 === e.i) r.player = slot.pop(); }
-  // A new pitcher goes again, but not one brought back: an earlier change still points at them.
-  if (e.t === 'pch') { const ps = G.teams[e.s].pitchers; if (ps.length - 1 === e.i && !G.ev.some(x => x.t === 'pch' && x.s === e.s && x.i === e.i)) r.player = ps.pop(); }
+  const r = takeBack(G);
+  if (!r) return;
   redo.push(r);
   save();
   say(`Took back: ${tidy(was)}`);
@@ -127,10 +122,7 @@ function undo() {
 function redoIt() {
   const r = redo.pop();
   if (!r) return;
-  if (r.slot) G.teams[r.e.s].lineup.push(r.slot);
-  if (r.player && r.e.t === 'sub') G.teams[r.e.s].lineup[r.e.slot].push(r.player);
-  if (r.player && r.e.t === 'pch') G.teams[r.e.s].pitchers.push(r.player);
-  G.ev.push(r.e);
+  putBack(G, r);
   save();
   say();
 }
@@ -703,19 +695,33 @@ function batterSheet() {
   });
 }
 
-// A new player in a batting slot: a pinch hitter, a pinch runner, or a change in the field.
+// Everyone who has been in a batting slot but isn't now, by their place in it: [[index, player]].
+function earlier(side, slot) {
+  const cur = S.pl[side][slot] ?? 0, list = G.teams[side].lineup[slot] || [];
+  const been = new Set([0, ...G.ev.filter(e => e.t === 'sub' && e.s === side && e.slot === slot).map(e => e.i)]);
+  return [...been].filter(i => i !== cur && list[i]).map(i => [i, list[i]]);
+}
+const named = (p, slot) => label(p, slot) + (p.name && p.num ? ' #' + p.num : '');
+
+// A new player in a batting slot: a pinch hitter, a pinch runner, or a change in the field. Or someone who was in
+// this spot before coming back in (a starter re-entering, or the runner who ran for him), as the same player.
 function subForm(side, slot, ty) {
-  const p = blank(), was = label(player(G, side, slot, S.pl[side][slot]), slot);
+  const p = blank(), was = label(player(G, side, slot, S.pl[side][slot]), slot), back = earlier(side, slot);
   const words = { ph: 'Pinch hitter', pr: 'Pinch runner', def: 'Substitute' };
   const body = openSheet(`<h2 id="sheetTitle">${words[ty]} <small>for ${esc(was)}</small></h2>
+    ${back.length ? `<p class="back-in"><span>Back in:</span>${back.map(([i, x]) => `<button type="button" class="chip" data-back="${i}">${esc(named(x, slot))}</button>`).join('')}</p>` : ''}
     ${nameFields(p)}
     <div class="chips wide" role="group" aria-label="What kind of substitution">${Object.entries(words).map(([k, w]) => `<button type="button" data-ty="${k}" aria-pressed="${k === ty}">${w}</button>`).join('')}</div>
     <p class="hint">They take ${esc(was)}’s place in the batting order from now on.</p>
     <div class="row"><button type="button" class="btn quiet" data-close>Cancel</button><button type="button" class="btn primary" data-x="go">Put them in</button></div>`);
   $$('[data-f]', body).forEach(i => i.addEventListener('input', () => { p[i.dataset.f] = i.value.trim(); }));
   body.addEventListener('click', e => {
-    const t = e.target.closest('[data-ty]');
+    const t = e.target.closest('[data-ty]'), b = e.target.closest('[data-back]');
     if (t) { ty = t.dataset.ty; $$('[data-ty]', body).forEach(x => x.setAttribute('aria-pressed', String(x.dataset.ty === ty))); body.querySelector('h2').firstChild.textContent = words[ty] + ' '; }
+    if (b) {
+      closeSheet();
+      return act({ t: 'sub', s: side, slot, i: +b.dataset.back, ty });
+    }
     if (e.target.closest('[data-x=go]')) {
       const list = G.teams[side].lineup[slot];
       list.push(p);
@@ -770,8 +776,8 @@ function lineupSheet(side = S.half) {
     <label class="team-name"><span>Team name</span><input data-team maxlength="40" value="${esc(t.name)}" placeholder="${side ? 'Home' : 'Visitors'}"></label>
     <ol class="lineup-edit">${Array.from({ length: S.size[side] }, (_, slot) => {
       const list = t.lineup[slot], cur = S.pl[side][slot] ?? 0, p = list[cur];
-      const earlier = list.slice(0, cur).map(x => label(x, slot));
-      return `<li data-slot="${slot}"><span class="ord">${slot + 1}</span>${nameFields(p, `data-slot="${slot}" `, `Batter ${slot + 1}`)}<button type="button" class="btn quiet sm" data-sub="${slot}" aria-label="${esc(`Sub for ${label(p, slot)}`)}">Sub</button>${earlier.length ? `<small class="earlier">Earlier: ${esc(earlier.join(', '))}</small>` : ''}</li>`;
+      const before = earlier(side, slot).map(([, x]) => label(x, slot));
+      return `<li data-slot="${slot}"><span class="ord">${slot + 1}</span>${nameFields(p, `data-slot="${slot}" `, `Batter ${slot + 1}`)}<button type="button" class="btn quiet sm" data-sub="${slot}" aria-label="${esc(`Sub for ${label(p, slot)}`)}">Sub</button>${before.length ? `<small class="earlier">Earlier: ${esc(before.join(', '))}</small>` : ''}</li>`;
     }).join('')}</ol>
     <div class="row"><button type="button" class="btn quiet" data-y="add">Add a batter to the order</button></div>
     <h3>Pitchers</h3>

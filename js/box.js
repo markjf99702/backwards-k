@@ -3,16 +3,22 @@ import { batKey, pitchStat, pitcherLabel, ip, teamName, label, player, ord, pitc
 import { esc, KL } from './ui.js';
 import { abbr } from './card.js';
 
+// How each substitute first came in, as the card says it: PH, PR, or sub (a change in the field).
+const HOW = { ph: ['PH', 'Pinch hitter'], pr: ['PR', 'Pinch runner'], def: ['sub', 'Substitute'] };
+
+// One row for each player who was in each spot (a starter who came back in still has one), substitutes under the
+// starter with how they came in.
 function batting(S, side) {
   const g = S.g, team = g.teams[side];
   const rows = [], tot = { ab: 0, r: 0, h: 0, rbi: 0, bb: 0, k: 0 };
   for (let slot = 0; slot < S.size[side]; slot++) {
-    const seen = new Set([0]);
-    for (const e of g.ev) if (e.t === 'sub' && e.s === side && e.slot === slot) seen.add(e.i);
-    for (const pi of seen) {
+    const seen = new Map([[0, null]]);
+    for (const e of g.ev) if (e.t === 'sub' && e.s === side && e.slot === slot && !seen.has(e.i)) seen.set(e.i, e.ty);
+    for (const [pi, ty] of seen) {
       const b = S.bat[batKey(side, slot, pi)] || { ab: 0, r: 0, h: 0, rbi: 0, bb: 0, k: 0 };
       const p = (team.lineup[slot] || [])[pi] || { name: '', num: '' };
-      rows.push(`<tr${pi ? ' class="sub"' : ''}><th scope="row">${pi ? '' : `<span class="ord">${slot + 1}</span>`}${esc(label(p, slot))}</th><td>${b.ab}</td><td>${b.r}</td><td>${b.h}</td><td>${b.rbi}</td><td>${b.bb}</td><td>${b.k}</td></tr>`);
+      const how = ty && HOW[ty] ? `<abbr class="how" title="${HOW[ty][1]}">${HOW[ty][0]}</abbr> ` : '';
+      rows.push(`<tr${pi ? ' class="sub"' : ''}><th scope="row">${pi ? how : `<span class="ord">${slot + 1}</span>`}${esc(label(p, slot))}</th><td>${b.ab}</td><td>${b.r}</td><td>${b.h}</td><td>${b.rbi}</td><td>${b.bb}</td><td>${b.k}</td></tr>`);
       for (const x in tot) tot[x] += b[x];
     }
   }

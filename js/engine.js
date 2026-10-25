@@ -113,6 +113,7 @@ export function replay(g) {
     size: [0, 1].map(t => Math.max(1, g.teams[t].lineup.length - adds[t])),
     up: [0, 0],
     pl: [0, 1].map(t => g.teams[t].lineup.map(() => 0)),
+    been: [0, 1].map(t => g.teams[t].lineup.map(() => new Set([0]))), // everyone who has been in each slot
     pit: [0, 0],
     line: [[0], []], hInn: [[0], []], eInn: [[0], []], lob: [[], []],
     R: [0, 0], H: [0, 0], E: [0, 0],
@@ -154,7 +155,10 @@ function step(S, e) {
       S.pl[e.s][e.slot] = e.i;
       if (e.ty === 'pr') for (const b of [1, 2, 3]) if (S.bases[b] && S.bases[b].side === e.s && S.bases[b].slot === e.slot) S.bases[b].p = e.i;
       const a = label(player(g, e.s, e.slot, e.i), e.slot), was = label(player(g, e.s, e.slot, old), e.slot);
-      const verb = e.ty === 'ph' ? 'pinch-hits for' : e.ty === 'pr' ? 'pinch-runs for' : 'comes in for';
+      // Someone who was in this spot before: a starter re-entering, or the runner who ran for him.
+      const been = S.been[e.s][e.slot], back = !!been && been.has(e.i);
+      if (been) been.add(e.i);
+      const verb = back ? 'comes back in for' : e.ty === 'ph' ? 'pinch-hits for' : e.ty === 'pr' ? 'pinch-runs for' : 'comes in for';
       return note(S, `${a} ${verb} ${was}.`, 'sub');
     }
     case 'pch':

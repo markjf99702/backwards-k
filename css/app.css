@@ -252,6 +252,8 @@ fieldset { margin: 0; min-width: 0; }
 .team-name-in { width: 100%; min-height: 52px; padding: 8px 14px; border-radius: 12px; border: 1.5px solid var(--line-2); background: var(--paper); font: 800 26px/1.1 var(--board-font); letter-spacing: .02em; }
 .past-teams { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; }
 .past-teams span { color: var(--muted); font-size: 14px; margin-right: 2px; }
+.back-in { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 10px; }
+.back-in span { color: var(--muted); font-size: 14px; margin-right: 2px; }
 .chip { min-height: 34px; padding: 4px 12px; }
 .stepper { display: flex; align-items: center; gap: 8px; }
 .stepper span { flex: 1; color: var(--ink-2); }
@@ -524,6 +526,7 @@ details.lineup summary small { color: var(--muted); font-weight: 400; }
 .stats th[scope="row"] { text-align: left; font-weight: 600; max-width: 12em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .stats .ord { display: inline-block; width: 1.4em; color: var(--muted); font-weight: 700; }
 .stats tr.sub th { padding-left: 26px; font-weight: 400; color: var(--ink-2); }
+.stats .how { font-size: 10px; font-weight: 700; color: var(--red); text-transform: uppercase; letter-spacing: .02em; }
 .stats tfoot th, .stats tfoot td { font-weight: 800; border-bottom: 0; }
 .stats small { color: var(--muted); font-size: 12px; display: block; }
 .extras p { font-size: 15px; color: var(--ink-2); margin-bottom: 4px; }

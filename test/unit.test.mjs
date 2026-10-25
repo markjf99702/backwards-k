@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { replay, suggest, check, runsCount, scoredAs, mark, now, columns, halfLabel, RESULTS } from '../js/engine.js';
-import { newGame, cleanGame, cleanDoc, parseLineup, parsePaste } from '../js/model.js';
+import { newGame, cleanGame, cleanDoc, parseLineup, parsePaste, takeBack, putBack, carryLineup } from '../js/model.js';
 import { sampleGame } from '../js/sample.js';
 // The card is drawn with ui.js, which looks for the page's sheet as it loads: here there's no page, so no sheet.
 globalThis.document ??= { readyState: 'complete', getElementById: () => null };
@@ -842,4 +842,57 @@ test('pasting a lineup from a game preview: the heading, the starting pitcher, o
   assert.deepEqual(just(parseLineup('Shohei Ohtani - DH\nMookie Betts – SS\nFreddie Freeman — 1B')), ['Shohei Ohtani', 'Mookie Betts', 'Freddie Freeman']);
   assert.deepEqual(just(parseLineup('1 Ohtani DH .282\n2 Betts SS .289 12 HR')), ['Ohtani', 'Betts']);
   assert.deepEqual(parseLineup('1\tShohei Ohtani\tDH\n2\t#50 Mookie Betts\tSS'), [{ name: 'Shohei Ohtani', num: '' }, { name: 'Mookie Betts', num: '50' }]);
+});
+
+// Morris singles, Diaz runs for him, and after the inning Morris comes back in: a sub that points at him again.
+function reentry() {
+  const g = game();
+  g.teams[0].lineup[0] = [{ name: 'Morris', num: '21' }, { name: 'Diaz', num: '4' }];
+  play(g, '1B', { t: 'sub', s: 0, slot: 0, i: 1, ty: 'pr' }, '2B', ...threeK, { t: 'sub', s: 0, slot: 0, i: 0, ty: 'def' });
+  return g;
+}
+
+test('a player who was in the spot before comes back in as himself: one box-score row each, and the card says back', () => {
+  const g = reentry(), S = replay(g);
+  assert.equal(S.text[S.text.length - 1], 'Morris comes back in for Diaz.');
+  assert.equal(S.pl[0][0], 0);
+  const box = boxHtml(S);
+  assert.equal(box.match(/Morris/g).length, 1, 'one row for Morris');
+  assert.match(box, /<tr class="sub"><th scope="row"><abbr class="how" title="Pinch runner">PR<\/abbr> Diaz<\/th>/);
+  const card = cardHtml(S, 0), row = card.split('<tr')[2];
+  assert.match(row, /<i>PR 1st<\/i> Diaz<\/span><span class="pl"><i>back 1st<\/i> Morris/);
+  // His single counts once in the card's totals: AB 1, R 0, H 1.
+  assert.deepEqual(row.match(/<td class="tot">(\d+)<\/td>/g).map(x => +x.match(/\d+/)[0]), [1, 0, 1, 0]);
+  // Next game starts with whoever finished in each spot: Morris, not Diaz.
+  assert.deepEqual(carryLineup(g.teams[0], S.pl[0])[0], [{ name: 'Morris', num: '21' }]);
+  // Back in, he bats as himself.
+  const T = play(g, ...threeK, 'K', '1B', '1B', 'K', '2B');
+  assert.deepEqual([T.bat['0.0.0'].pa, T.bat['0.0.0'].h, T.bat['0.0.1']], [2, 2, undefined]);
+  assert.match(T.text[T.text.length - 1], /^Morris doubles/);
+});
+
+test('a player brought back in is kept in a file or a link', () => {
+  const g = reentry();
+  const c = cleanGame(JSON.parse(JSON.stringify(g)));
+  assert.deepEqual(c.ev, g.ev);
+  assert.deepEqual(c.ev.filter(e => e.t === 'sub').map(e => e.i), [1, 0]);
+});
+
+test('undoing someone brought back in keeps the player an earlier change still points at; redo puts it back', () => {
+  const g = reentry();
+  g.ev.push({ t: 'sub', s: 0, slot: 0, i: 1, ty: 'pr' }); // Diaz back in too: the last one listed, again
+  const r = takeBack(g);
+  assert.equal(r.player, undefined);
+  assert.deepEqual(g.teams[0].lineup[0].map(p => p.name), ['Morris', 'Diaz']);
+  assert.deepEqual(cleanGame(JSON.parse(JSON.stringify(g))).ev.filter(e => e.t === 'sub').map(e => e.i), [1, 0], 'the first change survives');
+  putBack(g, r);
+  assert.deepEqual(g.ev.filter(e => e.t === 'sub').map(e => e.i), [1, 0, 1]);
+  // Someone new goes when his change is undone, and comes back with Redo.
+  g.teams[0].lineup[0].push({ name: 'Kim', num: '' });
+  g.ev.push({ t: 'sub', s: 0, slot: 0, i: 2, ty: 'def' });
+  const r2 = takeBack(g);
+  assert.equal(r2.player.name, 'Kim');
+  assert.equal(g.teams[0].lineup[0].length, 2);
+  putBack(g, r2);
+  assert.deepEqual(g.teams[0].lineup[0].map(p => p.name), ['Morris', 'Diaz', 'Kim']);
 });

@@ -179,7 +179,26 @@ function one(l, ordered, initials) {
 // The batters from a pasted lineup (see parsePaste).
 export const parseLineup = text => parsePaste(text).batters;
 
-// A team's lineup to start another game with: the players in each slot at the end of this one.
-export function carryLineup(team) {
-  return team.lineup.map(slot => [{ ...slot[slot.length - 1] }]);
+// Undo: the last event comes off, and with it the batting slot or the player it added, unless an earlier event still
+// points at that player (someone brought back in, or a pitcher brought back). Returns what Redo needs, or null.
+export function takeBack(g) {
+  const e = g.ev.pop();
+  if (!e) return null;
+  const r = { e }, same = x => x.t === e.t && x.s === e.s && x.i === e.i && x.slot === e.slot;
+  if (e.t === 'add') r.slot = g.teams[e.s].lineup.pop();
+  const list = e.t === 'sub' ? g.teams[e.s].lineup[e.slot] : e.t === 'pch' ? g.teams[e.s].pitchers : null;
+  if (list && list.length - 1 === e.i && !g.ev.some(same)) r.player = list.pop();
+  return r;
+}
+// Redo: what takeBack took, put back.
+export function putBack(g, r) {
+  if (r.slot) g.teams[r.e.s].lineup.push(r.slot);
+  if (r.player) (r.e.t === 'sub' ? g.teams[r.e.s].lineup[r.e.slot] : g.teams[r.e.s].pitchers).push(r.player);
+  g.ev.push(r.e);
+}
+
+// A team's lineup to start another game with: the players in each slot at the end of this one. at: who that was in
+// each slot, by place in it (replay's pl), since a starter can come back in; without it, the last one listed.
+export function carryLineup(team, at = []) {
+  return team.lineup.map((slot, i) => [{ ...(slot[at[i]] || slot[slot.length - 1]) }]);
 }

@@ -258,6 +258,44 @@ step('pasting a lineup from a group text: names with commas, and the pitcher');
   await p.context().close();
 }
 
+step('a pinch runner, and then the starter back in from Lineups: the same player, not a new one');
+{
+  const p = await phone(), id = await startGame(p);
+  await p.click('[data-a=batter]');
+  await p.fill('.sheet [data-f=num]', '21');
+  await p.fill('.sheet [data-f=name]', 'Morris');
+  await p.click('.sheet [data-close]');
+  await p.click('[data-r="1B"]');
+  await p.click('[data-runner="1"]');
+  await p.click('.sheet [data-k=PR]');
+  assert.equal(await p.locator('.sheet [data-back]').count(), 0, 'nobody to bring back yet');
+  await p.fill('.sheet [data-f=name]', 'Diaz');
+  await p.click('[data-x=go]');
+  assert.equal(await bases(p), '1:Diaz');
+  for (let i = 0; i < 3; i++) await p.click('[data-r=K]');
+  await p.click('[data-a=menu]');
+  await p.click('.sheet [data-y=lineup]');
+  await p.click('.sheet [data-ls="0"]');
+  assert.match(await p.textContent('.sheet [data-slot="0"]'), /Earlier: Morris/);
+  await p.click('.sheet [data-sub="0"]');
+  assert.equal(await p.textContent('.sheet [data-back]'), 'Morris #21');
+  await p.click('.sheet [data-back="0"]');
+  assert.equal(await p.textContent('.ticker p'), 'Morris comes back in for Diaz.');
+  const subs = async () => { const g = await stored(p, id); return [g.teams[0].lineup[0].map(x => x.name).join(), g.ev.filter(e => e.t === 'sub').map(e => e.i).join()]; };
+  assert.deepEqual(await subs(), ['Morris,Diaz', '1,0']);
+  await p.click('.bar .undo');
+  assert.deepEqual(await subs(), ['Morris,Diaz', '1'], 'undo keeps Diaz: his own change still points at him');
+  await p.click('[data-a=redo]');
+  assert.deepEqual(await subs(), ['Morris,Diaz', '1,0']);
+  await p.click('[data-v=box]');
+  const rows = await p.$$eval('.pane[data-p=box] .stats:first-of-type tbody th', ths => ths.slice(0, 2).map(th => th.textContent));
+  assert.deepEqual(rows, ['1Morris', 'PR Diaz']);
+  await p.click('[data-v=card]');
+  await p.click('[data-cs="0"]');
+  assert.match(await p.textContent('.card tbody tr:first-child .names'), /^MorrisPR 1st Diazback 1st Morris$/);
+  await p.context().close();
+}
+
 step('Fix runners, then leaving the game: the play is still there');
 {
   const p = await phone(), id = await startGame(p);
