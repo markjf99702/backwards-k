@@ -131,6 +131,7 @@ export function replay(g, upTo = g.ev.length) {
     relief: null, // the pitcher a walk goes to, when a new one came in with the batter ahead in the count
     ph: null, // the batter who left with two strikes, for a pinch hitter's strikeout
     waved: 0, // runners this half-inning who crossed the plate on the third out but didn't count: left on base
+    upTo, // how many events are played: what comes after the one being played, for goesOn()
   };
   for (let i = 0; i < upTo; i++) { S.i = i; step(S, g.ev[i]); }
   S.i = upTo;
@@ -415,7 +416,7 @@ function runners(S, e) {
       const why = how === 'WP' ? ' on a wild pitch' : how === 'PB' ? ' on a passed ball' : how === 'E' ? ` on an error by the ${POS_NAME[f && f[0]] || 'fielder'}${f && f[0] ? ` (E${f[0]})` : ''}` : '';
       const said = balk ? '' : why;
       if (to === 4) { score(S, r); runs++; } else S.bases[to] = r;
-      const winning = to === 4 && live && !need && won(S);
+      const winning = to === 4 && live && !need && won(S) && !goesOn(S);
       if (winning) need = 4 - from;
       if (to === 4 && how !== 'SB') {
         if (winning) win = said;
@@ -471,7 +472,7 @@ export const credit = (code, as) => `It went for a ${RESULTS[code].label.toLower
 // On a play in the home team's last turn, how many bases the run that puts it ahead takes, from where it was (0 when
 // none does): the game ends as it scores, so nobody behind it gets further than that, and a hit counts for that many
 // bases (OBR 5.08(b), 9.06(f)). Not on a home run, when everyone scores (9.06(g)), nor when the runs on the play
-// don't count (x), nor in a half-inning played out after the final.
+// don't count (x), nor in a half-inning played out after the final, nor when play went on after it (goesOn()).
 export function winningRun(S, code, moves, x) {
   if (S.over || S.hold || S.half !== 1 || S.inn < S.g.innings || S.R[1] > S.R[0] || code === 'HR' || x) return 0;
   let runs = S.R[1];
@@ -479,9 +480,16 @@ export function winningRun(S, code, moves, x) {
   for (const [from, to] of moves.slice().sort((a, b) => b[0] - a[0])) {
     if (seen.has(from) || (from && !S.bases[from])) continue;
     seen.add(from);
-    if (to === 4 && ++runs > S.R[0]) return 4 - from;
+    if (to === 4 && ++runs > S.R[0]) return goesOn(S) ? 0 : 4 - from;
   }
   return 0;
+}
+// Play went on after the event being played: Keep playing (for a league that plays the inning out), or plays scored
+// after it in a game from an older version. The half-inning was played out, so the run that put the home team ahead
+// didn't end it, and every run on the play counts, as it did before Keep playing was tapped.
+function goesOn(S) {
+  for (let j = S.i + 1; j < S.upTo; j++) if (S.g.ev[j].t === 'on' || PLAY.has(S.g.ev[j].t)) return true;
+  return false;
 }
 function endHalf(S, called) {
   const side = S.half;

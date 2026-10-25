@@ -764,6 +764,12 @@ step('a double that wins it with the bases loaded is a single on the card, and i
   assert.match(await p.textContent('.sheet .cell-big'), /1B Single/);
   assert.equal(await p.locator('.sheet [data-sw]').count(), 0);
   assert.match(await p.textContent('.sheet'), /This one can’t be changed here/);
+  // A league that plays the inning out: Keep playing, and the double is a double again, with both its runs.
+  await p.click('.sheet [data-close]');
+  await p.click('[data-v=live]');
+  await p.click('[data-a=on]');
+  assert.match(await p.textContent('.bar .title'), /0\s*–\s*2/);
+  assert.match(await p.textContent('.recent'), /Batter 1 doubles\. Batter 7 and Batter 8 score\. Batter 9 to third\./);
   await p.context().close();
 }
 

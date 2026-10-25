@@ -233,6 +233,16 @@ test('a hit that wins the game: the winning run is the last to score, and the hi
   assert.equal(S.cells.at(-1).r, '2B');
   S = play(game({ innings: 1 }), ...threeK, 'HR', { t: 'on' }, '1B', '1B', '2B');
   assert.deepEqual([S.R, S.cells.at(-1).r], [[0, 2], '2B']);
+  // Play went on after the play that won it (Keep playing, for a league that plays the inning out, or plays scored
+  // after it in a game an older version saved): every run on it counts, and the double is a double, as it was.
+  const on = game({ innings: 1 });
+  play(on, ...threeK, '1B', '1B', '1B', '2B');
+  S = play(on, { t: 'on' }, ...threeK);
+  assert.deepEqual([S.R, S.cells.at(-4).r, S.text[on.ev.length - 5]], [[0, 2], '2B', 'Batter 4 doubles. Batter 1 and Batter 2 score. Batter 3 to third.']);
+  assert.deepEqual([S.over, scorersProof(S, 1)], [true, [7, 7]]);
+  assert.deepEqual(replay(on, on.ev.length - 4).R, [0, 1], 'before Keep playing, the final as it was');
+  S = play(game({ innings: 1 }), ...threeK, '2B', '1B', { t: 'r', m: [[3, 4, 'WP'], [1, 3, 'WP']] }, { t: 'pa', r: 'K', m: [[3, 3], [0, 0]] });
+  assert.deepEqual([S.R, S.bases[3] && S.bases[3].slot], [[0, 1], 1], 'a wild pitch, then a play from an older version');
 });
 
 test('the runners sheet knows a hit that wins it: how many bases the winning run took', () => {

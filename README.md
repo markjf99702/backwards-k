@@ -41,8 +41,9 @@ written out in plain words.
 - **It knows when the game is over.** Final comes when the last inning is decided, or the moment the home team goes
   ahead in it. That run is the last to count, and a hit that brings it in counts for the bases it needed, as an
   official scorer has it: with the bases loaded, a double that wins the game is a single (a home run still scores
-  everyone). **Keep playing** after a Final finishes that half-inning; a game you ended early (rain, a mercy rule)
-  picks up where it stopped and ends the usual way.
+  everyone). **Keep playing** after a Final finishes that half-inning, for a league that plays it out, and then every
+  run on the play that won it counts; a game you ended early (rain, a mercy rule) picks up where it stopped and ends
+  the usual way.
 - **Phone or tablet.** On a phone the buttons, the card, the box score and the play-by-play are tabs. On a tablet
   held sideways (or any screen 1000 pixels wide or more) the buttons and the card sit side by side, and the card
   fills in while you watch; on one held upright, the card is under the buttons.
