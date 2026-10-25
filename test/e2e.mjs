@@ -931,6 +931,60 @@ step('a file that isn’t a game says so');
   await p.context().close();
 }
 
+step('a backup file saved on one device brings every game, as it was, to another');
+{
+  const a = sampleGame(3), b = sampleUntil(7, S => S.inn === 7);
+  a.id = 'gbackupa'; b.id = 'gbackupb'; b.teams[0].name = 'Owls';
+  const c = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, serviceWorkers: 'block', acceptDownloads: true });
+  await c.addInitScript(doc => { if (!localStorage.getItem('backwards-k.v1')) localStorage.setItem('backwards-k.v1', doc); }, JSON.stringify({ app: 'backwards-k', v: 1, games: { [a.id]: a, [b.id]: b }, gone: {} }));
+  const p = await c.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base);
+  const [file] = await Promise.all([p.waitForEvent('download'), p.click('[data-a=export]')]);
+  assert.match(file.suggestedFilename(), /^backwards-k-backup-\d{4}-\d{2}-\d{2}\.json$/);
+  const backup = await readFile(await file.path());
+  await c.close();
+  // A phone with nothing on it opens the file.
+  const q = await phone();
+  await q.goto(base);
+  const [chooser] = await Promise.all([q.waitForEvent('filechooser'), q.click('[data-a=import]')]);
+  await chooser.setFiles({ name: 'backup.json', mimeType: 'application/json', buffer: backup });
+  await q.waitForFunction(() => document.getElementById('toast').textContent);
+  assert.equal(await shown(q), '2 games added.');
+  const sorted = v => (Array.isArray(v) ? v.map(sorted) : v && typeof v === 'object' ? Object.fromEntries(Object.keys(v).sort().map(k => [k, sorted(v[k])])) : v);
+  const there = await q.evaluate(() => JSON.parse(localStorage.getItem('backwards-k.v1')).games);
+  for (const g of [a, b]) assert.equal(JSON.stringify(sorted(there[g.id])), JSON.stringify(sorted(g)), `${g.id} comes back the same`);
+  assert.equal(await q.locator('.gi').count(), 2);
+  await q.goto(base + '#/g/' + b.id);
+  await q.waitForSelector('.live .field');
+  const S = replay(b);
+  assert.match(await q.textContent('.bar .title'), new RegExp(`Owls\\s*${S.R[0]}\\s*–\\s*${S.R[1]}\\s*Comets`));
+  // The same file again has nothing new.
+  await q.goto(base);
+  const [again] = await Promise.all([q.waitForEvent('filechooser'), q.click('[data-a=import]')]);
+  await again.setFiles({ name: 'backup.json', mimeType: 'application/json', buffer: backup });
+  await q.waitForFunction(() => /Nothing new/.test(document.getElementById('toast').textContent));
+  await q.context().close();
+}
+
+step('a link that didn’t come through whole says so, and the games are there');
+{
+  const p = await phone();
+  const hash = link.slice(link.indexOf('#'));
+  const j = s => '#s=j' + Buffer.from(s).toString('base64url');
+  // Cut short (a text that hit its limit), a letter changed in the middle, nothing after #s=, an unknown kind, plain
+  // JSON that isn't a game, and a game whose teams aren't there.
+  for (const h of [hash.slice(0, Math.floor(hash.length / 2)), hash.slice(0, 60) + (hash[60] === 'A' ? 'B' : 'A') + hash.slice(61), '#s=', '#s=x123', j('{"hello":"world"}'), j('{"teams":7,"ev":[]}')]) {
+    await p.goto('about:blank');
+    await p.goto(base + h);
+    await p.waitForFunction(() => document.getElementById('toast').textContent);
+    assert.equal(await shown(p), 'That link didn’t come through whole. Ask for it again.', h.slice(0, 40));
+    assert.equal(await p.evaluate(() => location.hash), '#/');
+    assert.match(await p.textContent('.hero h1'), /Keep score/);
+  }
+  await p.context().close();
+}
+
 // A sample game stopped partway: the first moment that passes the test, on a device of its own.
 function sampleUntil(seed, test) {
   const g = sampleGame(seed), all = g.ev;
