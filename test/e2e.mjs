@@ -1722,8 +1722,8 @@ step('a screen reader hears each play and where things stand, in a region that s
   const board = await p.textContent('.bug');
   assert.match(board, /Owls\s*0, batting/);
   assert.match(board, /Top of the 1st/);
-  assert.match(board, /0 outs/);
   assert.equal(await p.textContent('.count .sr'), '0 balls, 1 strike');
+  assert.equal(await p.textContent('.count .outs .sr'), '0 outs');
   await p.context().close();
 }
 
@@ -1997,6 +1997,37 @@ step('a team from before brings its starters back in their spots, and leaves the
   assert.match(await p.textContent('[data-side="0"] .from-order'), /From the order:Ruiz #2Okafor #11/);
   await p.click('[data-side="0"] .from-order [data-pick="1"]');
   assert.equal(await p.inputValue('[data-side="0"] [data-pf=name]'), 'Okafor');
+  await p.context().close();
+}
+
+step('the field: the pitcher on the mound, the count and the outs on a board in the corner, and nothing over the runner on second');
+for (const [width, height] of [[360, 640], [390, 844], [768, 1024], [1024, 768]]) {
+  // Long names: the runner on second and the pitcher, who once shared the top edge.
+  const g = seventh(), S = replay(g), r = S.bases[2];
+  g.teams[r.side].lineup[r.slot][r.p].name = 'Abernathy-Longfellow';
+  g.teams[1 - S.half].pitchers[S.pit[1 - S.half]].name = 'Halvorsen-Whitaker';
+  g.ev.push({ t: 'p', k: 'b' }, { t: 'p', k: 's' });
+  const p = await playing(g, { width, height });
+  const f = await p.evaluate(() => {
+    const at = el => { const b = el.getBoundingClientRect(); return { c: el.className.split(' ')[0] + (el.dataset.runner || ''), l: b.left, r: b.right, t: b.top, b: b.bottom }; };
+    const all = [...document.querySelectorAll('.field .runner, .field .batter, .field .pitcher, .field .count, .field .deck')].map(at);
+    const over = [];
+    for (const a of all) for (const b of all) if (a.c < b.c && Math.min(a.r, b.r) > Math.max(a.l, b.l) && Math.min(a.b, b.b) > Math.max(a.t, b.t)) over.push(`${a.c} and ${b.c}`);
+    const field = document.querySelector('.field').getBoundingClientRect(), mound = document.querySelector('.infield ellipse').getBoundingClientRect();
+    const pitcher = document.querySelector('.field .pitcher').getBoundingClientRect(), board = document.querySelector('.field .count').getBoundingClientRect();
+    const mid = b => [(b.left + b.right) / 2, (b.top + b.bottom) / 2];
+    return {
+      over, mound: Math.hypot(mid(pitcher)[0] - mid(mound)[0], mid(pitcher)[1] - mid(mound)[1]) < 2,
+      corner: field.right - board.right < 12 && field.bottom - board.bottom < 12,
+      board: [...document.querySelectorAll('.field .count .lamps')].map(x => x.querySelector('[aria-hidden]').textContent + ':' + x.querySelectorAll('i.on').length).join(' '),
+      strip: !!document.querySelector('.bug .outs'),
+    };
+  });
+  assert.deepEqual(f.over, [], `${width}x${height}: nothing on the field covers anything else`);
+  assert.ok(f.mound, `${width}x${height}: the pitcher is on the mound`);
+  assert.ok(f.corner, `${width}x${height}: the board is in the bottom right corner`);
+  assert.equal(f.board, `B:1 S:1 O:${S.outs}`, `${width}x${height}: B, S and O, each with its lamps`);
+  assert.equal(f.strip, false, 'the outs are on the board, not twice');
   await p.context().close();
 }
 

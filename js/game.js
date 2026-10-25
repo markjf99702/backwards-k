@@ -410,7 +410,6 @@ function liveHtml() {
       </div>
       <div class="bug-state">
         <div class="inn">${S.over ? `<b>${esc(halfLabel(S))}</b>` : `<span class="arrow" aria-hidden="true">${S.half ? '▼' : '▲'}</span><span class="sr">${S.half ? 'Bottom' : 'Top'} of the </span><b>${ord(S.inn)}</b>`}</div>
-        ${S.over ? '' : `<div class="outs">${dots(S.outs, 3, 'o')}<span class="sr">${few(S.outs, 'out')}</span></div>`}
       </div>
     </div>`;
   if (readOnly) {
@@ -418,12 +417,17 @@ function liveHtml() {
       <div class="shared-note"><p>Every box on the card is one trip to the plate. Tap one to see what happened, or see <button type="button" class="link-btn" data-a="help">how to read the card</button>.</p>
       ${later && !onSave ? '' : '<a class="btn" href="#/new">Score your own game</a>'}</div>`;
   }
+  // The count and the outs, as a ballpark's board shows them: a row of lamps each for B, S and O (just the outs when
+  // pitches aren't counted), in the corner opposite On deck. The pitcher is on the mound, and the top edge is left
+  // to the runner on second.
+  const lamps = (k, on, of, cls) => `<span class="lamps"><span aria-hidden="true">${k}</span>${dots(on, of, cls)}</span>`;
+  const board = `<div class="count">${g.pitches ? `<span class="sr">${countWords()}</span>${lamps('B', S.b, 3, 'b')}${lamps('S', S.s, 2, 's')}` : ''}<span class="lamps outs"><span aria-hidden="true">O</span>${dots(S.outs, 2, 'o')}<span class="sr">${few(S.outs, 'out')}</span></span></div>`;
   const field = `<div class="field${S.over ? ' over' : ''}">
       ${infieldSvg()}
       ${[3, 2, 1].map(runner).join('')}
       ${S.over ? '' : `<button type="button" class="batter" data-a="batter" style="left:${BASE_AT[0][0]}%;top:${BASE_AT[0][1]}%" aria-label="At bat: ${esc(n.name)}. Tap to name or pinch-hit."><small>${n.slot + 1}</small><span>${esc(n.name)}</span></button>`}
       ${S.over ? '' : `<p class="deck"><span>On deck</span> ${esc(n.deckName)}${top ? '<small>Top of the order</small>' : ''}</p>`}
-      ${g.pitches && !S.over ? `<div class="count"><span class="sr">${countWords()}</span><span aria-hidden="true">B</span>${dots(S.b, 3, 'b')}<span aria-hidden="true">S</span>${dots(S.s, 2, 's')}</div>` : ''}
+      ${S.over ? '' : board}
       ${S.over ? '' : `<button type="button" class="pitcher" data-a="pitcher" aria-label="Pitching: ${esc(n.pitcherName)}${g.pitches ? ', ' + n.pitches + ' pitches' : ''}. Tap to change pitchers."><span>${esc(n.pitcherName)}</span>${g.pitches ? `<b>${n.pitches}</b><small>pitch${n.pitches === 1 ? '' : 'es'}</small>` : ''}</button>`}
     </div>`;
   const last = G.ev.length ? S.text[G.ev.length - 1] : '';

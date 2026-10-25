@@ -334,9 +334,6 @@ details.lineup summary small { color: var(--muted); font-weight: 400; }
 .bug-state { flex: none; display: flex; align-items: center; gap: 10px; padding: 6px 12px; background: var(--board); }
 .bug-state .inn { font: 800 22px/1 var(--board-font); display: flex; align-items: center; gap: 3px; }
 .bug-state .arrow { font-size: 13px; color: var(--lamp-s); }
-.outs { display: flex; align-items: center; gap: 4px; }
-.outs i, .count i { display: inline-block; width: 11px; height: 11px; border-radius: 50%; background: var(--lamp-off); }
-.outs i.on { background: var(--lamp-o); box-shadow: 0 0 6px var(--lamp-o); }
 
 /* The field, with the runners on it. */
 .field-col { display: grid; gap: 6px; align-content: start; }
@@ -362,18 +359,28 @@ details.lineup summary small { color: var(--muted); font-weight: 400; }
 .batter { box-shadow: 0 2px 0 rgba(0, 0, 0, .25), 0 0 0 2px var(--navy); max-width: 40%; }
 @media (prefers-color-scheme: dark) { .batter { box-shadow: 0 2px 0 rgba(0, 0, 0, .25), 0 0 0 2px var(--on-navy); } }
 .batter small { flex: none; font: 800 15px/1 var(--board-font); color: var(--muted); }
-.pitcher { left: auto; right: 8px; top: 8px; transform: none; box-shadow: 0 2px 0 rgba(0, 0, 0, .25); flex-wrap: nowrap; font-weight: 650; font-size: 14px; max-width: 46%; padding: 4px 10px; }
-.pitcher b { flex: none; font: 800 18px/1 var(--board-font); margin-left: 2px; }
-.pitcher small { flex: none; color: var(--muted); font-size: 12px; }
-.count {
-  position: absolute; left: 8px; top: 8px; display: flex; align-items: center; gap: 4px;
-  padding: 6px 10px; border-radius: 10px; background: var(--board-2); color: var(--board-ink);
-  font: 800 15px/1 var(--board-font); box-shadow: 0 2px 0 rgba(0, 0, 0, .25);
+/* The pitcher on the mound: the name, and the pitch count under it. Narrow enough to stay clear of the runners on
+   first and third (each up to 34% wide, either side of it). */
+.pitcher {
+  left: 50%; top: 52.4%; max-width: 30%; display: inline-grid; grid-template-columns: auto auto; justify-content: center; align-items: baseline;
+  column-gap: 3px; row-gap: 1px; padding: 4px 10px; border-radius: 14px; box-shadow: 0 2px 0 rgba(0, 0, 0, .25);
+  font-weight: 650; font-size: 14px; text-align: center;
 }
-.count span + i { margin-left: 2px; }
-.count i + span { margin-left: 6px; }
+.pitcher span { grid-column: 1 / -1; }
+.pitcher b { justify-self: end; font: 800 17px/1 var(--board-font); }
+.pitcher small { justify-self: start; color: var(--muted); font-size: 12px; }
+/* The count and the outs, a row of lamps each, as a ballpark's board has them. */
+.count {
+  position: absolute; right: 8px; bottom: 8px; display: grid; gap: 3px;
+  padding: 5px 9px 5px 7px; border-radius: 10px; background: var(--board-2); color: var(--board-ink);
+  font: 800 14px/11px var(--board-font); box-shadow: 0 2px 0 rgba(0, 0, 0, .25);
+}
+.count .lamps { display: flex; align-items: center; gap: 4px; }
+.count .lamps > span[aria-hidden] { width: 10px; text-align: center; }
+.count i { display: inline-block; width: 11px; height: 11px; border-radius: 50%; background: var(--lamp-off); }
 .count i.b.on { background: var(--lamp-b); box-shadow: 0 0 6px var(--lamp-b); }
 .count i.s.on { background: var(--lamp-s); box-shadow: 0 0 6px var(--lamp-s); }
+.count i.o.on { background: var(--lamp-o); box-shadow: 0 0 6px var(--lamp-o); }
 .deck {
   position: absolute; left: 8px; bottom: 8px; margin: 0; max-width: 30%; padding: 3px 8px; border-radius: 8px;
   background: var(--board-2); color: var(--board-ink); box-shadow: 0 2px 0 rgba(0, 0, 0, .25);
@@ -748,9 +755,9 @@ html:has(dialog.sheet[open]) { overflow: hidden; scrollbar-gutter: stable; }
   /* The field is too small for everything on it: the count goes above it, and On deck and the pitcher below. */
   .field { overflow: visible; margin: 34px 0 46px; }
   .infield { border-radius: 14px; }
-  .count { top: -34px; left: 0; }
+  .count { top: -30px; bottom: auto; left: 0; right: auto; grid-auto-flow: column; column-gap: 10px; }
   .deck { top: calc(100% + 6px); bottom: auto; left: 0; max-width: 40%; }
-  .pitcher { top: calc(100% + 6px); right: 0; max-width: 58%; }
+  .pitcher { top: calc(100% + 6px); left: auto; right: 0; transform: none; max-width: 58%; }
   .runner, .batter { font-size: 13px; padding: 3px 8px; min-height: 30px; }
 }
 @media (max-width: 240px) {
