@@ -551,8 +551,8 @@ export function runsCount(S, code, moves) {
 // What a play really was, from where everyone ended up. A fly ball or line drive caught in the outfield that brings
 // the runner home from third with fewer than two out is a sacrifice fly, and a sacrifice fly the runner didn't score
 // on is a fly out (OBR 9.08(d)). A bunt that puts out a runner but not the batter is a fielder's choice (9.08(c)).
-// A double play is two outs and a triple play three: with one fewer, a triple play is a double play, and a double
-// play that got only the batter is a ground out (with an RBI for a run that scored on it, 9.04(a)(2)), and one that
+// A double play is two outs and a triple play three: a double play that got three is a triple play, one that got
+// one fewer is a double play, and a double play that got only the batter is a ground out (with an RBI for a run that scored on it, 9.04(a)(2)), and one that
 // got only a runner, or nobody, is a fielder's choice. A strikeout the batter reached base on is a dropped third
 // strike, and a ground ball he was safe on a fielder's choice.
 export function scoredAs(S, code, f, moves) {
@@ -561,6 +561,7 @@ export function scoredAs(S, code, f, moves) {
   if (code === 'SF' && !home) return 'FO';
   if ((code === 'FO' || ((code === 'LO' || code === 'PU') && deep)) && S.outs < 2 && home && batterOut) return 'SF';
   if (code === 'SAC' && !batterOut && moves.some(m => m[0] > 0 && m[1] === 0)) return 'FC';
+  if (code === 'DP' && outs === 3) return 'TP';
   if (code === 'TP' && outs === 2) return 'DP';
   if ((code === 'DP' || code === 'TP') && outs < 2) return outs && batterOut ? 'GO' : 'FC';
   if ((code === 'K' || code === 'KL') && !batterOut && (!S.bases[1] || S.outs >= 2)) return 'KD';

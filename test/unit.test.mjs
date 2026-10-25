@@ -474,6 +474,7 @@ test('a double or triple play with fewer outs, an out with the batter safe: scor
   assert.equal(scoredAs(S, 'TP', [5, 4, 3], [[0, 0], [1, 0], [2, 3]]), 'DP');
   assert.equal(scoredAs(S, 'TP', [5, 4, 3], [[0, 0], [1, 2], [2, 3]]), 'GO');
   assert.equal(scoredAs(S, 'TP', [5, 4], [[0, 1], [1, 0], [2, 3]]), 'FC');
+  assert.equal(scoredAs(S, 'DP', [5, 4, 3], [[0, 0], [1, 0], [2, 0]]), 'TP', 'a double play that got three is a triple play');
   // With two out, or first base open, a strikeout the batter reached on is a dropped third strike.
   S = play(game(), '2B');
   assert.equal(scoredAs(S, 'KL', null, [[0, 1], [2, 3]]), 'KD');
