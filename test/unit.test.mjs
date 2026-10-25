@@ -1341,6 +1341,16 @@ test('an automatic ball or strike (the pitch clock) moves the count, but isn’t
   assert.deepEqual([replay(later).b, replay(later).s], [0, 0]);
 });
 
+test('the fielder picker has each fielder where he stands: the third baseman by third, the shortstop between second and third', async () => {
+  const { fieldSvg } = await import('../js/field.js');
+  const svg = fieldSvg(), at = n => new RegExp(`translate\\((\\d+) (\\d+)\\)" data-pos="${n}"`).exec(svg).slice(1).map(Number);
+  const far = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]), home = [160, 248], first = [230, 178], second = [160, 108], third = [90, 178];
+  assert.ok(far(at(5), third) < far(at(6), third), 'the third baseman is nearer third base than the shortstop');
+  assert.ok(far(at(3), first) < far(at(4), first), 'the first baseman is nearer first base than the second baseman');
+  assert.ok(at(6)[0] < second[0] && at(4)[0] > second[0], 'short and second either side of second base');
+  assert.ok(at(5)[0] < home[0] && at(7)[0] < home[0] && at(3)[0] > home[0] && at(9)[0] > home[0], 'the left side on the left');
+});
+
 test('a link changed on its way, or cut short, doesn’t open as another game', async () => {
   const { pack, unpack } = await import('../js/share.js');
   const g = sampleGame(7), json = JSON.stringify(g), link = await pack(g);

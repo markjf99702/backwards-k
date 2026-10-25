@@ -22,13 +22,15 @@ export function infieldSvg() {
   </svg>`;
 }
 
-// Positions on the whole field, numbered the way scorers number them.
-const SPOT = [null, [160, 186], [160, 258], [236, 164], [204, 118], [116, 118], [84, 164], [62, 66], [160, 36], [258, 66]];
+// Positions on the whole field, numbered the way scorers number them: each where he stands, the third baseman (5) by
+// third base and the shortstop (6) between second and third. (Home plate is at 160 248, first base 230 178, second
+// 160 108 and third 90 178.)
+export const SPOT = [null, [160, 186], [160, 258], [236, 164], [204, 118], [84, 164], [116, 118], [62, 66], [160, 36], [258, 66]];
 
 // A name the picker has room for: a long one's surname, cut short.
 const short = n => { const w = n.split(/\s+/), x = n.length > 10 && w.length > 1 ? w.at(-1) : n; return x.length > 11 ? x.slice(0, 10) + '…' : x; };
-// Second and third have their names above them, clear of first and short.
-const ABOVE = new Set([4, 5]);
+// Second and short have their names above them, clear of first and third.
+const ABOVE = new Set([4, 6]);
 
 // names: who's at each position, under his number (or over it), when the lineup says.
 export function fieldSvg({ picked = [], tappable = true, names = [] } = {}) {
