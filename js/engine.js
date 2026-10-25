@@ -461,7 +461,7 @@ function pa(S, e) {
         bOut = true;
         // Out on a ball that would have put them on (thrown out stretching a single): the path to the base before the
         // one he was out at, then out. On a home run (a missed base, on appeal) the whole way round.
-        if (R.kind !== 'out') { bAt = outAt(0, how, R); reach(cell, 0, bAt - 1, ''); out(S, r, bAt, ''); }
+        if (R.kind !== 'out') { bAt = outAt(0, how, R); reach(cell, 0, R.go === 4 ? 4 : bAt - 1, ''); out(S, r, bAt, ''); }
         else out(S, r, 0, '');
       } else {
         // Out at the next base, or one further on (from first, thrown out at third: second was his on the way).

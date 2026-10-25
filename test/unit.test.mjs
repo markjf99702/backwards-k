@@ -1051,6 +1051,7 @@ test('a home run with the batter called out says so', () => {
   const g = game();
   const S = play(g, 'E', { t: 'pa', r: 'HR', m: [[0, 0], [1, 4]] });
   assert.equal(S.text[1], 'Batter 2 hits a home run, but is called out on the bases. Batter 1 scores.');
+  assert.equal(S.cells[1].reach, 4, 'the whole way round');
   assert.equal(S.cells[1].outAt, 4);
   assert.equal(S.cells[1].outN, 1);
 });
