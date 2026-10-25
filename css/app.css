@@ -382,7 +382,7 @@ details.lineup summary small { color: var(--muted); font-weight: 400; }
 /* The pitcher on the mound: the name, and the pitch count under it. Narrow enough to stay clear of the runners on
    first and third (each up to 34% wide, either side of it). */
 .pitcher {
-  left: 50%; top: 52.4%; max-width: 30%; display: inline-grid; grid-template-columns: auto auto; justify-content: center; align-items: baseline;
+  left: 50%; top: 52.4%; max-width: 30%; display: inline-grid; grid-template-columns: auto auto; justify-content: center; align-content: center; align-items: baseline;
   column-gap: 3px; row-gap: 1px; padding: 4px 10px; border-radius: 14px; box-shadow: 0 2px 0 rgba(0, 0, 0, .25);
   font-weight: 650; font-size: 14px; text-align: center;
 }
@@ -397,6 +397,7 @@ details.lineup summary small { color: var(--muted); font-weight: 400; }
 }
 .count .lamps { display: flex; align-items: center; gap: 4px; }
 .count .lamps > span[aria-hidden] { width: 10px; text-align: center; }
+.count .lamps:only-child > span[aria-hidden] { width: auto; margin-right: 2px; } /* OUT, on its own */
 .count i { display: inline-block; width: 11px; height: 11px; border-radius: 50%; background: var(--lamp-off); }
 .count i.b.on { background: var(--lamp-b); box-shadow: 0 0 6px var(--lamp-b); }
 .count i.s.on { background: var(--lamp-s); box-shadow: 0 0 6px var(--lamp-s); }

@@ -418,10 +418,10 @@ function liveHtml() {
       ${later && !onSave ? '' : '<a class="btn" href="#/new">Score your own game</a>'}</div>`;
   }
   // The count and the outs, as a ballpark's board shows them: a row of lamps each for B, S and O (just the outs when
-  // pitches aren't counted), in the corner opposite On deck. The pitcher is on the mound, and the top edge is left
-  // to the runner on second.
+  // pitches aren't counted, labelled OUT, since in the board's lettering an O on its own looks like a 0), in the
+  // corner opposite On deck. The pitcher is on the mound, and the top edge is left to the runner on second.
   const lamps = (k, on, of, cls) => `<span class="lamps"><span aria-hidden="true">${k}</span>${dots(on, of, cls)}</span>`;
-  const board = `<div class="count">${g.pitches ? `<span class="sr">${countWords()}</span>${lamps('B', S.b, 3, 'b')}${lamps('S', S.s, 2, 's')}` : ''}<span class="lamps outs"><span aria-hidden="true">O</span>${dots(S.outs, 2, 'o')}<span class="sr">${few(S.outs, 'out')}</span></span></div>`;
+  const board = `<div class="count">${g.pitches ? `<span class="sr">${countWords()}</span>${lamps('B', S.b, 3, 'b')}${lamps('S', S.s, 2, 's')}` : ''}<span class="lamps outs"><span aria-hidden="true">${g.pitches ? 'O' : 'OUT'}</span>${dots(S.outs, 2, 'o')}<span class="sr">${few(S.outs, 'out')}</span></span></div>`;
   const field = `<div class="field${S.over ? ' over' : ''}">
       ${infieldSvg()}
       ${[3, 2, 1].map(runner).join('')}

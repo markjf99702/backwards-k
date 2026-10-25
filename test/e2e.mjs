@@ -2031,6 +2031,17 @@ for (const [width, height] of [[360, 640], [390, 844], [768, 1024], [1024, 768]]
   await p.context().close();
 }
 
+step('not counting pitches, the board is the outs alone, as OUT (an O on its own in the board’s letters is a 0), and the pitcher’s name is in the middle of his chip');
+{
+  const g = seventh();
+  g.pitches = false;
+  const p = await playing(g);
+  assert.deepEqual(await p.$$eval('.field .count .lamps', l => l.map(x => x.querySelector('[aria-hidden]').textContent + ':' + x.querySelectorAll('i.on').length)), [`OUT:${replay(g).outs}`]);
+  const off = await p.evaluate(() => { const c = document.querySelector('.field .pitcher').getBoundingClientRect(), n = document.querySelector('.field .pitcher span').getBoundingClientRect(); return Math.abs(c.top + c.bottom - n.top - n.bottom) / 2; });
+  assert.ok(off < 1.5, `the pitcher’s name is ${off} pixels off the middle of his chip`);
+  await p.context().close();
+}
+
 step('zoomed in to 200%: a tap on a runner, the batter or the pitcher is on that one, not on the one beside it');
 for (const width of [195, 210, 260]) {
   // The bases loaded, and long names, so the chips are as wide as they get.
