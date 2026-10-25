@@ -1435,6 +1435,15 @@ for (const [width, height] of [[1024, 768], [1024, 690], [1180, 740]]) {
   await p.context().close();
 }
 
+step('a laptop: nine innings of the card and AB R H RBI fit beside the buttons, in boxes as big as the room allows');
+for (const [width, height, size] of [[1280, 800, 62], [1366, 768, 68], [1440, 900, 72], [1920, 1080, 72]]) {
+  const p = await playing(seventh(), { width, height });
+  const fit = await p.evaluate(() => { const w = document.querySelector('.card-wrap'); return { scroll: w.scrollWidth, client: w.clientWidth, box: w.querySelector('tbody td').offsetWidth }; });
+  assert.ok(fit.scroll <= fit.client, `${width}x${height}: the card is ${fit.scroll} wide in ${fit.client}`);
+  assert.equal(fit.box, size, `${width}x${height}: boxes`);
+  await p.context().close();
+}
+
 step('on paper, the line score’s R H E are in black');
 {
   const p = await playing(seventh(), { width: 800, height: 1100 });

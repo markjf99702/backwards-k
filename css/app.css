@@ -447,6 +447,12 @@ details.lineup summary small { color: var(--muted); font-weight: 400; }
   }
   .live > .recent { display: block; }
 }
+/* Up to a laptop: a little less room for the buttons, so on a laptop nine innings of the card and AB R H RBI fit beside
+   them. (Their words come a little closer to their edges, so "Strikeout looking" still fits on one line.) */
+@media (min-width: 1000px) and (max-width: 1365px) {
+  .game { grid-template-columns: minmax(380px, 412px) minmax(0, 1fr); }
+  .pads .res { padding-left: 2px; padding-right: 2px; }
+}
 /* A tablet on its side, or a short window: slightly shorter buttons, and the field takes what height is left, so
    everything down to More fits without scrolling. (The infield stretches to fit.) */
 @media (min-width: 1000px) and (max-height: 900px) {
@@ -497,12 +503,11 @@ details.lineup summary small { color: var(--muted); font-weight: 400; }
 .card tr.up .who { background: var(--now); }
 .card td { width: 62px; height: 62px; min-width: 62px; vertical-align: middle; text-align: center; }
 .card td.cur { background: color-mix(in srgb, var(--now) 45%, transparent); }
-/* A computer or a big tablet on its side: the card has room, so the boxes are bigger. (Not on a smaller tablet on
-   its side, where it would show fewer innings.) */
-@media (min-width: 1200px) {
-  .card td { width: 72px; height: 72px; min-width: 72px; }
-  .card tbody .who { height: 72px; }
-}
+/* With room across for nine innings and AB R H RBI in bigger boxes (a big screen), the boxes grow to fill it, up to
+   72px. (Where there isn't room, or the browser can't work it out, they stay 62px.) */
+.pane[data-p="card"] { container-type: inline-size; }
+.pane[data-p="card"] .card tbody td:not(.tot) { width: clamp(62px, round(down, (100cqi - 256px) / 9, 1px), 72px); min-width: clamp(62px, round(down, (100cqi - 256px) / 9, 1px), 72px); }
+.pane[data-p="card"] .card tbody :is(td, .who) { height: clamp(62px, round(down, (100cqi - 256px) / 9, 1px), 72px); }
 .card td.next { box-shadow: inset 0 0 0 2px var(--red); }
 .card td.end { box-shadow: inset 0 -3px 0 var(--red); }
 /* A new pitcher (a heavy line along the top) and a substitute's first time up (down the left), drawn on the grid. */

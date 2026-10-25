@@ -72,12 +72,13 @@ async function open(viewport, deviceScaleFactor, hash, scheme = 'light') {
 
 // Link preview, 1200 x 630: a card with the name and a line on the left, and a piece of the sample game's real
 // scorecard on the right.
+// (The card is drawn as wide as a computer shows it, with its big boxes, and the first 706 pixels of it are used.)
 {
-  const page = await open({ width: 1200, height: 900 }, 1, '#/g/gfinal');
+  const page = await open({ width: 1440, height: 900 }, 1, '#/g/gfinal');
   await page.click('[data-cs="1"]');
   await page.waitForTimeout(200);
-  const wrap = page.locator('.card-wrap');
-  const pic = (await wrap.screenshot({ clip: undefined })).toString('base64');
+  const at = await page.locator('.card-wrap').boundingBox();
+  const pic = (await page.screenshot({ fullPage: true, clip: { x: at.x, y: at.y, width: 706, height: at.height } })).toString('base64');
   const font = async f => (await readFile(join(root, 'fonts', f))).toString('base64');
   const [bs, ss] = [await font('big-shoulders.woff2'), await font('source-sans-3.woff2')];
   const icon = await readFile(join(root, 'icon.svg'), 'utf8');
