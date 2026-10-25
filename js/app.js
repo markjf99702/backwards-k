@@ -52,7 +52,7 @@ async function route(to) {
   }
   if (h === '#/sample') {
     const g = sampleGame(7);
-    open(fresh(), 'game', g, { shared: true, note: 'The sample game: nine innings, scored the whole way through. Tap any box on the card.', onSave: () => keep({ ...g, id: 'g' + uid() }) });
+    open(fresh(), 'game', g, { shared: true, note: 'The sample game: nine innings, scored the whole way through. Tap any box on the card.', onSave: () => keepSample(g) });
     return land();
   }
   if (h === '#/new') { screen = 'setup'; document.title = 'New game · Backwards K'; showSetup(fresh()); return land(); }
@@ -74,6 +74,15 @@ function keep(g) {
   drive.changed();
   go('#/g/' + g.id);
   if (ok) toast('Saved to your games.'); else toast(`Couldn’t save it: ${whyNot(store.problem())}.`, { ms: 6000 });
+}
+
+// The sample goes into this device's games once; Save again opens that copy, played on or not, and leaves it be. Each
+// device's copy has an id of its own (so one saved on another device, which can come here through Google Drive,
+// is never overwritten by this one), starting gsample7- so a second Save finds it.
+function keepSample(g) {
+  const had = store.all().find(x => x.id.startsWith('gsample7-'));
+  if (had) { go('#/g/' + had.id); toast('You already have the sample in your games.'); return; }
+  keep({ ...g, id: 'gsample7-' + uid() });
 }
 
 window.addEventListener('hashchange', () => route());

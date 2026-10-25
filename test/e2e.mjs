@@ -268,6 +268,24 @@ const stored = (p, id) => p.evaluate(id => JSON.parse(localStorage.getItem('back
 const plays = async (p, id) => (await stored(p, id)).ev.map(e => e.t + (e.r || '')).join(' ');
 const shown = p => p.evaluate(() => [...document.querySelectorAll('.toast')].map(t => t.textContent).join(''));
 
+step('saving the sample twice keeps one copy, and the second Save says so');
+{
+  const p = await phone();
+  for (let i = 0; i < 2; i++) {
+    await p.goto(base + '#/sample');
+    await p.click('[data-a=keep]');
+    await p.waitForSelector('.live .field');
+  }
+  assert.equal(await seen(p), 'You already have the sample in your games.');
+  const ids = await p.evaluate(() => Object.keys(JSON.parse(localStorage.getItem('backwards-k.v1')).games));
+  assert.equal(ids.length, 1);
+  assert.match(ids[0], /^gsample7-/);
+  assert.equal(await p.evaluate(() => location.hash), '#/g/' + ids[0]);
+  await p.goto(base);
+  assert.equal(await p.locator('.gi').count(), 1);
+  await p.context().close();
+}
+
 step('pasting a lineup from a group text: names with commas, and the pitcher');
 {
   const p = await phone();
