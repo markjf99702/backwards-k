@@ -807,7 +807,7 @@ function seventh(names) {
   if (names) names.forEach((name, s) => { g.teams[s].name = name; });
   return g;
 }
-async function playing(g, viewport = { width: 390, height: 844 }) {
+async function playing(g, viewport = { width: 390, height: 844 }, ready = '.live .field') {
   const c = await browser.newContext({ viewport, deviceScaleFactor: 2, isMobile: true, hasTouch: true, serviceWorkers: 'block' });
   await c.addInitScript(doc => {
     if (!sessionStorage.getItem('seeded')) { localStorage.setItem('backwards-k.v1', doc); sessionStorage.setItem('seeded', '1'); }
@@ -816,7 +816,7 @@ async function playing(g, viewport = { width: 390, height: 844 }) {
   p.on('pageerror', e => problems.push(e.message));
   p.on('console', m => { if (m.type() === 'error') problems.push(m.text()); });
   await p.goto(base + '#/g/' + g.id);
-  await p.waitForSelector('.live .field');
+  await p.waitForSelector(ready);
   await p.evaluate(() => document.fonts.ready);
   return p;
 }
@@ -1544,14 +1544,23 @@ for (const width of [260, 195]) {
   await c.close();
 }
 
-step('a game whose last play is one this version doesn’t know still opens');
-{
+step('a game holding a play or an event this version doesn’t know opens look-only, and keeps it');
+for (const [n, e] of [[1, { t: 'pa', r: 'ZZ', m: [[0, 1]] }], [2, { t: 'xr', b: 2, why: 'extra innings' }]]) {
+  // From a newer copy of the app (or a damaged file).
   const g = sampleUntil(7, S => S.inn === 2);
-  g.id = 'gunknownlast';
-  g.ev.push({ t: 'pa', r: 'ZZ', m: [[0, 1]] }); // from a damaged file, or a newer copy of the app
-  const p = await playing(g);
-  assert.equal(await p.locator('[data-a=fixlast]').count(), 0, 'nothing to fix');
-  assert.equal(await p.locator('[data-r="1B"]').isVisible(), true, 'and scoring goes on');
+  g.id = 'gnewer' + n;
+  g.ev.push(e);
+  const p = await playing(g, undefined, '.shared-bar');
+  assert.equal(await p.textContent('.shared-bar p'), 'Part of this game was saved by a newer Backwards K. Reload to get it before changing this game.');
+  assert.deepEqual(await p.evaluate(() => ['[data-r]', '.live [data-p]', '[data-a=undo]', '[data-a=menu]', '[data-a=fixlast]', '[data-a=keep]'].map(s => document.querySelectorAll(s).length)), [0, 0, 0, 0, 0, 0], 'nothing to change it with');
+  assert.equal(await p.locator('.card').isVisible(), true, 'the card is there to read');
+  assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'a look-only game scrolls sideways');
+  // Saving another game writes this one back as it came.
+  await p.evaluate(async () => { const { store } = await import('./js/store.js'), { newGame } = await import('./js/model.js'); store.save(newGame({ away: 'A', home: 'B' })); });
+  assert.deepEqual(await p.evaluate(id => JSON.parse(localStorage.getItem('backwards-k.v1')).games[id].ev.at(-1), g.id), e);
+  // Reload brings the newest version there is (here, still this one).
+  await Promise.all([p.waitForEvent('load'), p.click('[data-a=reload]')]);
+  await p.waitForSelector('.shared-bar');
   await p.context().close();
 }
 

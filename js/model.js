@@ -4,6 +4,10 @@
 // A team: { name, lineup: [[player, sub, ...] per batting slot], pitchers: [player, ...] }
 // A player: { name, num }
 // Everything that happens in the game is in ev, in order (engine.js reads it).
+// Anything a newer Backwards K saves that this one doesn't know (a new kind of event, pitch, play or substitution, or a
+// new value on a game, team, player or event) is kept as it came, as long as it's small, so this copy can show the
+// game and save it again without losing it; and a game holding any of it opens look-only (see newer()).
+import { RESULTS } from './engine.js';
 
 export const APP = 'backwards-k';
 export const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -25,7 +29,34 @@ export function newGame({ away = '', home = '', innings = 9, size = 9, pitches =
 
 const str = (v, max = 60) => (typeof v === 'string' || typeof v === 'number' ? String(v).slice(0, max) : '');
 const int = (v, lo, hi, d) => (Number.isFinite(+v) ? Math.min(hi, Math.max(lo, Math.round(+v))) : d);
-const cleanPlayer = p => ({ name: str(p && p.name), num: str(p && p.num, 4) });
+
+// What this version knows: the values on a game, a team, a player and each kind of event, and the kinds of pitch and
+// substitution.
+const KNOWN = new Map(Object.entries({
+  game: ['id', 'created', 'updated', 'date', 'place', 'innings', 'pitches', 'teams', 'ev'],
+  team: ['name', 'lineup', 'pitchers'], player: ['name', 'num'],
+  p: ['t', 'k'], pa: ['t', 'r', 'f', 'm', 'x'], r: ['t', 'm'], sub: ['t', 's', 'slot', 'i', 'ty'], pch: ['t', 's', 'i'],
+  add: ['t', 's'], eoh: ['t'], end: ['t'], on: ['t'],
+}));
+const EVENTS = new Set(['p', 'pa', 'r', 'sub', 'pch', 'add', 'eoh', 'end', 'on']), KINDS = ['b', 'c', 's', 'f'], SUBS = ['ph', 'pr', 'def'];
+// A value from a newer version, as plain JSON: text (200 characters at most), numbers, true, false and null, and lists
+// (50 long) and objects (20 values) of those, four deep. Anything else is left out (undefined).
+function plain(v, deep = 0) {
+  if (v === null || typeof v === 'boolean') return v;
+  if (typeof v === 'number') return Number.isFinite(v) ? v : undefined;
+  if (typeof v === 'string') return v.slice(0, 200);
+  if (!v || typeof v !== 'object' || deep >= 4) return undefined;
+  if (Array.isArray(v)) return v.slice(0, 50).map(x => plain(x, deep + 1) ?? null);
+  const o = {};
+  for (const [k, x] of Object.entries(v).slice(0, 20)) { const y = plain(x, deep + 1); if (y !== undefined && /^[\w-]{1,20}$/.test(k) && k !== '__proto__') o[k] = y; }
+  return o;
+}
+// The values on o that this version doesn't know, kept if they come to no more than max characters, else none.
+function more(o, known, max) {
+  const out = plain(Object.fromEntries(Object.entries(o).filter(([k]) => !known.includes(k))));
+  return JSON.stringify(out).length <= max ? out : {};
+}
+const cleanPlayer = p => ({ name: str(p && p.name), num: str(p && p.num, 4), ...(p && typeof p === 'object' ? more(p, KNOWN.get('player'), 500) : {}) });
 const cleanList = (a, f) => (Array.isArray(a) ? a.map(f) : []);
 const BASE = new Set([0, 1, 2, 3, 4]);
 const cleanMoves = m => cleanList(m, x => (Array.isArray(x) ? x : []))
@@ -39,24 +70,31 @@ const cleanMoves = m => cleanList(m, x => (Array.isArray(x) ? x : []))
 const fielders = f => (Array.isArray(f) ? f.map(n => int(n, 1, 9, 1)).slice(0, 6) : undefined);
 
 function cleanEvent(e) {
-  if (!e || typeof e !== 'object') return null;
+  if (!e || typeof e !== 'object' || Array.isArray(e)) return null;
+  // A kind of event, or of pitch, from a newer version: kept whole, if it's small (the engine passes over it).
+  if (!EVENTS.has(e.t) || (e.t === 'p' && !KINDS.includes(e.k))) {
+    if (typeof e.t !== 'string' || !/^\w{1,12}$/.test(e.t)) return null;
+    const o = { t: e.t, ...plain(e) };
+    return JSON.stringify(o).length <= 1000 ? o : null;
+  }
+  let o;
   switch (e.t) {
-    case 'p': return ['b', 'c', 's', 'f'].includes(e.k) ? { t: 'p', k: e.k } : null;
-    case 'pa': {
+    case 'p': o = { t: 'p', k: e.k }; break;
+    case 'pa':
       if (typeof e.r !== 'string') return null;
-      const o = { t: 'pa', r: e.r.slice(0, 4) };
+      o = { t: 'pa', r: e.r.slice(0, 4) };
       if (Array.isArray(e.f) && e.f.length) o.f = fielders(e.f);
       if (Array.isArray(e.m)) o.m = cleanMoves(e.m);
       if (e.x) o.x = 1;
-      return o;
-    }
-    case 'r': return { t: 'r', m: cleanMoves(e.m) };
-    case 'sub': return { t: 'sub', s: int(e.s, 0, 1, 0), slot: int(e.slot, 0, 40, 0), i: int(e.i, 0, 40, 0), ty: ['ph', 'pr', 'def'].includes(e.ty) ? e.ty : 'def' };
-    case 'pch': return { t: 'pch', s: int(e.s, 0, 1, 0), i: int(e.i, 0, 40, 0) };
-    case 'add': return { t: 'add', s: int(e.s, 0, 1, 0) };
-    case 'eoh': case 'end': case 'on': return { t: e.t };
-    default: return null;
+      break;
+    case 'r': o = { t: 'r', m: cleanMoves(e.m) }; break;
+    // (A kind of substitution from a newer version is kept, and the engine takes it as a change in the field.)
+    case 'sub': o = { t: 'sub', s: int(e.s, 0, 1, 0), slot: int(e.slot, 0, 40, 0), i: int(e.i, 0, 40, 0), ty: typeof e.ty === 'string' && /^\w{1,8}$/.test(e.ty) ? e.ty : 'def' }; break;
+    case 'pch': o = { t: 'pch', s: int(e.s, 0, 1, 0), i: int(e.i, 0, 40, 0) }; break;
+    case 'add': o = { t: 'add', s: int(e.s, 0, 1, 0) }; break;
+    default: o = { t: e.t };
   }
+  return Object.assign(o, more(e, KNOWN.get(e.t), 1000));
 }
 
 function cleanTeam(t, side) {
@@ -65,7 +103,7 @@ function cleanTeam(t, side) {
   if (!lineup.length) lineup = newTeam('', 9).lineup;
   let pitchers = cleanList(t.pitchers, cleanPlayer).slice(0, 40);
   if (!pitchers.length) pitchers = [blank()];
-  return { name: str(t.name) || '', lineup, pitchers, side };
+  return { name: str(t.name) || '', lineup, pitchers, side, ...more(t, KNOWN.get('team'), 1000) };
 }
 
 // A game from anywhere outside this device, made safe to use. Returns null if it isn't a game at all.
@@ -81,9 +119,18 @@ export function cleanGame(g) {
     id: typeof g.id === 'string' && /^g[\w-]{4,40}$/.test(g.id) ? g.id : 'g' + uid(),
     created: int(g.created, 0, 9e15, t), updated: int(g.updated, 0, 9e15, t),
     date: /^\d{4}-\d{2}-\d{2}$/.test(g.date) ? g.date : today(),
-    place: str(g.place, 80), innings: int(g.innings, 1, 12, 9), pitches: g.pitches !== false,
-    teams, ev: ok,
+    place: str(g.place, 80), innings: int(g.innings, 1, 30, 9), pitches: g.pitches !== false,
+    teams, ev: ok, ...more(g, KNOWN.get('game'), 2000),
   };
+}
+
+// Whether a game holds something from a newer Backwards K that this one doesn't know. Such a game opens look-only:
+// scoring on from a game this copy can't read all of would go wrong.
+export function newer(g) {
+  const extra = (o, k) => Object.keys(o).some(x => !KNOWN.get(k).includes(x));
+  return extra(g, 'game') || g.teams.some(t => extra(t, 'team') || [...t.lineup.flat(), ...t.pitchers].some(p => extra(p, 'player')))
+    || g.ev.some(e => !EVENTS.has(e.t) || extra(e, e.t) || (e.t === 'p' && !KINDS.includes(e.k))
+      || (e.t === 'pa' && !Object.hasOwn(RESULTS, e.r)) || (e.t === 'sub' && !SUBS.includes(e.ty)));
 }
 
 // Everything on this device: { app, v, games: { id: game }, gone: { id: when it was deleted } }.

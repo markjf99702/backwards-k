@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { replay, suggest, check, runsCount, scoredAs, mark, now, columns, halfLabel, RESULTS, runnersOn, pitchDay, pitchStat, pitchWork, pitchCount } from '../js/engine.js';
-import { newGame, cleanGame, cleanDoc, parseLineup, parsePaste, takeBack, putBack, carryLineup } from '../js/model.js';
+import { newGame, cleanGame, cleanDoc, parseLineup, parsePaste, takeBack, putBack, carryLineup, newer } from '../js/model.js';
 import { sampleGame } from '../js/sample.js';
 // The card is drawn with ui.js, which looks for the page's sheet as it loads: here there's no page, so no sheet.
 globalThis.document ??= { readyState: 'complete', getElementById: () => null };
@@ -793,6 +793,95 @@ test('a game with every kind of event comes back the same from a file, Drive, st
   const plain = 'j' + Buffer.from(JSON.stringify(g)).toString('base64url');
   assert.deepEqual(cleanGame(await unpack(plain)), g);
   assert.deepEqual(replay(cleanGame(await unpack(plain))).text, S.text);
+});
+
+test('a game this version makes holds nothing newer', () => {
+  for (const g of [everyKind(), sampleGame(3), sampleGame(7), newGame()]) {
+    assert.equal(newer(g), false);
+    assert.equal(newer(cleanGame(JSON.parse(JSON.stringify(g)))), false);
+  }
+});
+
+// What a newer Backwards K might save: a new kind of event, pitch, play and substitution, and new values on the game,
+// a team, a player and today's events.
+const LATER = {
+  ev: [{ t: 'xr', b: 2, who: { slot: 3, note: 'last out' } }, { t: 'p', k: 'v' }, { t: 'pa', r: 'OBS', m: [[0, 1]] }, { t: 'sub', s: 0, slot: 2, i: 0, ty: 'cr' }],
+  pa: { loc: [120, 80], hard: true }, end: { why: 'rain' },
+  game: { limits: { pitches: 85, rest: [1, 2, 4] } }, team: { coach: 'Ann' }, player: { pos: 'SS', bats: 'L' },
+};
+function laterGame() {
+  const g = everyKind();
+  g.ev.splice(3, 0, LATER.ev[0], LATER.ev[1]);
+  g.ev.push(LATER.ev[2], LATER.ev[3]);
+  Object.assign(g.ev.find(e => e.t === 'pa'), LATER.pa);
+  Object.assign(g.ev.find(e => e.t === 'end'), LATER.end);
+  Object.assign(g, LATER.game);
+  Object.assign(g.teams[1], LATER.team);
+  Object.assign(g.teams[0].lineup[0][0], LATER.player);
+  return g;
+}
+
+test('what a newer Backwards K saved is kept, from a file, Drive, storage or a link, and makes the game look-only', async () => {
+  const g = laterGame(), json = JSON.parse(JSON.stringify(g)), c = cleanGame(json);
+  assert.deepEqual(c, g, 'kept as it came');
+  assert.deepEqual(cleanGame(c), c, 'tidying again changes nothing');
+  assert.deepEqual(cleanDoc({ app: 'backwards-k', v: 1, games: { [g.id]: json }, gone: {} }).games[g.id], g);
+  const { pack, unpack } = await import('../js/share.js');
+  assert.deepEqual(cleanGame(await unpack(await pack(g))), g);
+  assert.equal(newer(c), true);
+  // Any one of them is enough.
+  const one = [
+    ...LATER.ev.map(e => g0 => g0.ev.push(e)),
+    g0 => Object.assign(g0.ev.find(e => e.t === 'pa'), LATER.pa), g0 => Object.assign(g0.ev.find(e => e.t === 'end'), LATER.end),
+    g0 => Object.assign(g0, LATER.game), g0 => Object.assign(g0.teams[1], LATER.team), g0 => Object.assign(g0.teams[1].pitchers[0], LATER.player),
+  ];
+  for (const f of one) { const g0 = everyKind(); f(g0); assert.equal(newer(cleanGame(JSON.parse(JSON.stringify(g0)))), true, String(f)); }
+  // This version passes over what it doesn't know: the score, the count and the plays are what they were.
+  const S = replay(c), was = replay(everyKind());
+  assert.deepEqual([S.R, S.H, S.E, S.inn, S.half, S.outs], [was.R, was.H, was.E, was.inn, was.half, was.outs]);
+  assert.deepEqual(S.plays.map(p => p.text), was.plays.map(p => p.text).concat(S.plays.slice(was.plays.length).map(p => p.text)));
+  assert.equal(S.cells.length, was.cells.length);
+  for (const t of S.text) if (t) assert.doesNotMatch(t, /undefined|NaN/);
+});
+
+test('what a newer version saved is kept only while it is small and plain', () => {
+  const g = everyKind(), big = 'x'.repeat(5000);
+  const deep = { a: { b: { c: { d: { e: 1 } } } } };
+  const many = Object.fromEntries(Array.from({ length: 30 }, (_, i) => ['k' + i, i]));
+  g.ev.push({ t: 'xr', note: big, deep, many, list: Array.from({ length: 80 }, (_, i) => i) });
+  g.ev.push({ t: 'xr', pad: Array.from({ length: 50 }, () => 'y'.repeat(30)) }); // more than 1,000 characters
+  g.ev.push({ t: 'no such kind!' }, { t: 'constructor' }, { t: 'toString', a: 1 }, { t: 42 }, ['xr'], null);
+  g.limits = { pad: Array.from({ length: 50 }, () => 'z'.repeat(60)) }; // more than 2,000 characters
+  g.teams[0].lineup[0][0].pos = big;
+  const raw = JSON.parse(JSON.stringify(g).replace('"deep":', '"__proto__":{"polluted":1},"deep":'));
+  const c = cleanGame(raw), [x, ...rest] = c.ev.slice(everyKind().ev.length);
+  assert.equal(x.note.length, 200);
+  assert.deepEqual(x.deep, { a: { b: {} } }, 'four deep, counting the event');
+  assert.equal(Object.keys(x.many).length, 20);
+  assert.equal(x.list.length, 50);
+  assert.equal(Object.getOwnPropertyNames(x).includes('__proto__'), false);
+  assert.equal({}.polluted, undefined);
+  assert.deepEqual(rest, [{ t: 'constructor' }, { t: 'toString', a: 1 }], 'the one too long and the ones that aren\u2019t events are left out');
+  assert.equal('limits' in c, false);
+  assert.equal(c.teams[0].lineup[0][0].pos.length, 200);
+  assert.deepEqual(cleanGame(c), c);
+  assert.equal(newer(c), true);
+  replay(c);
+});
+
+test('a value that isn’t plain JSON is left out', () => {
+  const g = everyKind();
+  g.ev.push({ t: 'xr', f: () => 1, n: Infinity, u: undefined, d: new Date(0), ok: [1, NaN, 'a'] });
+  assert.deepEqual(cleanGame(g).ev.at(-1), { t: 'xr', d: {}, ok: [1, null, 'a'] });
+});
+
+test('a game can have up to 30 innings', () => {
+  assert.equal(cleanGame({ ...game(), innings: 25 }).innings, 25);
+  assert.equal(cleanGame({ ...game(), innings: 99 }).innings, 30);
+  assert.equal(cleanGame({ ...game(), innings: 0 }).innings, 1);
+  const g = game({ innings: 20 });
+  for (let i = 0; i < 19 * 6; i++) play(g, 'K');
+  assert.deepEqual([replay(g).inn, replay(g).over], [20, false]);
 });
 
 test('each box on the card says its inning, what came after, the out and the count', () => {

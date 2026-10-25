@@ -5,7 +5,7 @@ import {
   pitcherLabel, ord, runnersOn, mark, pitchStat, pitchWords, pitchDay, pitchWork, pitchCount,
 } from './engine.js';
 import { store } from './store.js';
-import { blank, takeBack, putBack } from './model.js';
+import { blank, takeBack, putBack, newer } from './model.js';
 import { cardHtml, lineHtml, cellSvg } from './card.js';
 import { boxHtml, playsHtml, dayOf } from './box.js';
 import { infieldSvg, fieldSvg, BASE_AT } from './field.js';
@@ -15,7 +15,7 @@ import { shareSheet, saveFile } from './share.js';
 import { helpSheet } from './help.js';
 
 let G = null, S = null, root = null, redo = [];
-let view = 'live', pane = 'card', cardSide = null, readOnly = false, onSave = null, lastInn = '', note = '';
+let view = 'live', pane = 'card', cardSide = null, readOnly = false, onSave = null, lastInn = '', note = '', later = false;
 // The play the scorer tapped for the latest plate appearance, before it was scored from where everyone ended up (a line
 // out that brought the run in from third is saved as a sacrifice fly): Fix runners starts again from it. Only kept
 // here, never saved; after a reload, Fix runners starts from the play as saved.
@@ -23,15 +23,18 @@ let tapped = { e: null, r: '' };
 const BASES = ['', '1st', '2nd', '3rd', 'Home'];
 
 // el: where to draw. game: the game. opts.shared: someone else's game from a link (look, don't touch), with
-// onSave to keep a copy.
+// onSave to keep a copy. A game holding something from a newer Backwards K is look-only too, until a reload brings
+// that version.
 export function showGame(el, game, opts = {}) {
-  G = game; root = el; redo = []; readOnly = !!opts.shared; onSave = opts.onSave || null; tapped = { e: null, r: '' };
+  later = newer(game);
+  G = game; root = el; redo = []; readOnly = !!opts.shared || later; onSave = opts.onSave || null; tapped = { e: null, r: '' };
   view = 'live'; cardSide = null; lastInn = '';
   if (readOnly) { view = matchMedia('(min-width: 700px)').matches ? 'live' : 'card'; pane = 'card'; }
   S = replay(G);
   // A link carries the game as it was when it was sent: one sent mid-game says so, so nobody waits on it for runs.
-  note = opts.note || (S.over ? 'A scorecard someone shared with you. Tap any box to see what happened.'
-    : `The scorecard as it stood in the ${S.half ? 'bottom' : 'top'} of the ${ord(S.inn)}. The link doesn’t update: ask for a new one to see the rest. Tap any box to see what happened.`);
+  note = later ? 'Part of this game was saved by a newer Backwards K. Reload to get it before changing this game.'
+    : opts.note || (S.over ? 'A scorecard someone shared with you. Tap any box to see what happened.'
+      : `The scorecard as it stood in the ${S.half ? 'bottom' : 'top'} of the ${ord(S.inn)}. The link doesn’t update: ask for a new one to see the rest. Tap any box to see what happened.`);
   el.innerHTML = frame();
   el.addEventListener('click', onClick);
   drive.chip($('.bar .cloud', el));
@@ -186,7 +189,7 @@ function frame() {
     <main class="game">
       <h1 class="sr">${esc(teamName(G, 0))} at ${esc(teamName(G, 1))}</h1>
       ${readOnly ? '' : '<p class="sr" role="status" id="said"></p><div class="trouble" role="alert" hidden><p></p><button type="button" class="btn sm"></button></div>'}
-      ${readOnly ? `<div class="shared-bar"><p>${esc(note)}</p>${onSave ? '<button type="button" class="btn primary sm" data-a="keep">Save to my games</button>' : ''}</div>` : ''}
+      ${readOnly ? `<div class="shared-bar"><p>${esc(note)}</p>${later ? '<button type="button" class="btn sm" data-a="reload">Reload</button>' : ''}${onSave ? '<button type="button" class="btn primary sm" data-a="keep">Save to my games</button>' : ''}</div>` : ''}
       <nav class="vtabs" aria-label="Views">
         <button type="button" data-v="live">${readOnly ? 'Score' : 'Score'}</button>
         <button type="button" data-v="card">Card</button>
@@ -336,7 +339,7 @@ function liveHtml() {
   if (readOnly) {
     return `${bug}<div class="field-col"><div class="field over">${infieldSvg()}</div></div>
       <div class="shared-note"><p>Every box on the card is one trip to the plate. Tap one to see what happened, or see <button type="button" class="link-btn" data-a="help">how to read the card</button>.</p>
-      <a class="btn" href="#/new">Score your own game</a></div>`;
+      ${later && !onSave ? '' : '<a class="btn" href="#/new">Score your own game</a>'}</div>`;
   }
   const field = `<div class="field${S.over ? ' over' : ''}">
       ${infieldSvg()}
@@ -400,7 +403,7 @@ function onClick(e) {
   }
   if (t.dataset.cs) { cardSide = +t.dataset.cs; keepFocus(drawSide); return; }
   if (t.dataset.cell) return cellSheet(S.cells[+t.dataset.cell]);
-  if (readOnly) { if (t.dataset.a === 'keep') onSave(); if (t.dataset.a === 'help') helpSheet(); return; }
+  if (readOnly) { if (t.dataset.a === 'keep') onSave(); if (t.dataset.a === 'help') helpSheet(); if (t.dataset.a === 'reload') location.reload(); return; }
   if (t.dataset.p) return act({ t: 'p', k: t.dataset.p });
   if (t.dataset.r) return choose(t.dataset.r);
   if (t.dataset.runner) return runnerSheet(+t.dataset.runner);
@@ -931,11 +934,12 @@ function settingsSheet() {
     S.inn > 3 ? `Already in the ${ord(S.inn)}, so it can’t be shorter than that.` : '',
     led ? `${G.teams[1].name ? `The ${G.teams[1].name} were` : 'The home team was'} already ahead after the top of the ${ord(S.inn)}: use End the game here.` : '',
   ].filter(Boolean).join(' ');
+  // (A game from a file or a newer version can have more innings than the list, up to 30: its own number is in it.)
   const body = openSheet(`<h2 id="sheetTitle">Game settings</h2>
     <div class="form">
       <label><span>Visitors</span><input data-t="0" maxlength="40" value="${esc(G.teams[0].name)}" placeholder="Visitors" autocapitalize="words" autocorrect="off" spellcheck="false"></label>
       <label><span>Home team</span><input data-t="1" maxlength="40" value="${esc(G.teams[1].name)}" placeholder="Home" autocapitalize="words" autocorrect="off" spellcheck="false"></label>
-      <label><span>Innings</span><select data-g="innings">${[3, 4, 5, 6, 7, 8, 9, 10, 12].map(n => `<option${n === G.innings ? ' selected' : n < S.inn || (n === S.inn && led) ? ' disabled' : ''}>${n}</option>`).join('')}</select>${notes ? `<small>${esc(notes)}</small>` : ''}</label>
+      <label><span>Innings</span><select data-g="innings">${[...new Set([3, 4, 5, 6, 7, 8, 9, 10, 12, G.innings])].sort((a, b) => a - b).map(n => `<option${n === G.innings ? ' selected' : n < S.inn || (n === S.inn && led) ? ' disabled' : ''}>${n}</option>`).join('')}</select>${notes ? `<small>${esc(notes)}</small>` : ''}</label>
       <label><span>Date</span><input type="date" data-g="date" value="${esc(G.date)}"></label>
       <label><span>Where</span><input data-g="place" maxlength="80" value="${esc(G.place)}" placeholder="Optional" autocapitalize="words" autocorrect="off" spellcheck="false"></label>
       <label class="switch"><input type="checkbox" data-g="pitches"${G.pitches ? ' checked' : ''}><span>Count balls and strikes<small>Keeps the count and each pitcher’s pitch count.</small></span></label>

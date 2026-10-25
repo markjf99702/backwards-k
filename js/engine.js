@@ -148,8 +148,9 @@ function step(S, e) {
   // A play after the final (fewer innings set since it was scored, or an older game): play went on, so it counts
   // for the team that was batting.
   if (S.over && S.between && PLAY.has(e.t)) resume(S);
+  // (A kind of event or pitch from a newer version is passed over: see model.js.)
   switch (e.t) {
-    case 'p': return pitch(S, e.k);
+    case 'p': return ['b', 'c', 's', 'f'].includes(e.k) ? pitch(S, e.k) : undefined;
     case 'pa': return pa(S, e);
     case 'r': return runners(S, e);
     case 'sub': {

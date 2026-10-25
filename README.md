@@ -63,6 +63,8 @@ written out in plain words.
 - Backwards K can only see the files it made. Signing in lasts an hour and stays on that device. To take the
   permission back, remove junkdrawer.works under **Third-party apps & services** in your Google Account; "Stop saving
   on this device" only stops this device.
+- **A game saved by a newer Backwards K** (on another device, or from a file or a link) opens look-only here until a
+  reload brings that version, and whatever this copy doesn't know is kept as it came.
 
 ## Running it
 
