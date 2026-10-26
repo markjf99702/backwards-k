@@ -4,7 +4,7 @@ import {
   replay, suggest, check, runsCount, scoredAs, now, RESULTS, BASE, POS, POS_NAME, halfLabel, label, player, teamName,
   pitcherLabel, ord, runnersOn, mark, pitchStat, pitchWords, pitchDay, pitchWork, pitchCount, winningRun, creditedHit, credit, fits,
   ENDS, regulation, official, winner, AUTO, limitState, restOf, restCite, restBand, noCatch, LIMIT_BY, sameSoFar, outAt, outBases, usualBase,
-  runnerName, PLAY, toWhere, decider, milestones, runMark, misfit,
+  runnerName, PLAY, toWhere, decider, milestones, runMark, misfit, standing,
 } from './engine.js';
 import { store } from './store.js';
 import { blank, takeBack, putBack, newer, plays, setField } from './model.js';
@@ -1671,7 +1671,11 @@ function otherSheet(c) {
 // when it came (misfit() in engine.js, the check Put back makes). If they all still fit, it's saved, and the message
 // has its own Undo. If one doesn't, the sheet says which and why, and offers to undo back to it: that play and the ones
 // after it are taken back, to Put back (each as it was if it fits, its runners asked again if not), and the change
-// goes in. words: what the message says, when not what the box was changed to.
+// goes in. When the change moved a third out, so that play would be in another half-inning, the sheet and the message
+// say so, and the message has no Put back: with a third out taken away, what's taken back fits only once the rest of
+// that half-inning is scored; with one made sooner, the plays left in that half-inning can't go back at all (they're
+// named, to score again), and only those after them wait to be put back. words: what the message says, when not what
+// the box was changed to.
 function changeBox(c, e, e2, words = '') {
   if (!G || G.ev[c.ev] !== e) return toast('The game changed somewhere else while this was open, so the change wasn’t made.');
   const k = c.ev, was = plays(G.ev);
@@ -1702,10 +1706,21 @@ function changeBox(c, e, e2, words = '') {
     });
     return;
   }
-  const n = G.ev.length - miss.i;
+  const n = G.ev.length - miss.i, { was: asWas, now: asNow } = miss, half = st => `${st.half ? 'bottom' : 'top'} of the ${ord(st.inn)}`;
+  // A third out moved (asWas: how the game as scored stood before that play, asNow: how the changed one would): to,
+  // 'wait' when the play would come in the half-inning before its own (a third out taken away), or 'gone' when in the
+  // one after (a third out made sooner). same: how many of the plays taken back are in its own half-inning.
+  const to = miss.why !== 'over' || asWas.over || asNow.over ? '' : asNow.inn * 2 + asNow.half < asWas.inn * 2 + asWas.half ? 'wait' : 'gone';
+  const same = to ? standing(G, miss.i).filter(x => x.inn === asWas.inn && x.half === asWas.half).length : 0, later = n - same;
+  const them = k => (k > 1 ? 'them' : 'it');
+  const hint = to === 'wait'
+    ? `${same === n ? `${n > 1 ? `the ${n} plays of` : 'the play in'} the ${half(asWas)}` : `the ${n} plays from the ${half(asWas)} on`} ${n > 1 ? 'are' : 'is'} taken back. Score what’s missing first (the rest of the ${half(asNow)}); Put back waits under the field.`
+    : to === 'gone'
+      ? `${same > 1 ? `the ${same} plays` : 'the play'} left in the ${half(asWas)} ${same > 1 ? 'are' : 'is'} taken back${later ? `, and ${later > 1 ? `the ${later}` : 'the one'} after ${them(same)}` : ''}. ${later ? (same > 1 ? `Those ${same}` : 'That one') : same > 1 ? 'They' : 'It'} can’t go back: score ${them(same)} again.${later ? ` Put back, under the field, brings back ${later > 1 ? `the other ${later}, each` : 'the other one'} as it was if it still fits.` : ''}`
+      : `${n > 1 ? `that play and the ${n > 2 ? n - 1 : 'one'} after it are` : 'that play is'} taken back. Then Put back, under the field, brings ${n > 1 ? 'each' : 'it'} back as it was if it still fits, asks again where everyone went if not, and leaves out what can’t have happened any more.`;
   const body = openSheet(`<h2 id="sheetTitle">That doesn’t fit what came after</h2>
     <p>${esc(misfitWords(miss))}</p>
-    <p class="hint">Undo back to it to make this change: ${n > 1 ? `that play and the ${n > 2 ? n - 1 : 'one'} after it are` : 'that play is'} taken back. Then Put back, under the field, brings ${n > 1 ? 'each' : 'it'} back as it was if it still fits, asks again where everyone went if not, and leaves out what can’t have happened any more.</p>
+    <p class="hint">Undo back to it to make this change: ${esc(hint)}</p>
     <div class="row"><button type="button" class="btn quiet" data-close>Cancel</button><button type="button" class="btn primary" data-x="back">Undo back to it</button></div>`);
   body.addEventListener('click', ev => {
     if (!ev.target.closest('[data-x=back]')) return;
@@ -1714,15 +1729,20 @@ function changeBox(c, e, e2, words = '') {
     undoTo(miss.i);
     put();
     // What was taken back waits to be put back after the change (with anything Undo took back before it, and any plays
-    // already waiting to go back after those).
-    kept = { stack: (kept ? kept.stack : []).concat(redo), n: G.ev.length };
+    // already waiting to go back after those). With a third out made sooner, not the plays left in its half-inning.
+    const again = to === 'gone' ? redo.filter(r => r.at.inn === asWas.inn && r.at.half === asWas.half).reverse() : [];
+    const back = redo.filter(r => !again.includes(r));
+    if (back.length || kept) kept = { stack: (kept ? kept.stack : []).concat(back), n: G.ev.length };
     redo = [];
     took = '';
     save();
     const cell = S.cells[c.n], what = cell && RESULTS[cell.r] ? ` to ${RESULTS[cell.r].label.toLowerCase()}` : '';
-    const t = `${words ? words.replace(/\.$/, '') : `Changed${what}`}, and took back ${few(n, 'play')}. Put back brings ${n > 1 ? 'them' : 'it'} back.`;
+    const done = `${words ? words.replace(/\.$/, '') : `Changed${what}`}, and took back ${few(n, 'play')}.`, said = again.map(r => r.said);
+    const t = to === 'wait' ? `${done} Score the rest of the ${half(asNow)}, then Put back.`
+      : to === 'gone' ? `${done} Score ${said.length > 1 ? 'these' : 'this'} again: ${said.slice(0, 2).join(' ')}${said.length > 2 ? ` And ${said.length - 2} more.` : ''}${back.length ? ` Put back, under the field, brings back the other ${back.length > 1 ? back.length : 'one'}.` : ''}`
+      : `${done} Put back brings ${n > 1 ? 'them' : 'it'} back.`;
     say(t);
-    toast(t, { action: 'Put back', run: putBackKept, ms: 8000 });
+    toast(t, to ? { ms: 10000 } : { action: 'Put back', run: putBackKept, ms: 8000 });
   });
 }
 // Undo, as many times as it takes for the game to have only its first i plays: each goes on Redo's list, with how

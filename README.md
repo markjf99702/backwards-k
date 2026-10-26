@@ -58,7 +58,10 @@ written out in plain words.
   ended up changed: the game is played back with the change, and every play after it checked against where the game
   would be then. A strikeout or a pop-up after it, with everyone staying put, still fits with the runners somewhere
   else. If one doesn't fit ("Batter 3's single in the 1st has a runner on second who wouldn't be there"), it says so,
-  and **Undo back to it** makes the change, with that play and the ones after it waiting to **Put back**.
+  and **Undo back to it** makes the change, with that play and the ones after it waiting to **Put back**. When the
+  change moves a third out, it says which half-inning's plays are taken back and when they can go back: with a third
+  out taken away, once the rest of that half-inning is scored; with one made sooner, the plays left in that
+  half-inning can't (it names them, to score again), and only those after them wait to be put back.
 - **Earned runs, as a scorer works them out.** Each pitcher's line in the box score has his earned runs: the
   half-inning played again without its errors and passed balls (a batter safe on an error is out instead, and a runner
   doesn't take the base an error gave him), and a run is earned if it would still have scored before the third out

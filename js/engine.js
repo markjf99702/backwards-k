@@ -1138,6 +1138,19 @@ export function misfit(g, g2, k) {
   return null;
 }
 
+// How the game stood before each of its events from i on, as scored: [{ inn, half, over }], for which half-inning
+// each came in.
+export function standing(g, i) {
+  const A = replay(g, 0), out = [];
+  A.upTo = g.ev.length;
+  for (let j = 0; j < g.ev.length; j++) {
+    A.i = j;
+    if (j >= i) out.push({ inn: A.inn, half: A.half, over: A.over });
+    step(A, g.ev[j]);
+  }
+  return out;
+}
+
 // When a play makes the third out, do the runs that crossed on it count? Not if the batter was out before reaching
 // first or the third out was a force; usually yes otherwise (a runner scores before another is tagged out, or
 // before the batter is thrown out stretching a hit: OBR 5.08(a)). The scorer can say.

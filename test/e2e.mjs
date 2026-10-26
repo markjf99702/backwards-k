@@ -2170,6 +2170,54 @@ step('any box can be made something else: the plays after it are checked, and un
   await p.context().close();
 }
 
+step('a box change that moves a third out: what’s taken back, and when it can go back, without a Put back to tap too soon');
+{
+  // The third out that wasn't: the bottom of the 1st's plays wait until the top of the 1st has its third out.
+  const p = await phone(), id = await startGame(p);
+  for (let i = 0; i < 3; i++) await p.click('[data-r=K]');
+  await p.click('[data-p=b]');
+  await p.click('[data-v=card]');
+  await p.click('[data-cs="0"]');
+  await p.click('[data-cell="2"]');
+  await p.click('.sheet [data-y=other]');
+  await p.click('.sheet [data-o=HBP]');
+  assert.equal(await p.textContent('.sheet .hint'), 'Undo back to it to make this change: the play in the bottom of the 1st is taken back. Score what’s missing first (the rest of the top of the 1st); Put back waits under the field.');
+  await p.click('.sheet [data-x=back]');
+  assert.equal(await plays(p, id), 'paK paK paHBP');
+  assert.equal(await seen(p), 'Changed to hit by pitch, and took back 1 play. Score the rest of the top of the 1st, then Put back.');
+  await p.click('[data-v=live]');
+  assert.equal(await p.textContent('[data-a=putback]'), 'Put back 1 play');
+  await p.click('[data-r=K]');
+  await p.click('[data-a=putback]');
+  assert.equal(await plays(p, id), 'paK paK paHBP paK p', 'the ball, back in the bottom of the 1st');
+  await p.context().close();
+}
+{
+  // A third out made sooner: the play left in the top of the 1st can't go back, and is named to score again; the
+  // bottom of the 1st's can.
+  const p = await phone(), id = await startGame(p);
+  await p.click('[data-r=K]');
+  await p.click('[data-r=K]');
+  await p.click('[data-r="1B"]');
+  await p.click('[data-r=K]');
+  await p.click('[data-p=b]');
+  await p.click('[data-v=card]');
+  await p.click('[data-cs="0"]');
+  await p.click('[data-cell="2"]');
+  await p.click('.sheet [data-y=other]');
+  await p.click('.sheet [data-o=K]');
+  assert.equal(await p.textContent('.sheet h2 + p'), 'Batter 4’s strikeout swinging in the 1st would be in the bottom of the 1st, not the top of the 1st.');
+  assert.equal(await p.textContent('.sheet .hint'), 'Undo back to it to make this change: the play left in the top of the 1st is taken back, and the one after it. That one can’t go back: score it again. Put back, under the field, brings back the other one as it was if it still fits.');
+  await p.click('.sheet [data-x=back]');
+  assert.equal(await plays(p, id), 'paK paK paK');
+  assert.equal(await seen(p), 'Changed to strikeout swinging, and took back 2 plays. Score this again: Batter 4 strikes out swinging. Put back, under the field, brings back the other one.');
+  await p.click('[data-v=live]');
+  assert.equal(await p.textContent('[data-a=putback]'), 'Put back 1 play');
+  await p.click('[data-a=putback]');
+  assert.equal(await plays(p, id), 'paK paK paK p');
+  await p.context().close();
+}
+
 step('a box’s “Change what it was” offers only what could have happened');
 {
   const p = await phone(), id = await startGame(p);
