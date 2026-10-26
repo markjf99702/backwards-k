@@ -144,6 +144,9 @@ written out in plain words.
   runner too: only the name on the base changes, and the player she ran for keeps her spot in the order, and the run and
   any steals. Missed a trip to the plate, or batted out of turn? **Someone else is batting** (tap the batter) picks
   who's up, and the order goes on from there, with the box passed over left empty.
+- **A new game half filled in stays,** for that tab, while it's typed (sessionStorage, backwards-k.new): switch to
+  another app to copy a lineup, and if the phone reloaded the page meanwhile, the names, the lineup and the rest are
+  still there. It goes when the game starts.
 - **Got there late?** New game's **Starting partway through?** takes the half-inning you're picking it up in, each
   team's runs so far and who's up. The innings before are dashes on the line score and shaded on the card, the runs
   so far are in the score, and the box score says it was scored from, say, the bottom of the 3rd.

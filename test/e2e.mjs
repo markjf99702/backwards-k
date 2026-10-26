@@ -1206,6 +1206,46 @@ step('games only in this browser: one line above them asks for a backup, until o
   await c.close();
 }
 
+step('a half-filled new game survives a reload (switching apps to copy a lineup), and goes when the game starts');
+{
+  const p = await phone();
+  await p.goto(base + '#/new');
+  await p.fill('[data-side="0"] [data-name]', 'Foxes');
+  await p.fill('[data-side="1"] [data-name]', 'Comets');
+  await p.click('[data-side="0"] [data-paste]');
+  await p.fill('.sheet textarea', 'Ruiz #2 SS\nOkafor #11\nBrennan');
+  await p.click('.sheet [data-x=use]');
+  await p.click('[data-inn="6"]');
+  await p.uncheck('[name=pitches]');
+  await p.fill('[name=place]', 'Riverside Park');
+  await p.click('.partway summary');
+  await p.selectOption('[name=from]', '3.1');
+  await p.fill('[name=r0]', '2');
+  await p.waitForTimeout(50);
+  await p.reload();
+  await p.waitForSelector('[data-side="0"] [data-name]');
+  assert.equal(await p.inputValue('[data-side="0"] [data-name]'), 'Foxes');
+  assert.equal(await p.inputValue('[data-side="1"] [data-name]'), 'Comets');
+  assert.equal(await p.inputValue('[data-side="0"] [data-i="0"][data-f="name"]'), 'Ruiz');
+  assert.equal(await p.inputValue('[data-side="0"] [data-i="0"][data-f="pos"]'), 'SS');
+  assert.equal(await p.textContent('[data-side="0"] [data-size]'), '3 batters');
+  assert.equal(await p.evaluate(() => document.querySelector('[data-side="0"] details').open), true, 'the lineup still open');
+  assert.equal(await p.getAttribute('[data-inn="6"]', 'aria-pressed'), 'true');
+  assert.equal(await p.isChecked('[name=pitches]'), false);
+  assert.equal(await p.inputValue('[name=place]'), 'Riverside Park');
+  assert.equal(await p.inputValue('[name=from]'), '3.1');
+  assert.equal(await p.inputValue('[name=r0]'), '2');
+  // Started: it goes, and the next new game starts afresh.
+  await p.click('[data-go]');
+  await p.waitForSelector('.live .field');
+  const g = JSON.parse(await p.evaluate(() => JSON.stringify(Object.values(JSON.parse(localStorage.getItem('backwards-k.v1')).games)[0])));
+  assert.deepEqual([g.teams[0].name, g.innings, g.pitches, g.place, g.ev[0].t, g.ev[0].inn, g.ev[0].half], ['Foxes', 6, false, 'Riverside Park', 'join', 3, 1]);
+  assert.equal(await p.evaluate(() => sessionStorage.getItem('backwards-k.new')), null);
+  await p.goto(base + '#/new');
+  assert.equal(await p.inputValue('[data-side="0"] [data-name]'), '');
+  await p.context().close();
+}
+
 step('a backup file saved on one device brings every game, as it was, to another');
 {
   const a = sampleGame(3), b = sampleUntil(7, S => S.inn === 7);

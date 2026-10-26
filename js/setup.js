@@ -24,9 +24,28 @@ function pastTeams() {
   return [...seen.values()].slice(0, 8);
 }
 
+// The new game as far as it's filled in, kept for this tab as it's typed (sessionStorage, backwards-k.new), so switching
+// to another app to copy a lineup, and coming back to a page the phone reloaded meanwhile, doesn't lose it. It goes
+// when the game starts. Not game data: nothing else reads it.
+const DRAFT = 'backwards-k.new';
+function draft() {
+  let d;
+  try { d = JSON.parse(sessionStorage.getItem(DRAFT) || 'null'); } catch { return null; }
+  if (!d || typeof d !== 'object' || !Array.isArray(d.T) || d.T.length !== 2) return null;
+  // (Each player as typed, tidied: a number, a name and maybe a position.)
+  const person = x => { const p = blank(); for (const f of ['num', 'name', 'pos']) if (x && typeof x[f] === 'string') setField(p, f, x[f]); return p; };
+  const T = d.T.map(t => ({
+    name: typeof t?.name === 'string' ? t.name.slice(0, 40) : '',
+    lineup: (Array.isArray(t?.lineup) && t.lineup.length ? t.lineup.slice(0, 30) : Array(9).fill(null)).map(person),
+    pitcher: person(t?.pitcher),
+  }));
+  const f = d.f && typeof d.f === 'object' ? d.f : {};
+  return { T, opt: { ...carried(d.opt || {}), innings: +d.opt?.innings || 9 }, f, open: Array.isArray(d.open) ? d.open : [] };
+}
+
 export function showSetup(el) {
-  const past = pastTeams();
-  const T = [0, 1].map(() => ({ name: '', lineup: Array.from({ length: 9 }, blank), pitcher: blank() }));
+  const past = pastTeams(), kept = draft();
+  const T = kept ? kept.T : [0, 1].map(() => ({ name: '', lineup: Array.from({ length: 9 }, blank), pitcher: blank() }));
   // The innings, the pitch counting and limit, the league rules, the runner on second in extra innings and whether hits
   // ask where they went start as they were for the last game on this device: a league that plays six innings without
   // counting pitches, under Little League's rules, doesn't have to say so every week.
@@ -35,6 +54,13 @@ export function showSetup(el) {
     innings: last && INN.includes(last.innings) ? last.innings : 9, pitches: last ? last.pitches !== false : true,
     ...carried(last), tie: !!(last && last.tie), spray: !!(last && last.spray), date: today(), place: '',
   };
+  // (Or as they were in the new game being filled in, when this tab has one.)
+  if (kept) {
+    if (INN.includes(kept.opt.innings)) opt.innings = kept.opt.innings;
+    Object.assign(opt, { rules: kept.opt.rules, limit: kept.opt.limit });
+    for (const k of ['tie', 'pitches', 'spray']) if (typeof kept.f[k] === 'boolean') opt[k] = kept.f[k];
+    if (/^\d{4}-\d\d-\d\d$/.test(kept.f.date)) opt.date = kept.f.date;
+  }
 
   el.innerHTML = `<header class="bar">
       <div class="bar-in">
@@ -125,6 +151,23 @@ export function showSetup(el) {
   }
   [0, 1].forEach(rows);
   partway();
+  if (kept) {
+    const { f } = kept, form = el.querySelector('form');
+    form.place.value = typeof f.place === 'string' ? f.place.slice(0, 80) : '';
+    for (const k of ['r0', 'r1']) form[k].value = /^\d{1,2}$/.test(f[k]) ? f[k] : '';
+    if ([...form.from.options].some(o => o.value === f.from)) { form.from.value = f.from; partway(); }
+    if ([...form.lead.options].some(o => o.value === f.lead)) form.lead.value = f.lead;
+    $$('details', el).forEach((d, i) => { d.open = kept.open[i] === true; });
+  }
+  // Kept as it's filled in (see draft()), until the game starts.
+  let started = false;
+  function keep() {
+    const form = el.querySelector('form');
+    if (started || !el.isConnected || !form) return;
+    const f = { tie: form.tie.checked, pitches: form.pitches.checked, spray: form.spray.checked, date: form.date.value, place: form.place.value, from: form.from.value, r0: form.r0.value, r1: form.r1.value, lead: form.lead.value };
+    try { sessionStorage.setItem(DRAFT, JSON.stringify({ T, opt: { innings: opt.innings, rules: opt.rules, limit: opt.limit }, f, open: $$('details', el).map(d => d.open) })); } catch { /* storage blocked: nothing kept */ }
+  }
+  for (const ev of ['input', 'change', 'click', 'toggle']) el.addEventListener(ev, () => setTimeout(keep, 0), true);
   rulesRow($('.rules-row', el), () => opt.rules, r => { opt.rules = r; });
   // (A pitch limit needs the pitches counted.)
   limitRow($('.limit-row', el), () => opt.limit, L => { opt.limit = L; });
@@ -195,6 +238,8 @@ export function showSetup(el) {
     }
     if (inn > 1 || half) g.ev.push({ t: 'join', inn, half, r, up: +form.lead.value || 0 });
     store.save(g);
+    started = true;
+    try { sessionStorage.removeItem(DRAFT); } catch { /* nothing kept */ }
     drive.changed();
     // Ask the browser to keep this site's games when it clears space (it decides; nothing to do with the answer).
     try { navigator.storage?.persist?.()?.catch(() => {}); } catch { /* not offered here */ }
@@ -211,7 +256,7 @@ export function showSetup(el) {
       const { batters, pitcher } = parsePaste(body.querySelector('textarea').value);
       if (batters.length) T[side].lineup = batters;
       if (pitcher) T[side].pitcher = pitcher;
-      if (batters.length || pitcher) { rows(side); $('details', fs(side)).open = true; }
+      if (batters.length || pitcher) { rows(side); $('details', fs(side)).open = true; keep(); }
       closeSheet();
     });
   }
