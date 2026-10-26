@@ -225,10 +225,10 @@ h1[tabindex="-1"]:focus { outline: none; } /* a screen's heading, given the keyb
 .back-row p b.delayed { color: var(--red); }
 .hero.short { padding-top: 0; }
 .hero.short h1 { font-size: 34px; }
-/* No games yet: four boxes from a card, each with what it says. */
 /* The games are only in this browser: one line above them, with Save a backup. */
 .nudge { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 0 16px; padding: 10px 12px; border-radius: 12px; background: var(--card); border: 1px solid var(--line-2); }
 .nudge p { flex: 1 1 16em; margin: 0; font-size: 15px; line-height: 1.35; color: var(--ink-2); }
+/* No games yet: four boxes from a card, each with what it says. */
 .first-look { margin: 6px 2px 26px; }
 .first-look > div { display: grid; grid-template-columns: repeat(4, minmax(0, 76px)); gap: 12px; }
 .first-look > div > div { display: grid; gap: 6px; align-content: start; }
