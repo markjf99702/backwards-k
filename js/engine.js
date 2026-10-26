@@ -553,7 +553,7 @@ function pa(S, e) {
   for (const f of errBy) if (f !== own) { S.E[fld]++; S.eInn[side][S.inn - 1]++; S.errs[fld].push(f); }
   ghostPlay(S, acts, code);
 
-  let text = `${batterName} ${R.say}${fielderWords(code, e.f)}`;
+  let text = `${batterName} ${code === 'HR' && !bOut ? homer(runs) : R.say}${fielderWords(code, e.f)}`;
   if (R.kind !== 'out' && bOut) text += R.go === 4 ? ', but is called out on the bases' : `, but is out trying for ${BASE[bAt]}`;
   else if (R.kind !== 'out' && bTo > R.go && bTo < 4) text += ` and takes ${BASE[bTo]}${bWhy}`;
   else if (R.kind !== 'out' && bTo === 4 && R.go < 4) text += ` and comes all the way home${bWhy}${need === 4 ? ' with the winning run' : ''}`;
@@ -634,6 +634,11 @@ function scorers(names, win, why = '') {
   if (!win) return words;
   return words ? `${words}, and ${names.at(-1)} scores the winning run` : `${names.at(-1)} scores the winning run${why}`;
 }
+
+// A home run by its size, from the runs that counted on it: "hits a home run", "hits a two-run home run", "hits a
+// three-run home run", "hits a grand slam".
+const SIZE = ['', '', 'two-run ', 'three-run '];
+const homer = runs => (runs >= 4 ? 'hits a grand slam' : `hits a ${SIZE[runs] || ''}home run`);
 
 function fielderWords(code, f) {
   if (!f || !f.length) return '';

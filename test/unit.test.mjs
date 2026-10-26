@@ -650,7 +650,7 @@ test('league rules: the home team getting ten ahead in its half ends it there, a
   const g = game({ innings: 6, rules: LL });
   let S = play(g, ...threeK, ...Array(9).fill('HR'), ...threeK, ...Array(15).fill('K'), 'BB', 'HR');
   assert.deepEqual([S.over, S.between, S.R, endNote(S)], [true, false, [0, 11], '10-run rule, 4 innings']);
-  assert.equal(S.text.at(-1), 'Batter 2 hits a home run. Batter 1 scores. That’s the game on the 10-run rule: the Comets lead 11–0 after 4 innings.');
+  assert.equal(S.text.at(-1), 'Batter 2 hits a two-run home run. Batter 1 scores. That’s the game on the 10-run rule: the Comets lead 11–0 after 4 innings.');
   // Keep playing: the rest of the half is played out (no mercy in the middle of it), and then it's over again.
   S = play(g, { t: 'on' }, 'HR', 'K', 'K');
   assert.deepEqual([S.over, S.R[1]], [false, 12]);
@@ -1056,6 +1056,23 @@ test('a home run with the batter called out says so', () => {
   assert.equal(S.cells[1].outN, 1);
 });
 
+test('a home run says its size: a two-run or three-run home run, or a grand slam, by the runs that counted on it', () => {
+  const g = game();
+  const said = () => replay(g).text.at(-1);
+  play(g, 'HR');
+  assert.equal(said(), 'Batter 1 hits a home run.');
+  play(g, '1B', 'HR');
+  assert.equal(said(), 'Batter 3 hits a two-run home run. Batter 2 scores.');
+  play(g, 'K', '1B', '1B', 'HR 8');
+  assert.equal(said(), 'Batter 7 hits a three-run home run to center. Batter 5 and Batter 6 score.');
+  play(g, '1B', '1B', '1B', 'HR');
+  assert.equal(said(), 'Batter 2 hits a grand slam. Batter 8, Batter 9 and Batter 1 score.');
+  // Past a league's run limit, only the runs that count: two, and the rest cross the plate too.
+  const h = game({ rules: { set: 'custom', runs: 2, last: false, all: false, mercy: [] } });
+  play(h, '1B', 'BB', 'BB', 'HR');
+  assert.match(replay(h).text.at(-1), /^Batter 4 hits a two-run home run\. Batter 1 and Batter 2 score\. Batter 3 and Batter 4 cross the plate too/);
+});
+
 test('shorthand marks', () => {
   assert.equal(mark('GO', [6, 3]), '6-3');
   assert.equal(mark('GO', [3]), '3U');
@@ -1078,7 +1095,7 @@ test('everyone who scores on a play is in one sentence, so a grand slam fits the
   const g = game();
   ['Mackenzie', 'Alejandro', 'Christopher', 'Josephine'].forEach((name, i) => { g.teams[0].lineup[i][0].name = name; });
   let S = play(g, 'BB', 'BB', 'BB', 'HR');
-  assert.equal(S.text.at(-1), 'Josephine hits a home run. Mackenzie, Alejandro and Christopher score.');
+  assert.equal(S.text.at(-1), 'Josephine hits a grand slam. Mackenzie, Alejandro and Christopher score.');
   // Each box keeps its own story.
   assert.deepEqual(S.cells.slice(0, 3).map(c => c.story.at(-1)), Array(3).fill('Scored on Josephine’s home run.'));
   // Two who score, and one who moves up.
@@ -1354,7 +1371,7 @@ test('the fielder picker has each fielder where he stands: the third baseman by 
 test('a hit says where it went, when the scorer said: singles to left, and the card’s mark is still 1B', () => {
   const g = game();
   const S = play(g, '1B 7', '2B 8', 'HR 9', '1B 6', '1B 1', '3B');
-  assert.deepEqual(S.cells.map(c => c.text.split('.')[0]), ['Batter 1 singles to left', 'Batter 2 doubles to center', 'Batter 3 hits a home run to right',
+  assert.deepEqual(S.cells.map(c => c.text.split('.')[0]), ['Batter 1 singles to left', 'Batter 2 doubles to center', 'Batter 3 hits a three-run home run to right',
     'Batter 4 singles to short', 'Batter 5 singles to the pitcher', 'Batter 6 triples']);
   assert.deepEqual(S.cells.map(c => c.mark), ['1B', '2B', 'HR', '1B', '1B', '3B']);
   assert.deepEqual(dayOf(S, 0, 0, 0).trips.map(t => t.words), ['single to left']);
