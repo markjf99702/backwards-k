@@ -21,7 +21,7 @@ import { teamHref, earlier as thisSeason } from './stats.js';
 // redo: what Undo took back, latest last. kept: what it took back before a new play went in, to put back after it
 // (see moved()). took: the play Undo took back last, in words, for the line under the field (until Redo or a new play).
 let G = null, S = null, root = null, redo = [], kept = null, took = '';
-let view = 'live', pane = 'card', cardSide = null, readOnly = false, onSave = null, lastInn = '', note = '', later = false;
+let view = 'live', pane = 'card', cardSide = null, readOnly = false, onSave = null, lastInn = '', note = '', later = false, mine = false;
 // The play the scorer tapped for the latest plate appearance, before it was scored from where everyone ended up (a line
 // out that brought the run in from third is saved as a sacrifice fly): Fix runners starts again from it. Only kept
 // here, never saved; after a reload, Fix runners starts from the play as saved.
@@ -29,18 +29,21 @@ let tapped = { e: null, r: '' };
 const BASES = ['', '1st', '2nd', '3rd', 'Home'];
 
 // el: where to draw. game: the game. opts.shared: someone else's game from a link (look, don't touch), with
-// onSave to keep a copy. A game holding something from a newer Backwards K is look-only too, until a reload brings
-// that version.
+// onSave to keep a copy (none when this device has the game with everything the link has), and opts.mine: this device
+// has the game already, to open instead. A game holding something from a newer Backwards K is look-only too, until a
+// reload brings that version.
 export function showGame(el, game, opts = {}) {
   later = newer(game);
-  G = game; root = el; redo = []; kept = null; took = ''; readOnly = !!opts.shared || later; onSave = opts.onSave || null; tapped = { e: null, r: '' };
+  G = game; root = el; redo = []; kept = null; took = ''; readOnly = !!opts.shared || later; onSave = opts.onSave || null; mine = !!opts.mine; tapped = { e: null, r: '' };
   view = 'live'; cardSide = null; lastInn = '';
   if (readOnly) { view = matchMedia('(min-width: 700px)').matches ? 'live' : 'card'; pane = 'card'; }
   S = replay(G);
   // A link carries the game as it was when it was sent: one sent mid-game says so, so nobody waits on it for runs.
+  // And when this device has the game too, it says so.
+  const has = !mine ? '' : onSave ? 'This game is on this device too, and this link has plays yours doesn’t.' : 'This game is on this device too.';
   note = later ? 'Part of this game was saved by a newer Backwards K. Reload to get it before changing this game.'
-    : opts.note || (S.over ? 'A scorecard someone shared with you. Tap any box to see what happened.'
-      : `The scorecard as it stood in the ${S.half ? 'bottom' : 'top'} of the ${ord(S.inn)}. The link doesn’t update: ask for a new one to see the rest. Tap any box to see what happened.`);
+    : opts.note || [S.over ? 'A scorecard someone shared with you.' : `The scorecard as it stood in the ${S.half ? 'bottom' : 'top'} of the ${ord(S.inn)}. The link doesn’t update: ask for a new one to see the rest.`,
+      has, 'Tap any box to see what happened.'].filter(Boolean).join(' ');
   el.innerHTML = frame();
   el.addEventListener('click', onClick);
   drive.chip($('.bar .cloud', el));
@@ -279,7 +282,7 @@ function frame() {
     <main class="game">
       <h1 class="sr">${esc(teamName(G, 0))} at ${esc(teamName(G, 1))}</h1>
       ${readOnly ? '' : '<p class="sr" role="status" id="said"></p><div class="trouble" role="alert" hidden><p></p><button type="button" class="btn sm"></button></div>'}
-      ${readOnly ? `<div class="shared-bar"><p>${esc(note)}</p>${later ? '<button type="button" class="btn sm" data-a="reload">Reload</button>' : ''}${onSave ? '<button type="button" class="btn primary sm" data-a="keep">Save to my games</button>' : ''}</div>` : ''}
+      ${readOnly ? `<div class="shared-bar"><p>${esc(note)}</p>${later ? '<button type="button" class="btn sm" data-a="reload">Reload</button>' : ''}${mine ? `<button type="button" class="btn${onSave ? '' : ' primary'} sm" data-a="mine">Open mine</button>` : ''}${onSave ? '<button type="button" class="btn primary sm" data-a="keep">Save to my games</button>' : ''}</div>` : ''}
       <nav class="vtabs" aria-label="Views">
         <button type="button" data-v="live">${readOnly ? 'Score' : 'Score'}</button>
         <button type="button" data-v="card">Card</button>
@@ -573,7 +576,7 @@ function onClick(e) {
   }
   if (t.dataset.cs) { cardSide = +t.dataset.cs; keepFocus(drawSide); return; }
   if (t.dataset.cell) return cellSheet(S.cells[+t.dataset.cell]);
-  if (readOnly) { if (t.dataset.a === 'keep') onSave(); if (t.dataset.a === 'help') helpSheet(); if (t.dataset.a === 'reload') location.reload(); return; }
+  if (readOnly) { if (t.dataset.a === 'keep') onSave(); if (t.dataset.a === 'mine') go('#/g/' + G.id); if (t.dataset.a === 'help') helpSheet(); if (t.dataset.a === 'reload') location.reload(); return; }
   if (t.dataset.p) return act({ t: 'p', k: t.dataset.p });
   if (t.dataset.r) return choose(t.dataset.r);
   if (t.dataset.runner) return runnerSheet(+t.dataset.runner);

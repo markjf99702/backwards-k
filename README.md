@@ -170,9 +170,10 @@ written out in plain words.
   two devices before they caught up is put together by its plays: when one copy's plays are the start of the other's,
   it gets the rest, with the names and settings changed last (and a play taken back with Undo stays taken back), and
   when each copy has plays the other lacks, both are kept, and the one from the device that finds it is marked
-  "(second copy)". Saving a shared link to a game you already have works the same way. A deleted game's file goes to
-  Drive's bin, and the game is deleted on your other devices too. With no signal, games wait on the device and go up
-  when it's back.
+  "(second copy)". Saving a shared link to a game you already have works the same way, and the link says you have it,
+  with **Open mine** (and Save to my games only when the link has plays your copy hasn't). A deleted game's file goes
+  to Drive's bin, and the game is deleted on your other devices too. With no signal, games wait on the device and go
+  up when it's back.
 - Backwards K can only see the files it made. Signing in lasts an hour and stays on that device. To take the
   permission back, remove junkdrawer.works under **Third-party apps & services** in your Google Account; "Stop saving
   on this device" only stops this device.

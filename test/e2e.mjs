@@ -254,11 +254,28 @@ await fp.click('[data-a=keep]');
 await fp.waitForSelector('.live .field');
 await fp.goto(base);
 assert.equal(await fp.locator('.gi').count(), 1);
-// The same link again: there's nothing new in it.
+// The same link again: this device has the game, with everything in the link, so it offers to open that one.
 await fp.goto(base + link.slice(link.indexOf('#')));
+await fp.waitForSelector('[data-a=mine]');
+assert.match(await fp.textContent('.shared-bar p'), / This game is on this device too\. Tap any box/);
+assert.equal(await fp.locator('[data-a=keep]').count(), 0);
+await fp.click('[data-a=mine]');
+await fp.waitForSelector('.live .field [data-a=batter]');
+assert.match(await fp.evaluate(() => location.hash), /^#\/g\/g/);
+// A link with a play this copy hasn't got: open this one, or save the link's plays to it.
+const more = await page.evaluate(async () => {
+  const { linkFor } = await import('./js/share.js'), { store } = await import('./js/store.js'), g = structuredClone(store.all()[0]);
+  g.ev.push({ t: 'p', k: 'b', at: g.ev.at(-1).at + 5 });
+  const l = await linkFor(g);
+  return l.slice(l.indexOf('#'));
+});
+await fp.goto(base + more);
+await fp.waitForSelector('[data-a=mine]');
+assert.match(await fp.textContent('.shared-bar p'), / This game is on this device too, and this link has plays yours doesn’t\./);
 await fp.click('[data-a=keep]');
-await fp.waitForSelector('.live .field');
-assert.equal(await fp.textContent('#toast'), 'You already have this game.');
+await fp.waitForSelector('.live .field [data-a=batter]');
+assert.equal(await fp.textContent('#toast'), 'Saved to your games.');
+assert.equal(await fp.evaluate(async () => (await import('./js/store.js')).store.all()[0].ev.at(-1).k), 'b');
 // A finished game's link says nothing about waiting for more.
 const final = await fp.evaluate(async () => {
   const { linkFor } = await import('./js/share.js'), { sampleGame } = await import('./js/sample.js');

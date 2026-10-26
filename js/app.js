@@ -12,7 +12,7 @@ import { showGame, leaveGame } from './game.js';
 import { showTeam } from './team.js';
 import { unpack } from './share.js';
 import { sampleGame } from './sample.js';
-import { cleanGame, uid, merge } from './model.js';
+import { cleanGame, uid, merge, plays } from './model.js';
 import { closeSheet, toast, go, routes, whyNot } from './ui.js';
 import { drive } from './sync.js';
 
@@ -42,7 +42,9 @@ async function route(to) {
     let g = null;
     try { g = cleanGame(await unpack(h.slice(3))); } catch { g = null; }
     if (!g) { toast('That link didn’t come through whole. Ask for it again.'); go('#/', { replace: true }); return; }
-    open(fresh(), 'game', g, { shared: true, onSave: () => keep(g) });
+    // This device has the game already: the link offers to open it, and to save only when it has plays this copy lacks.
+    const mine = store.get(g.id);
+    open(fresh(), 'game', g, { shared: true, mine: !!mine, onSave: !mine || adds(mine, g) ? () => keep(g) : null });
     return land();
   }
   const m = /^#\/g\/([\w-]+)/.exec(h);
@@ -88,6 +90,13 @@ function keep(g) {
   if (!ok) toast(`Couldn’t save it: ${whyNot(store.problem())}.`, { ms: 6000 });
   else if (second) toast('You already have this game, with plays this link doesn’t have, so both are kept. The link’s is marked (second copy).', { ms: 9000 });
   else toast('Saved to your games.');
+}
+
+// Whether saving a link's game would bring this device's copy plays it hasn't got (see keep()).
+function adds(mine, g) {
+  if (plays(mine.ev) === plays(g.ev)) return false;
+  const { game, second } = merge(mine, g);
+  return game !== mine || !!second;
 }
 
 // The sample goes into this device's games once; Save again opens that copy, played on or not, and leaves it be. Each
