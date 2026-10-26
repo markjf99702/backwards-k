@@ -897,6 +897,22 @@ test('the rest after a threshold reached on the last batter: the days for the th
   assert.equal(restOf(play(game({ limit: L, pitches: false }), 'K'), 1, 0), null);
 });
 
+test('a pitcher taken out in the middle of the at-bat he went past a threshold in, and brought back: no exception for the batter he hasn’t faced yet', () => {
+  const L = { by: 'll', age: '11-12', max: 85 };
+  const g = game({ limit: L });
+  g.teams[1].pitchers.push({ name: 'Reliever', num: '' });
+  // 33 to the first batter, then 3 balls to the second (36), and out in the middle of it.
+  let S = play(g, P('c'), P('c'), ...Array(30).fill(P('f')), P('s'), P('b'), P('b'), P('b'), { t: 'pch', s: 1, i: 1 });
+  assert.deepEqual([restOf(S, 1, 0).days, restOf(S, 1, 0).last], [2, '']);
+  // The reliever finishes that batter and gets one more out; the starter comes back, but hasn't pitched to anyone yet.
+  S = play(g, P('b'), 'K', { t: 'pch', s: 1, i: 0 });
+  assert.deepEqual([restOf(S, 1, 0).days, restOf(S, 1, 0).last], [2, ''], 'not "this batter": the 35th came in an at-bat he didn’t finish');
+  assert.match(boxHtml(S), /Days of rest \(Little League, 11–12\):<\/b> Pitcher 2 days, Reliever none\./);
+  // And so when the game ends before he pitches again.
+  S = play(g, { t: 'end', why: 'rain' });
+  assert.deepEqual([S.over, restOf(S, 1, 0).days, restOf(S, 1, 0).last], [true, 2, '']);
+});
+
 test('a pitch limit is kept from a file, a link and Drive', () => {
   const L = { by: 'ps', age: '13-14', max: 95 };
   const g = game({ limit: L });

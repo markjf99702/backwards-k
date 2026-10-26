@@ -1377,12 +1377,14 @@ export function restBand(limit, np) {
 // VI(d)): x, the threshold his count went past in his last at-bat (35, say; 0 for none), and last, where that leaves
 // him: 'done' when the at-bat ended with him in, and he pitched to nobody after it (he's out of the game, or it's
 // over); 'now' when it did, and he's still in; 'this' when he's in the middle of it; '' when he came out in the middle
-// of it, without finishing it. days: what he owes if he pitches no more, one fewer than full when the exception holds.
+// of it, without finishing it (and still so when he's brought back later and hasn't pitched to anyone yet: cur, whether
+// his last at-bat is the one going on). days: what he owes if he pitches no more, one fewer than full when the
+// exception holds.
 export function restOf(S, side, i) {
   const L = S.g.limit, st = pitchStat(S, side, i), full = S.g.pitches ? restDays(L, st.np) : null;
   if (full == null) return null;
-  const x = (full && restSteps(L).findLast(t => st.pre < t && t < st.np)) || 0, inNow = S.pit[side] === i && !S.over;
-  const last = !x ? '' : inNow ? (st.done ? 'now' : 'this') : st.done || S.pit[side] === i ? 'done' : '';
+  const x = (full && restSteps(L).findLast(t => st.pre < t && t < st.np)) || 0, inNow = S.pit[side] === i && !S.over, cur = st.ab === S.abN;
+  const last = !x ? '' : inNow ? (st.done ? 'now' : cur ? 'this' : '') : st.done || (S.pit[side] === i && cur) ? 'done' : '';
   return { days: last === 'done' || last === 'now' ? full - 1 : full, full, x, last, np: st.np };
 }
 // The rule to cite for it: Little League's, which a Pitch Smart limit follows too, with the same table.
