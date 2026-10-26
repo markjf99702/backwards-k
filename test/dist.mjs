@@ -50,11 +50,11 @@ try {
   await p.click('.sheet .mv[data-from="3"] [data-to="4"]');
   await p.click('.sheet .mv[data-from="2"] [data-to="3"]');
   await p.click('.sheet [data-x=save]');
-  assert.equal(await p.textContent('.ticker p'), 'Batter 3 grounds out, short to first (6-3). Batter 1 scores. Batter 2 to third.');
+  assert.equal(await p.textContent('.ticker p'), 'Batter 3 grounds out, short to first (6-3). Batter 1 scores. Batter 2 to third. Owls take the lead, 1–0.');
   await p.reload();
   await p.waitForSelector('.live .field');
   assert.match(await p.textContent('.bar .title'), /Owls\s*1\s*–\s*0\s*Hawks/);
-  assert.equal(await p.textContent('.ticker p'), 'Batter 3 grounds out, short to first (6-3). Batter 1 scores. Batter 2 to third.');
+  assert.equal(await p.textContent('.ticker p'), 'Batter 3 grounds out, short to first (6-3). Batter 1 scores. Batter 2 to third. Owls take the lead, 1–0.');
   await ctx.close();
 
   step('the copy for a host that supplies the page around it, in its dark look');
