@@ -949,7 +949,6 @@ step('a delay: the game waits as it was, the screen can sleep, and Resume picks 
   assert.deepEqual((await stored(p, id)).ev.map(e => e.t).slice(-4), ['p', 'delay', 'pch', 'on']);
   // Called before it's official: ahead, not a win; and after the run rule, Final with the reason.
   await p.click('[data-r=HR]');
-  await p.click('.sheet [data-x=save]');
   await p.click('[data-a=menu]');
   await p.click('.sheet [data-y=end]');
   await p.click('[data-end=called]');
@@ -1578,6 +1577,17 @@ step('fewer taps: a double play with one runner on, and a triple play with two, 
   await p.click('.sheet [data-x=save]');
   assert.match(await p.textContent('.bug'), /Owls\s*1/i);
   assert.equal(await plays(p, id), 'pa1B paDP paK pa1B pa1B paTP paK pa2B paK pa1B');
+
+  step('fewer taps: a home run with a runner on goes straight in, and Fix runners is there for a base he missed');
+  await p.click('[data-r=HR]');
+  assert.equal(await p.locator('.sheet .moves').count(), 0, 'everyone scores');
+  assert.match(await p.textContent('.bug'), /Owls\s*3/i);
+  await p.click('[data-a=fixlast]');
+  assert.deepEqual(await p.$$eval('.sheet .mv [data-to][aria-pressed=true]', b => b.map(x => x.textContent)), ['Home', 'Home']);
+  await p.click('.mv[data-from="0"] [data-to="0"]');
+  await p.click('.sheet [data-x=save]');
+  assert.match(await tickerOf(p), /^Batter \d hits a home run, but is called out on the bases\. Batter \d scores\.$/);
+  assert.match(await p.textContent('.bug'), /Owls\s*2/i);
   await p.context().close();
 }
 
@@ -1960,8 +1970,9 @@ step('a screen reader hears each play and where things stand, in a region that s
   await p.click('.sheet [data-x=save]');
   assert.equal(await said(), 'Batter 2 doubles. Batter 1 to third. Runners on second and third, nobody out.');
   await p.click('[data-p=s]');
+  // A home run with runners on goes straight in: everyone scores.
   await p.click('[data-r=HR]');
-  await p.click('.sheet [data-x=save]');
+  assert.equal(await p.locator('.sheet .moves').count(), 0);
   assert.equal(await said(), 'Batter 3 hits a three-run home run. Batter 1 and Batter 2 score. Owls take the lead, 3–0. Owls 3, Home 0. Nobody on, nobody out.');
   await p.click('.bar .undo');
   assert.equal(await said(), 'Took back: Batter 3 hits a three-run home run. Batter 1 and Batter 2 score. Owls take the lead, 3–0. Runners on second and third, nobody out, 0 balls, 1 strike.');
@@ -3123,8 +3134,7 @@ step('Ask where hits went: a hit asks, one tap or Skip, and the plays say where'
   // Skip: nothing more said than before.
   await p.click('[data-r="HR"]');
   await p.click('.sheet [data-x=skip]');
-  assert.equal(await p.textContent('.sheet h2'), 'Home run');
-  await p.click('[data-x=save]');
+  // (A home run, with runners on or not, has nothing to ask about them.)
   assert.match(await tickerOf(p), /^Batter 3 hits a three-run home run\./);
   // A box: where it went can be changed, and the change has its own Undo.
   await p.click('[data-v=card]');

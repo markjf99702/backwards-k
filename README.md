@@ -23,7 +23,8 @@ written out in plain words.
   under More: an automatic ball (the pitcher took too long, or balked with nobody on) or an automatic strike (the
   batter wasn't ready), which moves the count but isn't a pitch, so it stays out of the pitch count (OBR 5.07(c)).
 - **Runners move themselves.** With runners on, you see where everyone usually ends up and change whatever went
-  differently. A runner marked out is out at the next base unless you say where (thrown out at the plate on a
+  differently (a home run goes straight in: everyone scores, and Fix runners is there for a base someone missed, on
+  appeal). A runner marked out is out at the next base unless you say where (thrown out at the plate on a
   single), and one who got further than the play takes him did it on the play, on the throw or on an error (say whose:
   it's charged, and the run it lets in earns no RBI). Tap a runner on the field for a steal, a wild pitch, a pickoff,
   a balk or defensive indifference (a base nobody tried to stop him taking: not a steal); everyone who moved up on

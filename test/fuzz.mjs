@@ -52,7 +52,7 @@ function makeGame(setup) {
   if (setup.join) g.ev.push({ t: 'join', ...setup.join });
   return g;
 }
-const QUIET = new Set(['K', 'KL', 'PU', 'BB', 'IBB', 'HBP', 'CI']);
+const QUIET = new Set(['K', 'KL', 'PU', 'BB', 'IBB', 'HBP', 'CI', 'HR']);
 const SAME = [['K', 'KL', 'GO', 'FO', 'LO', 'PU', 'SF', 'SAC'], ['1B', 'BB', 'IBB', 'HBP', 'E', 'FC', 'KD', 'CI']];
 const withF = (e, f) => { if (f && f.length) e.f = f; return e; };
 // The buttons that are there to tap (liveHtml's and moreSheet's can).

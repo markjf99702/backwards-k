@@ -629,10 +629,10 @@ function choose(code, f) {
   runnersSheet(code, f, m);
 }
 const withF = (e, f) => { if (f && f.length) e.f = f; return e; };
-const QUIET = new Set(['K', 'KL', 'PU', 'BB', 'IBB', 'HBP', 'CI']);
-// Nothing to ask about the runners: nobody on, a play where runners only move when they're forced, the batter making
-// the third out (nobody can move up or score on that), or a double play with one runner on or a triple play with two
-// (everyone is out).
+const QUIET = new Set(['K', 'KL', 'PU', 'BB', 'IBB', 'HBP', 'CI', 'HR']);
+// Nothing to ask about the runners: nobody on, a play where runners only move when they're forced, a home run (everyone
+// scores; a base missed, on appeal, is a job for Fix runners), the batter making the third out (nobody can move up or
+// score on that), or a double play with one runner on or a triple play with two (everyone is out).
 function quiet(code) {
   const on = runnersOn(S).length;
   return !on || QUIET.has(code) || (S.outs === 2 && RESULTS[code].kind === 'out') || (code === 'DP' && on === 1) || (code === 'TP' && on === 2);
