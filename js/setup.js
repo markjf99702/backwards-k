@@ -59,7 +59,8 @@ export function showSetup(el) {
     if (INN.includes(kept.opt.innings)) opt.innings = kept.opt.innings;
     Object.assign(opt, { rules: kept.opt.rules, limit: kept.opt.limit });
     for (const k of ['tie', 'pitches', 'spray']) if (typeof kept.f[k] === 'boolean') opt[k] = kept.f[k];
-    if (/^\d{4}-\d\d-\d\d$/.test(kept.f.date)) opt.date = kept.f.date;
+    // (A date the scorer picked. One left as the day it was typed, the night before, say, is today's now.)
+    if (/^\d{4}-\d\d-\d\d$/.test(kept.f.date) && kept.f.date !== kept.f.day) opt.date = kept.f.date;
   }
 
   el.innerHTML = `<header class="bar">
@@ -164,7 +165,7 @@ export function showSetup(el) {
   function keep() {
     const form = el.querySelector('form');
     if (started || !el.isConnected || !form) return;
-    const f = { tie: form.tie.checked, pitches: form.pitches.checked, spray: form.spray.checked, date: form.date.value, place: form.place.value, from: form.from.value, r0: form.r0.value, r1: form.r1.value, lead: form.lead.value };
+    const f = { tie: form.tie.checked, pitches: form.pitches.checked, spray: form.spray.checked, date: form.date.value, day: today(), place: form.place.value, from: form.from.value, r0: form.r0.value, r1: form.r1.value, lead: form.lead.value };
     try { sessionStorage.setItem(DRAFT, JSON.stringify({ T, opt: { innings: opt.innings, rules: opt.rules, limit: opt.limit }, f, open: $$('details', el).map(d => d.open) })); } catch { /* storage blocked: nothing kept */ }
   }
   for (const ev of ['input', 'change', 'click', 'toggle']) el.addEventListener(ev, () => setTimeout(keep, 0), true);

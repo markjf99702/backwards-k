@@ -1235,6 +1235,19 @@ step('a half-filled new game survives a reload (switching apps to copy a lineup)
   assert.equal(await p.inputValue('[name=place]'), 'Riverside Park');
   assert.equal(await p.inputValue('[name=from]'), '3.1');
   assert.equal(await p.inputValue('[name=r0]'), '2');
+  // Typed the night before, the date it was typed on is today's now; a date the scorer picked stays.
+  const day = await p.inputValue('[name=date]');
+  const typed = async (date, on) => {
+    await p.waitForTimeout(50);
+    await p.evaluate(([date, on]) => { const d = JSON.parse(sessionStorage.getItem('backwards-k.new')); Object.assign(d.f, { date, day: on }); sessionStorage.setItem('backwards-k.new', JSON.stringify(d)); }, [date, on]);
+    await p.reload();
+    await p.waitForSelector('[name=date]');
+  };
+  await typed('2026-05-01', '2026-05-01');
+  assert.equal(await p.inputValue('[name=date]'), day, 'the day it was typed on is today');
+  assert.equal(await p.inputValue('[data-side="0"] [data-name]'), 'Foxes', 'with the rest as it was');
+  await typed('2026-05-01', '2026-05-02');
+  assert.equal(await p.inputValue('[name=date]'), '2026-05-01', 'a date picked stays');
   // Started: it goes, and the next new game starts afresh.
   await p.click('[data-go]');
   await p.waitForSelector('.live .field');
