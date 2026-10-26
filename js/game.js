@@ -4,7 +4,7 @@ import {
   replay, suggest, check, runsCount, scoredAs, now, RESULTS, BASE, POS, POS_NAME, halfLabel, label, player, teamName,
   pitcherLabel, ord, runnersOn, mark, pitchStat, pitchWords, pitchDay, pitchWork, pitchCount, winningRun, creditedHit, credit, fits,
   ENDS, regulation, official, winner, AUTO, limitState, restDays, restBand, noCatch, LIMIT_BY, sameSoFar, outAt, outBases, usualBase,
-  runnerName, PLAY, toWhere, decider, milestones, runMark,
+  runnerName, PLAY, toWhere, decider, milestones, runMark, misfit,
 } from './engine.js';
 import { store } from './store.js';
 import { blank, takeBack, putBack, newer, plays, setField } from './model.js';
@@ -627,9 +627,7 @@ function choose(code, f) {
   const R = RESULTS[code];
   // (A hit asks where it went when the game asks that: Ask where hits went, in Game settings.)
   if ((R.f || (R.kind === 'hit' && G.spray)) && f === undefined) return pickFielders(code, null, got => choose(code, got));
-  const m = suggest(S, code);
-  // With two out, a runner on second is off with the pitch and usually scores on a single: Home is picked for him.
-  if (code === '1B' && S.outs === 2 && S.bases[2]) m.find(x => x[0] === 2)[1] = 4;
+  const m = likely(S, code);
   // (For the odd one that went differently, Fix runners is right under the field.)
   if (quiet(code)) {
     closeSheet();
@@ -640,13 +638,21 @@ function choose(code, f) {
   runnersSheet(code, f, m);
 }
 const withF = (e, f) => { if (f && f.length) e.f = f; return e; };
+// Where everyone most likely ended up (suggest()). With two out, a runner on second is off with the pitch and usually
+// scores on a single: Home is picked for him.
+function likely(st, code) {
+  const m = suggest(st, code);
+  if (code === '1B' && st.outs === 2 && st.bases[2]) m.find(x => x[0] === 2)[1] = 4;
+  return m;
+}
 const QUIET = new Set(['K', 'KL', 'PU', 'BB', 'IBB', 'HBP', 'CI', 'HR']);
 // Nothing to ask about the runners: nobody on, a play where runners only move when they're forced, a home run (everyone
 // scores; a base missed, on appeal, is a job for Fix runners), the batter making the third out (nobody can move up or
-// score on that), or a double play with one runner on or a triple play with two (everyone is out).
-function quiet(code) {
-  const on = runnersOn(S).length;
-  return !on || QUIET.has(code) || (S.outs === 2 && RESULTS[code].kind === 'out') || (code === 'DP' && on === 1) || (code === 'TP' && on === 2);
+// score on that), or a double play with one runner on or a triple play with two (everyone is out). st: how things
+// stood before it.
+function quiet(code, st = S) {
+  const on = runnersOn(st).length;
+  return !on || QUIET.has(code) || (st.outs === 2 && RESULTS[code].kind === 'out') || (code === 'DP' && on === 1) || (code === 'TP' && on === 2);
 }
 
 const HINT = {
@@ -780,8 +786,9 @@ function runnersSheet(code, f, moves, { st = S, editing = false, done = act } = 
       </div>`;
     });
     body.querySelector('.moves').innerHTML = rows.join('');
-    // (In Fix runners the play is in the game already, so changing what it was is a job for Undo.)
-    const said = check(st, m, code), err = editing ? said.replace('Cancel and', 'Undo back to that play and') : said;
+    // (In Fix runners the play is in the game already, so changing what it was is a job for Undo. A box on the card can
+    // be changed to anything: editing is 'box'.)
+    const said = check(st, m, code), err = editing === true ? said.replace('Cancel and', 'Undo back to that play and') : said;
     const outs = m.filter(x => x[1] === 0).length, runs = m.filter(x => x[1] === 4).length;
     const third = st.outs + outs >= 3 && runs > 0;
     if (userSaid == null) counts.v = runsCount(st, code, m);
@@ -1446,6 +1453,9 @@ function cellSheet(c) {
   const fromPitch = e && e.t === 'p' && !e.v && (c.r === 'K' || c.r === 'KL');
   // (By what was tapped: a double that won the game and counts as a single is still a double, and can't be a walk.)
   const group = readOnly || !e ? null : e.t === 'pa' ? SAME.find(gr => gr.includes(e.r)) : fromPitch ? ['K', 'KL'] : null;
+  // Any box the scorer tapped can be made another result, or have where everyone ended up changed (see changeBox()):
+  // not the runner put on second to start an extra inning, nor an automatic ball or strike.
+  const whole = !readOnly && !!e && ((e.t === 'pa' && !!RESULTS[e.r]) || (e.t === 'p' && !e.v && ['K', 'KL', 'BB'].includes(c.r)));
   // A hit can say where it went, or change it (in a game that asks where hits went, or one that said).
   const hit = !readOnly && !!e && e.t === 'pa' && R.kind === 'hit' && (G.spray || !!c.f);
   const why = group && e.t === 'pa' ? cantBe(c, e) : {};
@@ -1458,7 +1468,11 @@ function cellSheet(c) {
     ${group ? `<h3>Change what it was</h3><div class="chips wide" role="group" aria-label="What it was">${group.map(k => `<button type="button" data-sw="${k}" aria-pressed="${k === c.r}"${why[k] && k !== c.r ? ` disabled title="${esc(why[k])}"` : ''}>${esc(RESULTS[k].label)}</button>`).join('')}</div>` : ''}
     ${group && e.t === 'pa' && (R.f || (c.f && R.kind !== 'hit')) ? `<div class="row"><button type="button" class="btn quiet" data-y="f">Change the fielders${c.f ? ` (${esc(c.f.join('-'))})` : ''}</button></div>` : ''}
     ${hit ? `<div class="row"><button type="button" class="btn quiet" data-y="w">${c.f ? `Change where it went (${esc(toWhere(c.f[0]))})` : 'Say where it went'}</button></div>` : ''}
-    ${!readOnly && e && !group ? `<p class="hint">${hit ? 'The rest of it' : 'This one'} can’t be changed here. Undo takes plays back, latest first, and until the next batter’s turn is over, Fix runners changes where everyone ended up on the play before.</p>` : ''}
+    ${whole ? `<div class="list fix-box">
+      <button type="button" class="li" data-y="other"><b>It was something else</b><span>Any result: a double, not a single, or an out, not a hit. The plays after it are checked.</span></button>
+      <button type="button" class="li" data-y="moves"><b>Change where everyone ended up</b><span>Who scored, who was out, and who moved up on it.</span></button>
+    </div>` : ''}
+    ${!readOnly && e && !group && !whole ? `<p class="hint">This one can’t be changed here. Undo takes plays back, latest first, and until the next batter’s turn is over, Fix runners changes where everyone ended up on the play before.</p>` : ''}
     ${c.auto ? `<p class="hint">Extra innings start with a runner on second: the batter before the leadoff man (OBR 7.01(b)). He didn’t bat, and his run is unearned. Game settings has when it starts.</p>` : ''}
     ${spray(S, x => x.side === c.side && x.slot === c.slot && x.p === c.p, `Where ${name} hit it today`, { now: c })}
     ${link ? `<div class="list season-link">${link}</div>` : ''}
@@ -1501,6 +1515,139 @@ function cellSheet(c) {
       if (e.t === 'pa' && e.r !== was && (RESULTS[e.r].f || (RESULTS[e.r].kind === 'hit' && G.spray)) && !e.f) return pickFielders(e.r, null, f => { if (f && f.length) { e.f = f; save(); } changed(); }, { st: replay(G, c.ev) });
       changed();
     }
-    if (y) pickFielders(e.r, e.f, f => { if (f && f.length) e.f = f; else delete e.f; save(); changed(); }, { st: replay(G, c.ev) });
+    if (y && y.dataset.y === 'other') return otherSheet(c);
+    if (y && y.dataset.y === 'moves') {
+      // From what was tapped, as Fix runners does (a line out that brought the run in is saved as a sacrifice fly).
+      const code = e.t === 'p' ? c.r : tapped.e === e ? tapped.r : e.r, st = replay(G, c.ev);
+      return runnersSheet(code, e.f || null, e.m || suggest(st, code), { st, editing: 'box', done: e2 => changeBox(c, e, e2, 'Changed where everyone ended up.') });
+    }
+    if (y && (y.dataset.y === 'f' || y.dataset.y === 'w')) pickFielders(e.r, e.f, f => { if (f && f.length) e.f = f; else delete e.f; save(); changed(); }, { st: replay(G, c.ev) });
   });
+}
+
+// It was something else: every result, as on the game screen, but for how things stood before the box. One that
+// couldn't have happened then is greyed out, as there. Then who fielded it and where everyone ended up, as when it's
+// tapped, and the change is tried against the plays after it (changeBox()).
+function otherSheet(c) {
+  const e = G.ev[c.ev], st = replay(G, c.ev), on = runnersOn(st).length;
+  const not = {
+    SF: !st.bases[3] || st.outs > 1, SAC: !on || st.outs > 1, DP: !on || st.outs > 1, TP: on < 2 || st.outs > 0, FC: !on,
+    KD: (G.pitches && st.s !== 2) || (!!st.bases[1] && st.outs < 2),
+  };
+  const now = e.t === 'pa' ? e.r : c.r;
+  const res = (code, big, small) => `<button type="button" class="res r-${RESULTS[code].kind}" data-o="${code}"${code === now ? ' aria-current="true"' : ''}${not[code] ? ' disabled' : ''}><b>${big}</b><span>${small}</span></button>`;
+  const body = openSheet(`<h2 id="sheetTitle">What was it? <small>${esc(label(player(G, c.side, c.slot, c.p), c.slot))}, ${c.side ? 'bottom' : 'top'} of the ${ord(c.inn)}</small></h2>
+    <div class="pad results" role="group" aria-label="What the batter did">
+      <div class="row4" role="group" aria-label="Hits">${res('1B', '1B', 'Single')}${res('2B', '2B', 'Double')}${res('3B', '3B', 'Triple')}${res('HR', 'HR', 'Home run')}</div>
+      <div class="row4" role="group" aria-label="On base without a hit">${res('BB', 'BB', 'Walk')}${res('IBB', 'IBB', 'Intentional walk')}${res('HBP', 'HBP', 'Hit by pitch')}${res('E', 'E', 'Error')}
+        ${res('FC', 'FC', 'Fielder’s choice')}${res('KD', 'K', 'Dropped third strike')}${res('CI', 'CI', 'Catcher’s interference')}</div>
+      <div class="row4" role="group" aria-label="Outs">${res('K', 'K', 'Strikeout')}${res('KL', KL, 'Strikeout looking')}${res('GO', 'G', 'Ground out')}${res('FO', 'F', 'Fly out')}
+        ${res('LO', 'L', 'Line out')}${res('PU', 'P', 'Pop out')}${res('SF', 'SF', 'Sac fly')}${res('SAC', 'SAC', 'Sac bunt')}${res('DP', 'DP', 'Double play')}${res('TP', 'TP', 'Triple play')}</div>
+    </div>
+    <div class="row"><button type="button" class="btn quiet" data-close>Cancel</button></div>`);
+  body.addEventListener('click', ev => {
+    const b = ev.target.closest('[data-o]');
+    if (!b || b.disabled) return;
+    const code = b.dataset.o, R = RESULTS[code];
+    const go = f => {
+      const m = likely(st, code);
+      if (quiet(code, st)) return changeBox(c, e, withF({ t: 'pa', r: code, m }, f));
+      runnersSheet(code, f, m, { st, editing: 'box', done: e2 => changeBox(c, e, e2) });
+    };
+    if (R.f || (R.kind === 'hit' && G.spray)) return pickFielders(code, null, go, { st });
+    go(null);
+  });
+}
+
+// A box's play changed after the fact: e2 in place of e, its event (a plate appearance, or a pitch that ended the
+// at-bat). The game is played back with the change, and each play after it checked against where the game would be
+// when it came (misfit() in engine.js, the check Put back makes). If they all still fit, it's saved, and the message
+// has its own Undo. If one doesn't, the sheet says which and why, and offers to undo back to it: that play and the ones
+// after it are taken back, to Put back (each as it was if it fits, its runners asked again if not), and the change
+// goes in. words: what the message says, when not what the box was changed to.
+function changeBox(c, e, e2, words = '') {
+  if (!G || G.ev[c.ev] !== e) return toast('The game changed somewhere else while this was open, so the change wasn’t made.');
+  const k = c.ev, was = plays(G.ev);
+  keepAt(e2, e);
+  // (A strikeout after it, say, with the runners somewhere else now, is fitted to them: see misfit().)
+  const ev = G.ev.map((x, i) => (i === k ? e2 : x)), miss = misfit(G, { ...G, ev }, k), before = G.ev.slice();
+  const put = () => {
+    G.ev.splice(0, G.ev.length, ...ev.slice(0, G.ev.length));
+    if (tapped.e === e) tapped = { e: e2, r: e2.r };
+    else if (tapped.e && !G.ev.includes(tapped.e)) tapped = { e: G.ev[before.indexOf(tapped.e)], r: tapped.r };
+  };
+  if (!miss) {
+    put();
+    moved();
+    save();
+    const cell = S.cells[c.n];
+    cellSheet(cell);
+    const what = cell && RESULTS[cell.r] ? RESULTS[cell.r].label.toLowerCase() : '';
+    toast(words || `Changed to ${what}${cell && cell.f && RESULTS[cell.r].kind !== 'hit' ? ` (${cell.mark})` : ''}.`, {
+      action: 'Undo',
+      run: () => {
+        if (!G || G.ev[k] !== e2 || G.ev.length !== before.length) return; // the game changed somewhere else meanwhile
+        G.ev.splice(0, G.ev.length, ...before);
+        if (tapped.e === e2) tapped = { e, r: e.r };
+        save();
+        cellSheet(S.cells[c.n]);
+      },
+    });
+    return;
+  }
+  const n = G.ev.length - miss.i;
+  const body = openSheet(`<h2 id="sheetTitle">That doesn’t fit what came after</h2>
+    <p>${esc(misfitWords(miss))}</p>
+    <p class="hint">Undo back to it to make this change: ${n > 1 ? `that play and the ${n > 2 ? n - 1 : 'one'} after it are` : 'that play is'} taken back. Then Put back, under the field, brings ${n > 1 ? 'each' : 'it'} back as it was if it still fits, asks again where everyone went if not, and leaves out what can’t have happened any more.</p>
+    <div class="row"><button type="button" class="btn quiet" data-close>Cancel</button><button type="button" class="btn primary" data-x="back">Undo back to it</button></div>`);
+  body.addEventListener('click', ev => {
+    if (!ev.target.closest('[data-x=back]')) return;
+    if (!G || G.ev[k] !== e || plays(G.ev) !== was) return toast('The game changed somewhere else while this was open, so the change wasn’t made.');
+    closeSheet();
+    undoTo(miss.i);
+    put();
+    // What was taken back waits to be put back after the change (with anything Undo took back before it, and any plays
+    // already waiting to go back after those).
+    kept = { stack: (kept ? kept.stack : []).concat(redo), n: G.ev.length };
+    redo = [];
+    took = '';
+    save();
+    const cell = S.cells[c.n], what = cell && RESULTS[cell.r] ? ` to ${RESULTS[cell.r].label.toLowerCase()}` : '';
+    const t = `${words ? words.replace(/\.$/, '') : `Changed${what}`}, and took back ${few(n, 'play')}. Put back brings ${n > 1 ? 'them' : 'it'} back.`;
+    say(t);
+    toast(t, { action: 'Put back', run: putBackKept, ms: 8000 });
+  });
+}
+// Undo, as many times as it takes for the game to have only its first i plays: each goes on Redo's list, with how
+// things stood before it, as after Undo.
+function undoTo(i) {
+  while (G.ev.length > i) {
+    const said = tidy(S.text[G.ev.length - 1]), r = takeBack(G);
+    if (!r) break;
+    S = replay(G);
+    redo.push(Object.assign(r, { at: { half: S.half, inn: S.inn, outs: S.outs, over: S.over }, said }));
+  }
+}
+// The play that wouldn't fit after a box is changed, and why, in words: "Ruiz’s single in the 5th has a runner on
+// second who wouldn’t be there." (was: the game as scored, before it; now: the changed game.)
+const RUN_WORDS = { SB: 'steal', CS: 'caught stealing', PO: 'pickoff', OB: 'out on the bases', WP: 'move up on a wild pitch', PB: 'move up on a passed ball', BK: 'move up on a balk', E: 'move up on an error', DI: 'move up on defensive indifference', OA: 'move up' };
+function misfitWords({ i, why, was, now }) {
+  const e = G.ev[i], cell = S.cells.find(x => x.ev === i), half = st => `${st.half ? 'bottom' : 'top'} of the ${ord(st.inn)}`;
+  let what;
+  if (cell) what = `${label(player(G, cell.side, cell.slot, cell.p), cell.slot)}’s ${(RESULTS[cell.r] || AUTO).label.toLowerCase()}`;
+  else if (e.t === 'r' && e.m.length && was.bases[e.m[0][0]]) what = `${runnerName(G, was.bases[e.m[0][0]])}’s ${RUN_WORDS[e.m[0][2]] || 'move'}`;
+  else if (e.t === 'p') what = `A pitch to ${label(player(G, was.half, was.up[was.half], was.pl[was.half][was.up[was.half]] || 0), was.up[was.half])}`;
+  else what = e.t === 'pch' ? 'The pitching change' : e.t === 'sub' ? 'The substitution' : 'A play after it';
+  what += ` in the ${ord(was.inn)}`;
+  let because;
+  if (why === 'over') because = now.over && !was.over ? 'would come after the game was over' : !now.over && was.over ? 'would come before the game was over' : `would be in the ${half(now)}, not the ${half(was)}`;
+  else if (why === 'result') because = 'couldn’t have happened with the bases and the outs as they’d be';
+  else if (why === 'gone') because = 'would have nobody in that spot in the order';
+  else {
+    const listed = e.t === 'cr' ? [e.b] : (e.m || suggest(now, e.r)).map(x => x[0]).filter(b => b > 0), on = runnersOn(now);
+    const extra = listed.find(b => !on.includes(b)), left = on.find(b => !listed.includes(b));
+    because = extra ? `has a runner on ${BASE[extra]} who wouldn’t be there` : left && e.t === 'pa' ? `doesn’t say where the runner on ${BASE[left]} went` : 'has the runners going where they couldn’t';
+  }
+  const t = `${what} ${because}.`;
+  return t[0].toUpperCase() + t.slice(1);
 }

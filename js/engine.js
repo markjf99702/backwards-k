@@ -1094,6 +1094,32 @@ export function fits(S, e, at) {
   return '';
 }
 
+// A play changed after the fact (a box on the card): whether the plays after it still fit. g2 is the game with its
+// event k changed, in a list of events of its own. The two are played side by side, and each play after k is checked
+// with fits() against where the changed game is when it comes, from how the game as scored stood then: the check Put
+// back makes. A plate appearance on which every runner stayed where he was (a strikeout, a pop-up) still fits with the
+// runners somewhere else: in g2.ev it's given those runners, staying put, as a copy. null when they all fit; else the
+// first that doesn't, { i: its place in the game, why: what fits() said, was: how the game as scored stood before it,
+// now: how the changed game would }.
+export function misfit(g, g2, k) {
+  const A = replay(g, 0), B = replay(g2, 0);
+  A.upTo = B.upTo = g.ev.length;
+  for (let i = 0; i < g.ev.length; i++) {
+    A.i = B.i = i;
+    if (i > k) {
+      const at = { half: A.half, inn: A.inn, outs: A.outs, over: A.over }, e = g2.ev[i];
+      let why = fits(B, e, at);
+      if (why === 'runners' && e.t === 'pa' && e.m && e.m.every(x => !x[0] || (x[1] === x[0] && x.length === 2))) {
+        const e2 = { ...e, m: [...e.m.filter(x => !x[0]), ...runnersOn(B).map(b => [b, b])] };
+        if (!fits(B, e2, at)) { g2.ev[i] = e2; why = ''; }
+      }
+      if (why) return { i, why, was: A, now: B };
+    }
+    step(A, g.ev[i]); step(B, g2.ev[i]);
+  }
+  return null;
+}
+
 // When a play makes the third out, do the runs that crossed on it count? Not if the batter was out before reaching
 // first or the third out was a force; usually yes otherwise (a runner scores before another is tagged out, or
 // before the batter is thrown out stretching a hit: OBR 5.08(a)). The scorer can say.

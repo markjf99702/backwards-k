@@ -9,7 +9,8 @@
 // indifference, balk or courtesy runner, a substitution or someone back in, a player who left the game and came back
 // (a continuous order), someone else batting than the order says, a pitching change, a
 // batter added, End this half-inning, End the game here (a delay, a run rule, a time limit, called), Keep playing
-// and Resume play, a box switched to another result, and Undo,
+// and Resume play, a box switched to another result (in one tap, or any result or where everyone ended up, with the
+// plays after it checked and, when one doesn't fit, undone back to it to put back), and Undo,
 // Redo and Put back. After each one: the outs, the count and the bases make sense; runs, hits and errors add up the
 // same way on the line score, the card, the batters and the pitchers; every half-inning passes the scorer's proof
 // (OBR 9.03(c)); the game ends when it should, and a walk-off counts only the winning run; Undo and Redo give back
@@ -232,6 +233,29 @@ function run(C, a) {
       save(C);
       return { put: true };
     }
+    case 'other': { // a box made any other result, or where everyone ended up changed (game.js otherSheet(), changeBox())
+      const c = S.cells[a.n], e = c && g.ev[c.ev];
+      if (!e || !((e.t === 'pa' && RESULTS[e.r]) || (e.t === 'p' && !e.v && ['K', 'KL', 'BB'].includes(c.r)))) return false;
+      const st = replay(g, c.ev), on = runnersOn(st).length, code = a.r || (e.t === 'pa' ? e.r : c.r);
+      const not = { SF: !st.bases[3] || st.outs > 1, SAC: !on || st.outs > 1, DP: !on || st.outs > 1, TP: on < 2 || st.outs > 0, FC: !on, KD: (g.pitches && st.s !== 2) || (!!st.bases[1] && st.outs < 2) };
+      if (a.r && not[a.r]) return false;
+      const m0 = a.r ? suggest(st, code) : e.m || suggest(st, code), m = a.m != null ? changed(dice(a.m), st, m0, code) : m0;
+      const f = a.r ? (RESULTS[code].f || RESULTS[code].kind === 'hit' ? a.f : null) : e.f || null;
+      const e2 = a.r && quiet(st, code) ? withF({ t: 'pa', r: code, m: m0 }, f) : sheet(st, code, f, m, a.said);
+      if (!e2) return false;
+      if (Number.isFinite(e.at)) e2.at = e.at;
+      const ev = g.ev.map((x, i) => (i === c.ev ? e2 : x)), miss = E.misfit(g, { ...g, ev }, c.ev);
+      if (miss) {
+        // Undo back to the first play that doesn't fit; the change goes in, and what was taken back waits to be put back.
+        while (g.ev.length > miss.i) { const r = M.takeBack(g); save(C); C.redo.push(Object.assign(r, { at: where(C.S) })); }
+        g.ev.splice(0, g.ev.length, ...ev.slice(0, g.ev.length));
+        C.kept = { stack: (C.kept ? C.kept.stack : []).concat(C.redo), n: g.ev.length };
+        C.redo = [];
+      } else { g.ev.splice(0, g.ev.length, ...ev); moved(C); }
+      if (C.tapped.e === e) C.tapped = { e: e2, r: e2.r };
+      save(C);
+      return { put: true };
+    }
     case 'box': { // a box on the card: Change what it was
       const c = S.cells[a.n], e = c && g.ev[c.ev];
       if (!e) return false;
@@ -280,11 +304,11 @@ function changed(rnd, S, m, code) {
 const said = (rnd, S, m) => (S.outs + m.filter(x => x[1] === 0).length >= 3 && m.some(x => x[1] === 4) && rnd() < 0.3 ? rnd() < 0.5 : null);
 function choose(C, rnd) {
   const { S, g } = C, w = [];
-  if (S.over) w.push([5, 'stop'], [3, 'on'], [1.5, 'undo'], [0.5, 'sub'], [0.3, 'pitcher'], [0.4, 'box']);
+  if (S.over) w.push([5, 'stop'], [3, 'on'], [1.5, 'undo'], [0.5, 'sub'], [0.3, 'pitcher'], [0.4, 'box'], [0.4, 'other']);
   else if (S.delayed) w.push([3, 'on'], [0.5, 'end'], [0.5, 'undo'], [0.3, 'sub'], [0.2, 'pitcher'], [0.2, 'back'], [0.2, 'box']);
   else {
     if (g.pitches) w.push([6, 'p'], [0.12, 'ap']);
-    w.push([3.2, 'pa'], [0.12, 'sub'], [0.05, 'pitcher'], [0.08, 'back'], [0.03, 'add'], [0.02, 'eoh'], [0.012, 'end'], [0.01, 'delay'], [0.4, 'undo'], [0.08, 'box'], [0.03, 'gone'], [0.02, 'in'], [0.03, 'up']);
+    w.push([3.2, 'pa'], [0.12, 'sub'], [0.05, 'pitcher'], [0.08, 'back'], [0.03, 'add'], [0.02, 'eoh'], [0.012, 'end'], [0.01, 'delay'], [0.4, 'undo'], [0.08, 'box'], [0.08, 'other'], [0.03, 'gone'], [0.02, 'in'], [0.03, 'up']);
     if (runnersOn(S).length) w.push([0.7, 'run']);
   }
   if (fixable(C) >= 0) w.push([0.15, 'fix']);
@@ -325,6 +349,13 @@ function choose(C, rnd) {
     case 'in': return { a: 'in', side: rnd() < 0.5 ? 0 : 1, k: Math.floor(rnd() * 5) };
     case 'up': return { a: 'up', slot: Math.floor(rnd() * S.size[S.half]) };
     case 'end': return { a: 'end', why: pick(rnd, ['', '', 'rule', 'time']) };
+    case 'other': {
+      const list = S.cells.filter(c => !c.auto);
+      if (!list.length) return { a: 'undo' };
+      // Another result (Something else), or the same one with where everyone ended up changed.
+      const c = pick(rnd, list), r = rnd() < 0.75 ? pick(rnd, Object.keys(RESULTS)) : null;
+      return { a: 'other', n: c.n, r, f: r ? fielders(rnd, r) : null, m: rnd() < 0.5 ? Math.floor(rnd() * 1e9) : null, said: rnd() < 0.3 ? rnd() < 0.5 : null };
+    }
     case 'box': {
       if (!S.cells.length) return { a: 'undo' };
       const c = pick(rnd, S.cells);
@@ -545,6 +576,7 @@ function say(a) {
     case 'cr': return `courtesy runner for the runner on ${a.b}${a.slot != null ? `: spot ${a.slot + 1}` : ''}`;
     case 'in': return `${a.side ? 'home' : 'visitors'} back in the game`;
     case 'box': return `box ${a.n} switched to ${a.to}`;
+    case 'other': return `box ${a.n}: ${a.r ? `it was ${a.r}${a.f ? ' ' + a.f.join('-') : ''}` : 'where everyone ended up'}${a.m != null ? ', runners changed' : ''}`;
     case 'end': return `End the game${a.why ? ` (${a.why})` : ''}`;
     default: return a.a === 'putback' ? 'Put back' : a.a[0].toUpperCase() + a.a.slice(1);
   }

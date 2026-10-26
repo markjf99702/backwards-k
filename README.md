@@ -47,9 +47,12 @@ written out in plain words.
 - **The scorecard fills itself in.** Each box has the path around the bases, the out number, the count and the RBIs,
   a strikeout looking gets its backwards K, and a hit can have a line toward where it went. Tap any box to read what
   happened. In the play-by-play each play is led by its mark from the card (6-3, F8, SB, CS 2-6), so the shorthand
-  comes with the words. A box can also be switched to another kind of out or another way of reaching base, and have
-  its fielders changed; anything else is a job for Undo, or for Fix runners, which stays until the next batter's turn
-  is over.
+  comes with the words. A box can be switched in one tap to another kind of out or another way of reaching base, and
+  have its fielders changed. And any box can be made something else (a double, not a single) or have where everyone
+  ended up changed: the game is played back with the change, and every play after it checked against where the game
+  would be then. A strikeout or a pop-up after it, with everyone staying put, still fits with the runners somewhere
+  else. If one doesn't fit ("Batter 3's single in the 1st has a runner on second who wouldn't be there"), it says so,
+  and **Undo back to it** makes the change, with that play and the ones after it waiting to **Put back**.
 - **Earned runs, as a scorer works them out.** Each pitcher's line in the box score has his earned runs: the
   half-inning played again without its errors and passed balls (a batter safe on an error is out instead, and a runner
   doesn't take the base an error gave him), and a run is earned if it would still have scored before the third out
@@ -210,7 +213,8 @@ To put it online with GitHub Pages: **Settings → Pages → Build and deploymen
 - `js/model.js`: what a saved game looks like, tidying one that came from a file, a link or Drive, reading a pasted
   lineup, and what Undo takes back with an event.
 - `js/store.js`: games in the browser's storage.
-- `js/game.js`: the game screen: the buttons, the runner and fielder sheets, lineups, substitutions and undo.
+- `js/game.js`: the game screen: the buttons, the runner and fielder sheets, lineups, substitutions, undo, and
+  changing a box on the card.
 - `js/card.js`: the scorecard and the line score. `js/box.js`: the box score (with the scorer's proof), the
   play-by-play, a batter's day, the spray charts, and a finished game in short.
 - `js/field.js`: the field drawings, the spray charts' among them. `js/help.js`: how to read the card.

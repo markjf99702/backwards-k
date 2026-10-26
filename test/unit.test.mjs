@@ -1,7 +1,7 @@
 // The rules of scoring, without a browser:  node --test test/unit.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { replay, suggest, check, runsCount, scoredAs, mark, now, columns, halfLabel, RESULTS, runnersOn, pitchDay, pitchStat, pitchWork, pitchCount, winningRun, fits, official, winner, endNote, regulation, limitState, restDays, restBand, noCatch, sameSoFar, clockOf } from '../js/engine.js';
+import { replay, suggest, check, runsCount, scoredAs, mark, now, columns, halfLabel, RESULTS, runnersOn, pitchDay, pitchStat, pitchWork, pitchCount, winningRun, fits, misfit, official, winner, endNote, regulation, limitState, restDays, restBand, noCatch, sameSoFar, clockOf } from '../js/engine.js';
 import { newGame, cleanGame, cleanDoc, parseLineup, parsePaste, takeBack, putBack, starters, newer, merge, seenOf, carried, setField } from '../js/model.js';
 import { sampleGame } from '../js/sample.js';
 // The card is drawn with ui.js, which looks for the page's sheet as it loads: here there's no page, so no sheet.
@@ -2130,6 +2130,50 @@ test('a play Undo took back fits back in after a forgotten one only where it sti
   assert.equal(fits(on2, tp, at(on2)), '');
   assert.equal(fits(play(game(), '1B', '1B', { t: 'r', m: [[2, 3, 'SB']] }, 'K'), tp, at(on2)), 'result');
   assert.equal(fits(play(game(), 'HR'), { t: 'pa', r: 'DP', m: [[0, 0], [1, 0]] }, at(play(game(), '1B'))), 'result');
+});
+
+test('a box changed after the fact: the plays after it are checked against the game played back with the change', () => {
+  const changed = (g, k, e2) => { const g2 = { ...g, ev: g.ev.map((x, i) => (i === k ? e2 : x)) }; return { g2, miss: misfit(g, g2, k) }; };
+  // A single that was really a double, with a strikeout after it: the strikeout still fits, the runner staying on
+  // second now (in the changed copy; the game itself is left alone).
+  let g = game();
+  play(g, '1B', 'K', 'K');
+  let r = changed(g, 0, { t: 'pa', r: '2B', m: [[0, 2]] });
+  assert.equal(r.miss, null);
+  assert.deepEqual(r.g2.ev[1].m, [[0, 0], [2, 2]]);
+  assert.deepEqual(g.ev[1].m, [[0, 0], [1, 1]], 'the game as scored is untouched');
+  assert.deepEqual(replay(r.g2).bases.map(Boolean), [false, false, true, false]);
+  // The next batter's single moved the runner from first: with him on second now, it doesn't fit.
+  g = game();
+  play(g, '1B', '1B', 'K');
+  r = changed(g, 0, { t: 'pa', r: '2B', m: [[0, 2]] });
+  assert.equal(r.miss.i, 1);
+  assert.equal(r.miss.why, 'runners');
+  assert.deepEqual(r.miss.now.bases.map(Boolean), [false, false, true, false], 'how the changed game stands then');
+  assert.equal(r.miss.was.bases[1].slot, 0, 'and how the game as scored stood');
+  // A walk that forced the runner from first to second: with him on second now, he'd stay. Staying put fits only a
+  // play where nobody moved.
+  g = game();
+  play(g, '1B', 'BB');
+  assert.equal(changed(g, 0, { t: 'pa', r: '2B', m: [[0, 2]] }).miss.why, 'runners');
+  // A different result with the same runners changes nothing after it.
+  g = game();
+  play(g, '1B', '1B');
+  assert.equal(changed(g, 0, { t: 'pa', r: 'BB', m: [[0, 1]] }).miss, null);
+  // The third out that wasn't: the next pitch would be in the top of the 1st, not the bottom.
+  g = game();
+  play(g, 'K', 'K', 'K', P('b'));
+  r = changed(g, 2, { t: 'pa', r: 'BB', m: [[0, 1]] });
+  assert.deepEqual([r.miss.i, r.miss.why, r.miss.now.half, r.miss.was.half], [3, 'over', 0, 1]);
+  // A walk-off that comes sooner: what was played after it comes after the game was over.
+  g = game({ innings: 1 });
+  play(g, 'K', 'K', 'K', '1B', 'K', '1B');
+  r = changed(g, 4, { t: 'pa', r: 'HR', m: [[1, 4], [0, 4]] });
+  assert.deepEqual([r.miss.i, r.miss.why, r.miss.now.over, r.miss.was.over], [5, 'over', true, false]);
+  // A play that can't happen any more: a sacrifice fly with nobody left on third.
+  g = game();
+  play(g, '3B', { t: 'pa', r: 'SF', f: [8], m: [[3, 4], [0, 0]] });
+  assert.equal(changed(g, 0, { t: 'pa', r: 'HR', m: [[0, 4]] }).miss.why, 'result');
 });
 
 test('a player brought in by a play put back after other changes goes at the end of the list, and the play points at him', () => {

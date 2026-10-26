@@ -166,8 +166,11 @@ assert.match(await page.textContent('.sheet'), /Ruiz walks\./);
 // When the at-bat began: its first pitch, on the clock.
 assert.match(await page.textContent('.sheet h2 small'), /^Top of the 1st, \d{1,2}:\d\d [ap]m$/);
 assert.match(await page.textContent('.sheet'), /To third on Castillo’s single\./);
-// A walk on four balls can't be switched to anything else here, and the sheet says what to do instead.
-assert.match(await page.textContent('.sheet'), /This one can’t be changed here\. Undo takes plays back/);
+// A walk on four balls has nothing to switch to in one tap, but it can be made something else, or have its runners
+// changed.
+assert.equal(await page.locator('.sheet [data-sw]').count(), 0);
+assert.deepEqual(await page.$$eval('.sheet .fix-box b', b => b.map(x => x.textContent)), ['It was something else', 'Change where everyone ended up']);
+assert.doesNotMatch(await page.textContent('.sheet'), /can’t be changed here/);
 await page.keyboard.press('Escape');
 // Fix a box after the fact: the backwards K was really swinging.
 await tap('[data-cell="1"]');
@@ -932,7 +935,7 @@ step('a double that wins it with the bases loaded is a single on the card, and i
   await p.click('[data-cell="18"]');
   assert.match(await p.textContent('.sheet .cell-big'), /1B Single/);
   assert.equal(await p.locator('.sheet [data-sw]').count(), 0);
-  assert.match(await p.textContent('.sheet'), /This one can’t be changed here/);
+  assert.equal(await p.locator('.sheet [data-y=other]').count(), 1, 'it can still be made something else');
   // A league that plays the inning out: Keep playing, and the double is a double again, with both its runs.
   await p.click('.sheet [data-close]');
   await p.click('[data-v=live]');
@@ -1861,6 +1864,97 @@ step('Fix runners starts from the play that was tapped: a line out that scored t
   await p.click('.mv[data-from="3"] [data-to="4"]');
   await p.click('.sheet [data-x=save]');
   assert.equal((await stored(p, id)).ev[2].r, 'SF');
+  await p.context().close();
+}
+
+step('any box can be made something else: the plays after it are checked, and undone back to the first that doesn’t fit');
+{
+  const p = await phone(), id = await startGame(p);
+  await p.click('[data-r="1B"]');
+  await p.click('[data-r=K]');
+  await p.click('[data-v=card]');
+  await p.click('[data-cell="0"]');
+  // A single that was really a double: the strikeout after it still fits, with the runner staying on second.
+  await p.click('.sheet [data-y=other]');
+  assert.equal(await p.textContent('.sheet h2'), 'What was it? Batter 1, top of the 1st');
+  assert.equal(await p.getAttribute('.sheet [data-o="1B"]', 'aria-current'), 'true');
+  assert.equal(await p.locator('.sheet [data-o=SF]').isDisabled(), true, 'nobody on to score from third');
+  await p.click('.sheet [data-o="2B"]');
+  assert.match(await p.textContent('.sheet .cell-big'), /2B Double/);
+  assert.equal(await seen(p), 'Changed to double.Undo');
+  assert.equal(await plays(p, id), 'pa2B paK');
+  assert.deepEqual((await stored(p, id)).ev[1].m, [[0, 0], [2, 2]]);
+  // The change has its own Undo, which puts the single back.
+  await p.click('.sheet-toast button');
+  assert.match(await p.textContent('.sheet .cell-big'), /1B Single/);
+  assert.deepEqual((await stored(p, id)).ev[1].m, [[0, 0], [1, 1]]);
+  // Where everyone ended up: the batter took second on the throw.
+  await p.click('.sheet [data-y=moves]');
+  await p.waitForSelector('.sheet .moves');
+  assert.equal(await p.textContent('.sheet [data-x=save]'), 'Save changes');
+  await p.click('.mv[data-from="0"] [data-to="2"]');
+  await p.click('.mv[data-from="0"] [data-how=T]');
+  await p.click('.sheet [data-x=save]');
+  assert.match(await p.textContent('.sheet .cell-big'), /Batter 1 singles and takes second on the throw\./);
+  assert.equal(await seen(p), 'Changed where everyone ended up.Undo');
+  await p.keyboard.press('Escape');
+  await p.click('[data-v=live]');
+  assert.equal(await bases(p), '2:Batter 1');
+
+  step('one that doesn’t fit is named, and Undo back to it makes the change, with the rest to put back');
+  await p.click('[data-r="1B"]');
+  await p.click('.sheet [data-x=save]');
+  assert.equal(await bases(p), '3:Batter 1 1:Batter 3');
+  await p.click('[data-v=card]');
+  await p.click('[data-cell="0"]');
+  await p.click('.sheet [data-sw=BB]');
+  // (A walk in one tap leaves everyone where they were: the batter was on second.) It was a walk, with him on first.
+  await p.click('.sheet [data-y=other]');
+  await p.click('.sheet [data-o=BB]');
+  assert.equal(await p.textContent('.sheet h2'), 'That doesn’t fit what came after');
+  assert.equal(await p.textContent('.sheet h2 + p'), 'Batter 3’s single in the 1st has a runner on second who wouldn’t be there.');
+  assert.match(await p.textContent('.sheet .hint'), /^Undo back to it to make this change: that play is taken back\./);
+  await p.click('.sheet [data-close]');
+  assert.equal(await plays(p, id), 'paBB paK pa1B', 'Cancel changes nothing');
+  await p.click('[data-cell="0"]');
+  await p.click('.sheet [data-y=other]');
+  await p.click('.sheet [data-o=BB]');
+  await p.click('.sheet [data-x=back]');
+  assert.equal(await plays(p, id), 'paBB paK');
+  assert.deepEqual((await stored(p, id)).ev[0].m, [[0, 1]]);
+  assert.equal(await seen(p), 'Changed to walk, and took back 1 play. Put back brings it back.Put back');
+  await p.click('#toast button');
+  await p.waitForSelector('.sheet .moves');
+  assert.equal(await p.locator('.mv[data-from="1"] [data-to][aria-pressed=true]').textContent(), '2nd');
+  await p.click('.sheet [data-x=save]');
+  assert.equal(await plays(p, id), 'paBB paK pa1B');
+  await p.click('[data-v=live]');
+  assert.equal(await bases(p), '2:Batter 1 1:Batter 3');
+  await p.context().close();
+}
+{
+  // The third out that wasn't: the next half-inning's plays would be in this one.
+  const p = await phone();
+  await startGame(p);
+  for (let i = 0; i < 3; i++) await p.click('[data-r=K]');
+  await p.click('[data-p=b]');
+  await p.click('[data-v=card]');
+  await p.click('[data-cs="0"]');
+  await p.click('[data-cell="2"]');
+  await p.click('.sheet [data-y=other]');
+  await p.click('.sheet [data-o=HBP]');
+  assert.equal(await p.textContent('.sheet h2 + p'), 'A pitch to Batter 1 in the 1st would be in the top of the 1st, not the bottom of the 1st.');
+  await p.click('.sheet [data-close]');
+  // A box from the pitch clock (three automatic strikes) can't be changed here: nobody swung, and nothing was thrown.
+  await p.click('[data-v=live]');
+  await p.click('[data-r=K]');
+  for (let i = 0; i < 3; i++) { await p.click('[data-a=more]'); await p.click('.sheet [data-ap=c]'); }
+  await p.click('[data-v=card]');
+  await p.click('[data-cs="1"]');
+  await p.click('[data-cell="4"]');
+  assert.match(await p.textContent('.sheet .cell-big'), /Strikeout looking/);
+  assert.equal(await p.locator('.sheet .fix-box').count(), 0);
+  assert.match(await p.textContent('.sheet'), /This one can’t be changed here/);
   await p.context().close();
 }
 

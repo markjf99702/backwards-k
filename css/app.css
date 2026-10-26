@@ -556,6 +556,9 @@ details.partway .hint { margin: 10px 0 0; }
 .g-on .res b, .res.r-on b { color: var(--on); }
 .g-out .res, .res.r-out { background: var(--out-soft); border-color: transparent; }
 .g-out .res b, .res.r-out b { color: var(--red); }
+/* A box's play made something else: the one it is now is outlined. */
+.res[aria-current="true"] { border-color: var(--ink-2); }
+.fix-box { margin-top: 14px; }
 .res.r-more { grid-column: span 3; background: var(--card); border-color: var(--line-2); }
 .res.r-more b { color: var(--ink); font-size: 18px; }
 .res.r-more span { color: var(--muted); }
