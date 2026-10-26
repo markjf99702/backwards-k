@@ -604,6 +604,7 @@ details.partway .hint { margin: 10px 0 0; }
   .live { grid-area: live; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 14px; }
   .live > .bug, .live > .shared-note, .live > .recent { grid-column: 1 / -1; }
   .live > .recent { display: none; }
+  .live > .recent.first-time { display: block; }
   /* A game someone shared: its latest plays beside the field, or beside the game in short, how to read the card. */
   .live.look > .recent { display: block; grid-column: auto; margin-top: 0; }
   .live.look:not(:has(> .recent)) > .shared-note { grid-column: auto; align-self: start; }
@@ -777,6 +778,11 @@ details.partway .hint { margin: 10px 0 0; }
 .plays ol, .recent ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .plays li, .recent li { padding: 8px 12px; border-radius: 10px; background: var(--card); border: 1px solid var(--line); font-size: 15px; }
 .recent .half { margin-bottom: 8px; }
+/* A new game's How this works, where its latest plays will go: one card, three numbered lines. */
+.recent.first-time { margin-top: 12px; padding: 12px 14px 4px; border-radius: 12px; background: var(--card); border: 1px solid var(--line); }
+.recent.first-time ol { list-style: decimal; padding-left: 1.3em; gap: 6px; }
+.recent.first-time li { padding: 0; border: 0; border-radius: 0; background: none; font-size: 15.5px; line-height: 1.35; color: var(--ink-2); }
+.recent.first-time .link-btn { min-height: 44px; padding: 0; }
 .recent .half h3 { font-size: 14px; color: var(--muted); }
 li.end { background: transparent; border-style: dashed; color: var(--muted); font-size: 14px; }
 .plays li small, .recent li small { display: block; margin-top: 2px; color: var(--muted); font-size: 13px; }
@@ -815,6 +821,8 @@ html:has(dialog.sheet[open]) { overflow: hidden; scrollbar-gutter: stable; }
   .sheet.wide { max-width: 780px; }
 }
 .sheet h2 { font: 800 26px/1.05 var(--board-font); text-transform: uppercase; letter-spacing: .02em; margin-bottom: 10px; outline: none; }
+.sheet-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.sheet-head .btn { flex: none; }
 .sheet h2 small { font: 400 16px/1.2 var(--sans); text-transform: none; letter-spacing: 0; color: var(--muted); margin-left: 4px; }
 .sheet h2 .mk { font-family: var(--hand); text-transform: none; color: var(--red); margin-left: 6px; }
 .sheet h3 { font: 800 17px/1.1 var(--board-font); text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 18px 0 8px; }

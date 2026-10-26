@@ -20,8 +20,9 @@ const EXAMPLES = [
 // Four of them, each in a few words, for the first screen before there are any games: what the card looks like.
 export const FIRST = [[EXAMPLES[0][0], 'Singled and scored'], [EXAMPLES[1][0], 'Walked'], [EXAMPLES[4][0], 'Struck out looking'], [EXAMPLES[5][0], 'Short to first']];
 
-export function helpSheet() {
-  openSheet(`<h2 id="sheetTitle">How to read the card</h2>
+// at: 'tips' opens it at Keeping score here (How it works, and More tips on a new game), with the keyboard there.
+export function helpSheet({ at = '' } = {}) {
+  const body = openSheet(`<div class="sheet-head"><h2 id="sheetTitle">How to read the card</h2><button type="button" class="btn quiet sm" data-close>Close</button></div>
     <p>Every box is one trip to the plate. The little diamond is the bases: the path is drawn as far as the batter got, and a run fills it in. Small marks by a base say how they got there.</p>
     <div class="examples">${EXAMPLES.map(([c, t]) => `<div class="ex"><div class="cell-pic">${cellSvg(c, { count: false })}</div><p>${t}</p></div>`).join('')}</div>
     <h3>Numbers for the fielders</h3>
@@ -58,7 +59,7 @@ export function helpSheet() {
       <dt>R H E LOB</dt><dd>Under the card, inning by inning: runs, hits, the other team’s errors, and runners left on base</dd>
       <dt>X</dt><dd>On the line score: the home team didn’t need to bat</dd>
     </dl>
-    <h3>Keeping score here</h3>
+    <h3 id="tips" tabindex="-1">Keeping score here</h3>
     <ul class="tips">
       <li><b>Counting pitches is up to you.</b> Tap Ball, Strike or Foul as they happen, and four balls or three strikes finish the at-bat by themselves. Or skip them and only tap what the batter did.</li>
       <li><b>Runners move themselves.</b> With runners on, you’ll see where everyone usually ends up. Tap anything that went differently.</li>
@@ -70,4 +71,6 @@ export function helpSheet() {
       <li><b>On a keyboard,</b> keys score too: B ball, C called strike, S swinging strike, F foul; 1 to 4 for a single to a home run; W walk, H hit by pitch, E error; K strikeout (Shift+K looking), G ground out, Y fly out, L line out, P pop out; M for More, and U or Ctrl+Z to undo. Then type the fielders’ numbers and press Enter: G, 6, 3, Enter is a 6-3.</li>
     </ul>
     <div class="row"><button type="button" class="btn primary" data-close>Got it</button></div>`, { wide: true });
+  const h = at && body.querySelector('#' + at);
+  if (h) { body.scrollTop += h.getBoundingClientRect().top - body.getBoundingClientRect().top - 8; h.focus({ preventScroll: true }); }
 }

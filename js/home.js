@@ -80,7 +80,7 @@ export function showHome(el) {
       ${back ? backHtml(back) : ''}
       <section class="hero${back ? ' short' : ''}">
         <h1>Keep score at the ballpark.</h1>
-        ${back ? '' : '<p>Tap what happened. Backwards K moves the runners, keeps the count, the outs and the score, and fills in a real scorecard as you go.</p>'}
+        ${back ? '' : '<p>Tap what happened. Backwards K moves the runners, keeps the count, the outs and the score, and fills in a real scorecard as you go. You don’t need to know the shorthand: every play is written out in plain words too.</p>'}
         <a class="btn ${back ? '' : 'primary '}big" href="#/new">Score a new game</a>
       </section>
       ${games.length ? '' : `<figure class="first-look">

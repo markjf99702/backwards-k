@@ -533,7 +533,18 @@ function liveHtml() {
         ${res('DP', 'DP', 'Double play')}<button type="button" class="res r-more" data-a="more"${key('M')}><b>More</b><span>Intentional walk, dropped third strike, end the inning</span></button></div>
     </div>
     </div>
-    <div class="recent"><h3>Latest plays</h3>${playsHtml(S, { limit: 5 })}</div>`;
+    ${G.ev.some(e => PLAY.has(e.t)) ? `<div class="recent"><h3>Latest plays</h3>${playsHtml(S, { limit: 5 })}</div>` : firstTime()}`;
+}
+// Where the latest plays go, until the first one: how this works, in three lines, and the rest of the tips a tap away.
+function firstTime() {
+  return `<div class="recent first-time"><h3>How this works</h3>
+      <ol>
+        <li>${G.pitches ? 'Tap <b>Ball</b>, <b>Strike</b> or <b>Foul</b> as they happen, or skip them.' : 'Pitches aren’t counted in this game, so there’s no count to keep.'}</li>
+        <li>Then tap what the batter did. The runners move themselves.</li>
+        <li>Tap a runner who moved on his own: a steal, a wild pitch.</li>
+      </ol>
+      <button type="button" class="link-btn" data-a="tips">More tips</button>
+    </div>`;
 }
 
 // When the last play ended a half-inning, a quieter line under it says so, and who's up: "Three outs. Bottom of the
@@ -593,6 +604,7 @@ function onClick(e) {
     case 'pitcher': return pitcherSheet(1 - S.half);
     case 'menu': return menuSheet();
     case 'help': return helpSheet();
+    case 'tips': return helpSheet({ at: 'tips' });
     case 'share': return shareSheet(G);
     case 'file': return saveFile(G);
     case 'on': return act({ t: 'on' });
@@ -1352,6 +1364,7 @@ function menuSheet() {
       <button type="button" class="li" data-y="lineup"><b>Lineups and substitutions</b><span>Names, numbers, pinch hitters, new pitchers.</span></button>
       <button type="button" class="li" data-y="share"><b>Share this game</b><span>A link to the scorecard, the score as text, or a printout.</span></button>
       <button type="button" class="li" data-y="settings"><b>Game settings</b><span>Teams, innings, league rules, counting pitches, where hits went, date and place.</span></button>
+      <button type="button" class="li" data-y="how"><b>How it works</b><span>Pitches, results, runners, and fixing a play afterwards.</span></button>
       <button type="button" class="li" data-y="help"><b>How to read the card</b><span>What 6-3, F8 and the backwards K mean.</span></button>
       ${S.over ? '<button type="button" class="li" data-y="on"><b>Keep playing</b><span>Carry on scoring past the end.</span></button>'
         : S.delayed ? '<button type="button" class="li" data-y="on"><b>Resume play</b><span>Pick the game up where it stopped.</span></button><button type="button" class="li" data-y="end"><b>End the game here</b><span>A run rule, the time limit, or called for rain or darkness.</span></button>'
@@ -1367,6 +1380,7 @@ function menuSheet() {
       case 'share': return shareSheet(G);
       case 'settings': return settingsSheet();
       case 'help': return helpSheet();
+      case 'how': return helpSheet({ at: 'tips' });
       case 'end': return endSheet();
       case 'on': case 'eoh': closeSheet(); return act({ t: y.dataset.y });
       case 'delete': {

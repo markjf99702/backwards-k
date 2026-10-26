@@ -25,6 +25,9 @@ written out in plain words.
   box on the card, with first base open or two out (OBR 5.09(a)(3)). A pitch-clock violation is under More: an
   automatic ball (the pitcher took too long, or balked with nobody on) or an automatic strike (the batter wasn't
   ready), which moves the count but isn't a pitch, so it stays out of the pitch count (OBR 5.07(c)).
+  Before the first tap, where the latest plays will go, three lines say how it works (Ball, Strike or Foul, or skip
+  them; what the batter did; a runner who moved on his own), with **More tips**, which opens the help at Keeping score
+  here, as **How it works** in the game's menu does.
 - **Runners move themselves.** With runners on, you see where everyone usually ends up and change whatever went
   differently (a home run goes straight in: everyone scores, and Fix runners is there for a base someone missed, on
   appeal). A runner marked out is out at the next base unless you say where (thrown out at the plate on a
@@ -220,7 +223,8 @@ To put it online with GitHub Pages: **Settings → Pages → Build and deploymen
   changing a box on the card.
 - `js/card.js`: the scorecard and the line score. `js/box.js`: the box score (with the scorer's proof), the
   play-by-play, a batter's day, the spray charts, and a finished game in short.
-- `js/field.js`: the field drawings, the spray charts' among them. `js/help.js`: how to read the card.
+- `js/field.js`: the field drawings, the spray charts' among them. `js/help.js`: how to read the card, and the tips
+  for keeping score here.
 - `js/home.js`, `js/setup.js`: the first screen (with the teams), and starting a game.
 - `js/stats.js`: season stats: each game played back once (until it changes) and its lines added up by team, year and
   player, in words, and as a spreadsheet. `js/team.js`: a team's page, and a player's.

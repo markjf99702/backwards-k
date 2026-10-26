@@ -1448,11 +1448,50 @@ for (const width of [360, 390]) {
   await p.context().close();
 }
 
+step('a first-time scorer: how this works where the plays will go, the tips a tap away, and the line on the home screen');
+{
+  const p = await phone();
+  await p.goto(base);
+  assert.match(await p.textContent('.hero p'), /You don’t need to know the shorthand: every play is written out in plain words too\.$/);
+  await startGame(p);
+  assert.deepEqual(await p.$$eval('.first-time li', l => l.map(x => x.textContent)), [
+    'Tap Ball, Strike or Foul as they happen, or skip them.', 'Then tap what the batter did. The runners move themselves.', 'Tap a runner who moved on his own: a steal, a wild pitch.']);
+  // More tips: the help, at Keeping score here, with the keyboard there.
+  const atTips = async () => {
+    await p.waitForTimeout(300);
+    const r = await p.evaluate(() => { const h = document.getElementById('tips'), b = document.querySelector('.sheet-body'); return { at: h.getBoundingClientRect().top - b.getBoundingClientRect().top, focused: document.activeElement === h }; });
+    assert.ok(r.at >= 0 && r.at < 40 && r.focused, `Keeping score here at the top of the help, with the keyboard (${JSON.stringify(r)})`);
+  };
+  await p.click('.first-time [data-a=tips]');
+  await atTips();
+  // A Close at the top of it, as well as Got it at the bottom.
+  await p.click('.sheet .sheet-head [data-close]');
+  assert.equal(await p.evaluate(() => document.getElementById('sheet').open), false);
+  // How it works, in the game's menu, opens it there too.
+  await p.click('[data-a=menu]');
+  assert.equal(await p.textContent('.sheet [data-y=how] b'), 'How it works');
+  await p.click('.sheet [data-y=how]');
+  await atTips();
+  await p.keyboard.press('Escape');
+  // The first tap, and it gives way to the latest plays.
+  await p.click('[data-p=s]');
+  assert.equal(await p.locator('.first-time').count(), 0);
+  assert.equal(await p.textContent('.recent h3'), 'Latest plays');
+  // Without the pitches counted, its first line says so.
+  await p.click('.bar .undo');
+  await p.click('[data-a=menu]');
+  await p.click('.sheet [data-y=settings]');
+  await p.uncheck('.sheet [data-g=pitches]');
+  await p.click('.sheet [data-close]');
+  assert.equal(await p.textContent('.first-time li'), 'Pitches aren’t counted in this game, so there’s no count to keep.');
+  await p.context().close();
+}
+
 step('Fix runners only after a play with runners, or the batter safe');
 {
   const p = await phone();
   await startGame(p);
-  assert.match(await p.textContent('.recent'), /The first pitch is all yours/);
+  assert.equal(await p.textContent('.recent h3'), 'How this works', 'before the first play, how this works');
   await p.click('[data-p=b]');
   assert.match(await p.textContent('.recent'), /No plays yet: the first at-bat is still going\./, 'Latest plays once a pitch is in');
   await p.click('[data-r=K]');
