@@ -202,13 +202,14 @@ To put it online with GitHub Pages: **Settings → Pages → Build and deploymen
 - `js/app.js`: which screen the address shows: your games, a new game, a game, the sample, a team's season or a
   player's, or a shared link.
 - `js/engine.js`: the rules. It replays a game's list of events into the count, outs, runners, score, the boxes on the
-  scorecard, the stats (earned runs, and the win, the loss and the save, among them) and the play-by-play.
+  scorecard, the stats (earned runs, and the win, the loss and the save, among them) and the play-by-play, with the
+  play that won it and the game's feats (a no-hitter, the cycle).
 - `js/model.js`: what a saved game looks like, tidying one that came from a file, a link or Drive, reading a pasted
   lineup, and what Undo takes back with an event.
 - `js/store.js`: games in the browser's storage.
 - `js/game.js`: the game screen: the buttons, the runner and fielder sheets, lineups, substitutions and undo.
-- `js/card.js`: the scorecard and the line score. `js/box.js`: the box score, the play-by-play, a batter's day and
-  the spray charts.
+- `js/card.js`: the scorecard and the line score. `js/box.js`: the box score (with the scorer's proof), the
+  play-by-play, a batter's day, the spray charts, and a finished game in short.
 - `js/field.js`: the field drawings, the spray charts' among them. `js/help.js`: how to read the card.
 - `js/home.js`, `js/setup.js`: the first screen (with the teams), and starting a game.
 - `js/stats.js`: season stats: each game played back once (until it changes) and its lines added up by team, year and
