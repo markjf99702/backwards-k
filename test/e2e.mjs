@@ -2962,6 +2962,17 @@ step('the offline copy lists every file the app needs, and each one is there');
   for (const f of shell) await readFile(join(root, f === './' ? 'index.html' : f));
 }
 
+step('the install sheet’s pictures: each one there, at the size the manifest gives, phones narrow and the tablet wide');
+{
+  const m = JSON.parse(await readFile(join(root, 'manifest.webmanifest'), 'utf8'));
+  assert.deepEqual(m.screenshots.map(x => `${x.src} ${x.form_factor}`), ['docs/phone-score.png narrow', 'docs/phone-runners.png narrow', 'docs/phone-card.png narrow', 'docs/tablet.png wide']);
+  for (const x of m.screenshots) {
+    const png = await readFile(join(root, x.src));
+    assert.equal(`${png.readUInt32BE(16)}x${png.readUInt32BE(20)}`, x.sizes, x.src);
+    assert.ok(x.label, `${x.src} has words for a screen reader`);
+  }
+}
+
 step('it works offline once opened');
 await page.goto(base);
 await page.waitForFunction(() => navigator.serviceWorker?.controller, null, { timeout: 10000 });
