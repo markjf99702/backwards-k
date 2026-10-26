@@ -19,8 +19,8 @@ import { rulesRow, limitRow } from './rules.js';
 import { teamHref, earlier as thisSeason } from './stats.js';
 
 // redo: what Undo took back, latest last. kept: what it took back before a new play went in, to put back after it
-// (see moved()).
-let G = null, S = null, root = null, redo = [], kept = null;
+// (see moved()). took: the play Undo took back last, in words, for the line under the field (until Redo or a new play).
+let G = null, S = null, root = null, redo = [], kept = null, took = '';
 let view = 'live', pane = 'card', cardSide = null, readOnly = false, onSave = null, lastInn = '', note = '', later = false;
 // The play the scorer tapped for the latest plate appearance, before it was scored from where everyone ended up (a line
 // out that brought the run in from third is saved as a sacrifice fly): Fix runners starts again from it. Only kept
@@ -33,7 +33,7 @@ const BASES = ['', '1st', '2nd', '3rd', 'Home'];
 // that version.
 export function showGame(el, game, opts = {}) {
   later = newer(game);
-  G = game; root = el; redo = []; kept = null; readOnly = !!opts.shared || later; onSave = opts.onSave || null; tapped = { e: null, r: '' };
+  G = game; root = el; redo = []; kept = null; took = ''; readOnly = !!opts.shared || later; onSave = opts.onSave || null; tapped = { e: null, r: '' };
   view = 'live'; cardSide = null; lastInn = '';
   if (readOnly) { view = matchMedia('(min-width: 700px)').matches ? 'live' : 'card'; pane = 'card'; }
   S = replay(G);
@@ -127,6 +127,7 @@ const keepAt = (e, was) => { if (Number.isFinite(was.at)) e.at = was.at; return 
 function moved() {
   if (redo.length && !kept) kept = { stack: redo, n: G.ev.length };
   redo = [];
+  took = '';
 }
 // (If this device can't save, the line under the bar says so: see trouble().)
 function save() {
@@ -158,6 +159,7 @@ function undo() {
   const r = takeBack(G);
   if (!r) return;
   redo.push(r);
+  took = said;
   save();
   // How things stood before it, to tell whether it can go back as it was after other plays (fits() in engine.js).
   Object.assign(r, { at: { half: S.half, inn: S.inn, outs: S.outs, over: S.over }, said });
@@ -171,6 +173,7 @@ function redoIt() {
   const r = redo.pop();
   if (!r) return;
   putBack(G, r);
+  took = '';
   save();
   say();
 }
@@ -183,6 +186,7 @@ function putBackKept() {
   const list = kept.stack.slice().reverse();
   kept = null;
   redo = [];
+  took = '';
   goBack(list, { put: 0, left: [], of: list.length });
 }
 function goBack(list, n) {
@@ -461,9 +465,10 @@ function liveHtml() {
   // height, so the buttons below never move. Undo comes first: it takes back the play just above it.
   const k = fixable(), fix = k < 0 ? '' : `Fix runners: ${S.text[k]}`, back = last && `Undo: ${last}`;
   const keep = !redo.length && kept && G.ev.length >= kept.n ? kept.stack.length : 0;
-  const then = next();
+  // (Just after Undo: what it took back, beside Redo.)
+  const gone = took && redo.length ? `Took back: ${took}` : '', then = gone ? '' : next();
   const ticker = `<div class="ticker">
-      <div class="said${then ? ' ended' : ''}"><p>${esc(last || 'Tap what happens. Every tap can be undone.')}</p>${then ? `<small class="then">${esc(then)}</small>` : ''}</div>
+      <div class="said${then ? ' ended' : ''}"><p>${esc(gone || last || 'Tap what happens. Every tap can be undone.')}</p>${then ? `<small class="then">${esc(then)}</small>` : ''}</div>
       <div class="acts">${back ? `<button type="button" class="link-btn" data-a="undo" title="${esc(back)}" aria-label="${esc(back)}">Undo</button>` : ''}${fix ? `<button type="button" class="link-btn" data-a="fixlast" title="${esc(fix)}" aria-label="${esc(fix)}">Fix runners</button>` : ''}${redo.length ? '<button type="button" class="link-btn" data-a="redo">Redo</button>' : ''}${keep ? `<button type="button" class="link-btn" data-a="putback">Put back ${few(keep, 'play')}</button>` : ''}</div>
     </div>`;
   // Over: who won, or for a game called before it counted, who's ahead (OBR 7.01(c)). A run rule or a time limit says

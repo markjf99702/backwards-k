@@ -123,8 +123,11 @@ await tap('[data-k="SB"]');
 assert.equal(await bases(), '3:Ruiz 2:Castillo');
 await tap('.bar .undo');
 assert.equal(await bases(), '3:Ruiz 1:Castillo');
+// The line under the field says which play went, beside Redo; Redo puts it back, and the line says the play again.
+assert.equal(await ticker(), 'Took back: Castillo steals second.');
 await tap('[data-a=redo]');
 assert.equal(await bases(), '3:Ruiz 2:Castillo');
+assert.equal(await ticker(), 'Castillo steals second.');
 
 step('an error can’t move a runner onto a base that’s taken');
 await tap('[data-runner="2"]');
@@ -1333,7 +1336,7 @@ step('a phone in the 7th: the Card tab opens on the batter’s box');
   assert.deepEqual(await links(), ['Undo true', 'Fix runners true']);
   const was = await p.textContent('.ticker p');
   await p.click('.ticker [data-a=undo]');
-  assert.notEqual(await p.textContent('.ticker p'), was, 'the single is taken back');
+  assert.equal(await p.textContent('.ticker p'), `Took back: ${was}`, 'the single is taken back');
   assert.deepEqual(await links(), ['Undo true', 'Fix runners true', 'Redo true']);
   assert.equal(await ball(), at, 'after Undo, and Redo');
   await p.context().close();
