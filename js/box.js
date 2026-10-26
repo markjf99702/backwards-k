@@ -1,5 +1,5 @@
 // The box score (batting and pitching lines for both teams) and the play-by-play.
-import { batKey, pitchStat, pitcherLabel, ip, teamName, label, player, ord, pitchWords, POS_NAME, RESULTS, AUTO, restDays, noCatch, LIMIT_BY, decisions, decisionWords, decider, milestones, clockOf, pitchesIn, toWhere, located, saysWhere } from './engine.js';
+import { batKey, pitchStat, pitcherLabel, ip, teamName, label, player, ord, pitchWords, POS_NAME, RESULTS, AUTO, restDays, noCatch, LIMIT_BY, decisions, decisionWords, decider, milestones, clockOf, pitchesIn, toWhere, located, saysWhere, runnersOn } from './engine.js';
 import { esc, KL, clockAt, hm } from './ui.js';
 import { abbr } from './card.js';
 import { sprayField } from './field.js';
@@ -115,7 +115,21 @@ function notes(S, side) {
     ...rest(S, arms),
   ];
   const feats = milestones(S).filter(m => m.side === side).map(m => `<p class="feat">${esc(m.text)}</p>`).join('');
-  return feats + lines.filter(([, t]) => t).map(([w, t]) => `<p><b>${w}:</b> ${esc(t)}.</p>`).join('');
+  return feats + lines.filter(([, t]) => t).map(([w, t]) => `<p><b>${w}:</b> ${esc(t)}.</p>`).join('') + proof(S, side);
+}
+
+// The scorer's proof of a team's box score (OBR 9.03(c)), last under its notes: every trip to the plate ended as a run,
+// a runner left on base or an out. "Proof: 38 trips to the plate = 5 runs + 6 left on base + 27 outs." During a game it
+// counts the half-inning going on, with its runners still on, and says so far. The runner put on second to start an
+// extra inning is counted too, though he didn't bat; runs a game was picked up with aren't, nor the innings before.
+function proof(S, side) {
+  const cells = S.cells.filter(c => c.side === side), auto = cells.filter(c => c.auto).length;
+  if (!cells.length) return '';
+  const few = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`, sum = a => a.reduce((x, y) => x + (y || 0), 0);
+  const now = side === S.half && !S.between && !S.over ? runnersOn(S).length : 0;
+  const trips = few(cells.length - auto, 'trip') + ' to the plate' + (auto ? ` and ${few(auto, 'runner')} put on second` : '');
+  const ends = [few(sum(S.line[side]), 'run'), `${sum(S.lob[side]) + (now ? S.waved : 0)} left on base`, now ? `${now} on base now` : '', few(cells.filter(c => c.outN).length, 'out')];
+  return `<p class="proof">Proof${S.over ? '' : ' so far'}: ${trips} = ${ends.filter(Boolean).join(' + ')}.</p>`;
 }
 
 // Under a pitch limit by league age, with pitches counted: each pitcher's days of rest, and in Little League, those who

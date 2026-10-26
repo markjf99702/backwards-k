@@ -1172,14 +1172,26 @@ test('the notes under each team’s box score', () => {
     { t: 'r', m: [[2, 3, 'SB']] }, { t: 'r', m: [[1, 0, 'CS', [2, 6]]] }, { t: 'pa', r: 'E', f: [5], m: [[0, 1], [3, 4]] },
     { t: 'r', m: [[1, 2, 'BK']] }, 'HR', 'K', '3B', 'SAC 1 3', '1B', 'K', 'K');
   assert.deepEqual(S.R, [5, 1]);
-  const notes = side => boxHtml(S).split('<div class="extras">')[side + 1].split('</div>')[0].replace(/<\/?b>/g, '').split(/<\/p><p>|<\/?p>/).filter(Boolean);
+  const notes = side => boxHtml(S).split('<div class="extras">')[side + 1].split('</div>')[0].replace(/<\/?b>/g, '').split(/<\/p><p[^>]*>|<\/?p[^>]*>/).filter(Boolean);
+  // Last, the scorer's proof (OBR 9.03(c)): every trip to the plate a run, a runner left on or an out; so far, while
+  // the game goes on.
   assert.deepEqual(notes(0), [
     'Doubles: Ruiz, Okafor.', 'Home runs: Pruitt.', 'Sacrifice flies: Castillo.', 'Hit by a pitch: Brennan.',
-    'Stolen bases: Brennan.', 'Caught stealing: Han.', 'Left on base: 0.',
+    'Stolen bases: Brennan.', 'Caught stealing: Han.', 'Left on base: 0.', 'Proof so far: 8 trips to the plate = 5 runs + 0 left on base + 3 outs.',
   ]);
   assert.deepEqual(notes(1), [
     'Triples: Batter 1.', 'Sacrifice bunts: Batter 2.', 'Left on base: 1.', 'Errors: catcher’s interference, third baseman.',
     'Wild pitches: Halvorsen.', 'Hit batters: Halvorsen (Brennan).', 'Balks: Bishop.',
+    'Proof so far: 5 trips to the plate = 1 run + 1 left on base + 3 outs.',
+  ]);
+  const proofs = S => [...boxHtml(S).matchAll(/<p class="proof">(.*?)<\/p>/g)].map(m => m[1]);
+  // The half-inning going on, with its runner still on; a team that hasn't batted has none.
+  assert.deepEqual(proofs(play(game(), '1B')), ['Proof so far: 1 trip to the plate = 0 runs + 0 left on base + 1 on base now + 0 outs.']);
+  // Over, with the runner put on second to start an extra inning.
+  const x = game({ innings: 1, tie: 2 });
+  assert.deepEqual(proofs(play(x, ...threeK, ...threeK, '2B', ...threeK, ...threeK)), [
+    'Proof: 7 trips to the plate and 1 runner put on second = 1 run + 1 left on base + 6 outs.',
+    'Proof: 6 trips to the plate and 1 runner put on second = 0 runs + 1 left on base + 6 outs.',
   ]);
   // Earned runs, batters faced, home runs, and pitches and strikes are columns of the pitching lines: IP H R ER BB K HR
   // BF P-S.

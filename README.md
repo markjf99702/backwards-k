@@ -55,7 +55,9 @@ written out in plain words.
   (W, L, S) beside the pitchers' names, and the plays end with who got them (OBR 9.17, 9.19): the win to the pitcher
   of record when his team went ahead for good, but a starter needs five innings for it (four in a five-inning game),
   else it goes to the reliever with the most outs (then the fewest earned runs), and a reliever who pitched under an
-  inning and gave up two earned runs gives it to the best one after him.
+  inning and gave up two earned runs gives it to the best one after him. And last under each team's notes, one quiet
+  line is the scorer's proof that its box score adds up (OBR 9.03(c)): "Proof: 38 trips to the plate = 5 runs + 6 left
+  on base + 27 outs.", so far while the game goes on.
 - **The clock.** Each play is kept with the time it was scored, from the first pitch on. The box score ends with when
   the first pitch was and, once the game is over, how long it took, as box scores give it: "First pitch 7:10 pm ·
   Time 2:31", the time without any delays, which are listed after it. Each half-inning in the plays has the time it

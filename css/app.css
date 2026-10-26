@@ -729,6 +729,8 @@ details.partway .hint { margin: 10px 0 0; }
 .stats tfoot th, .stats tfoot td { font-weight: 800; border-bottom: 0; }
 .stats small { color: var(--muted); font-size: 12px; display: block; }
 .extras p { font-size: 15px; color: var(--ink-2); margin-bottom: 4px; }
+/* The scorer's proof: one quiet line, last. */
+.extras .proof { font-size: 14px; color: var(--muted); margin-top: 8px; }
 /* A spray chart: the field in the card's blue lines, each hit a red dot, anything else an open ring. */
 .spray { margin: 14px 0 0; padding: 12px 14px; background: var(--card); border-radius: 12px; box-shadow: var(--shadow); max-width: 340px; }
 .spray figcaption { font: 800 17px/1.1 var(--board-font); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 8px; }
