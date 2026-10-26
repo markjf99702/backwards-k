@@ -308,14 +308,16 @@ function one(l, ordered, initials) {
 export const parseLineup = text => parsePaste(text).batters;
 
 // Undo: the last event comes off, and with it the batting slot or the player it added, unless an earlier event still
-// points at that player (someone brought back in, or a pitcher brought back). Returns what Redo needs, or null.
+// points at that player (someone brought back in, or a pitcher brought back). Never the starter (0), whom no event
+// added: a starting pitcher brought back, after the change that took him out was left out by Put back, stays the
+// team's starter. Returns what Redo needs, or null.
 export function takeBack(g) {
   const e = g.ev.pop();
   if (!e) return null;
   const r = { e }, same = x => x.t === e.t && x.s === e.s && x.i === e.i && x.slot === e.slot;
   if (e.t === 'add') r.slot = g.teams[e.s].lineup.pop();
   const list = e.t === 'sub' ? g.teams[e.s].lineup[e.slot] : e.t === 'pch' ? g.teams[e.s].pitchers : null;
-  if (list && list.length - 1 === e.i && !g.ev.some(same)) r.player = list.pop();
+  if (list && e.i > 0 && list.length - 1 === e.i && !g.ev.some(same)) r.player = list.pop();
   return r;
 }
 // Redo: what takeBack took, put back. Put back later, after other changes (see game.js), a player it brought in goes at

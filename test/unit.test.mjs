@@ -2176,6 +2176,24 @@ test('a box changed after the fact: the plays after it are checked against the g
   assert.equal(changed(g, 0, { t: 'pa', r: 'HR', m: [[0, 4]] }).miss.why, 'result');
 });
 
+test('undoing a starter brought back never takes the starter off the team, even with nobody else listed', () => {
+  // The relief pitcher's change was left out by Put back (its half-inning went), and the starter's return wasn't: only
+  // the starter is listed. Undo takes back his return, and he stays, his name with him.
+  const g = game();
+  g.teams[0].pitchers = [{ name: 'Okafor', num: '11' }];
+  g.ev.push({ t: 'pch', s: 0, i: 0 });
+  const r = takeBack(g);
+  assert.equal(r.player, undefined);
+  assert.deepEqual(g.teams[0].pitchers.map(p => p.name), ['Okafor']);
+  assert.deepEqual(cleanGame(JSON.parse(JSON.stringify(g))).teams[0].pitchers.map(p => p.name), ['Okafor']);
+  putBack(g, r);
+  assert.deepEqual(g.ev.at(-1), { t: 'pch', s: 0, i: 0 });
+  // The same for a batter's spot: the starter back in, and undone.
+  g.ev.push({ t: 'sub', s: 1, slot: 2, i: 0, ty: 'def' });
+  takeBack(g);
+  assert.equal(g.teams[1].lineup[2].length, 1);
+});
+
 test('a player brought in by a play put back after other changes goes at the end of the list, and the play points at him', () => {
   const g = game();
   g.teams[0].lineup[0].push({ name: 'Kim', num: '' });
