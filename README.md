@@ -197,11 +197,12 @@ written out in plain words.
   that changed it, so a name fixed on the tablet stays while the phone scores on (when both changed the same one, the
   later change wins; what they last agreed on is the device's own note, in backwards-k.sync, not part of the game). When
   each copy has plays the other lacks, both are kept, and the one from the device that finds it is marked
-  "(second copy)". Saving a shared link to a game you already have works the same way by its plays (with the names and
-  settings of the copy changed last, as there's no note to compare them with), and the link says you have it,
-  with **Open mine** (and Save to my games only when the link has plays your copy hasn't). A deleted game's file goes
-  to Drive's bin, and the game is deleted on your other devices too. With no signal, games wait on the device and go
-  up when it's back.
+  "(second copy)"; if that device has the game open, it goes to the second copy, so whoever is scoring there carries on
+  with their own plays, and the message says so. Saving a shared link to a game you already have works the same way by
+  its plays (with the names and settings of the copy changed last, as there's no note to compare them with), and the
+  link says you have it, with **Open mine** (and Save to my games only when the link has plays your copy hasn't). A
+  deleted game's file goes to Drive's bin, and the game is deleted on your other devices too. With no signal, games
+  wait on the device and go up when it's back.
 - Backwards K can only see the files it made. Signing in lasts an hour and stays on that device. To take the
   permission back, remove junkdrawer.works under **Third-party apps & services** in your Google Account; "Stop saving
   on this device" only stops this device.

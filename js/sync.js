@@ -8,7 +8,7 @@
 import { cleanGame, canon, merge, seenOf } from './model.js';
 import { store, KEY } from './store.js';
 import { replay, teamName, halfLabel } from './engine.js';
-import { toast } from './ui.js';
+import { toast, go, routes, closeSheet } from './ui.js';
 
 // The junkdrawer.works OAuth client, shared by every junkdrawer.works project. Google only accepts it from the
 // addresses it lists, so anywhere else (localhost, the single-file copy) nothing about Drive shows.
@@ -34,7 +34,8 @@ let status = 'off', note = '', busy = null, again = false, client = null, gisLoa
 // Goes up whenever saving stops (here or in another tab), so a sync already under way leaves Drive and this
 // device alone instead of putting back what it read before.
 let gen = 0;
-// Games kept twice by the last sync (see run()), to say so.
+// Games kept twice by the last sync (see run()), to say so: { copy: the second copy, of: the game's id, moved: the
+// game here has the other device's plays now, and the second copy is stored here too }.
 const ups = [], watchers = [], twice = [];
 
 const saveSt = () => put(KS, st);
@@ -148,7 +149,7 @@ async function run(g) {
         const { game, second } = merge(D, L, was);
         if (game !== D) await upload(game, F);
         if (game !== L) incoming[gid] = game; else seen[gid] = agreed(L);
-        if (second) { await upload(second); incoming[second.id] = second; twice.push(second); }
+        if (second) { await upload(second); incoming[second.id] = second; twice.push({ copy: second, of: gid, moved: false }); }
         continue;
       }
     }
@@ -187,6 +188,7 @@ async function run(g) {
       // What came from Drive and went in: this device and Drive agree on it now. (A game changed here meanwhile is
       // compared again next time.)
       for (const x of took) seen[x.id] = agreed(x);
+      for (const t of twice) t.moved = took.some(x => x.id === t.of) && took.some(x => x.id === t.copy.id);
     }
   }
   st.last = Date.now(); saveSt();
@@ -205,10 +207,13 @@ function sync() {
     setStatus('ok');
     if (changed) ups.forEach(f => { try { f(); } catch (e) { console.error('Backwards K: showing synced games failed', e); } });
     if (twice.length) {
-      const one = twice[0];
+      // The game on screen was one of them, and has the other device's plays now: the screen goes to the second copy,
+      // with the plays scored here, so the scorer carries on from where they were.
+      const on = /^#\/g\/([\w-]+)/.exec(routes.at() || '')?.[1], here = twice.find(t => t.moved && t.of === on), one = twice[0].copy;
+      if (here) { closeSheet(); go('#/g/' + here.copy.id); }
       toast(twice.length > 1
-        ? `${twice.length} games were scored on another device too, with plays this one didn’t have, so both copies of each are kept. The ones scored here are marked (second copy).`
-        : `${teamName(one, 0)} at ${teamName(one, 1)} was scored on another device too, with plays this one didn’t have, so both are kept. The one scored here is marked (second copy).`, { ms: 9000 });
+        ? `${twice.length} games were scored on another device too, with plays this one didn’t have, so both copies of each are kept. The ones scored here are marked (second copy)${here ? ', and the one you had open is on screen' : ''}.`
+        : `${teamName(one, 0)} at ${teamName(one, 1)} was scored on another device too, with plays this one didn’t have, so both are kept. The one scored here is marked (second copy)${here ? ', and that’s the one on screen' : ''}.`, { ms: 9000 });
     }
     return changed;
   }, e => {

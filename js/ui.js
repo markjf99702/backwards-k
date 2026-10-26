@@ -14,7 +14,8 @@ export const SITE = 'https://backwards-k.junkdrawer.works/';
 // since, that's no longer needed: switching then would undo a move made in the meantime (the address says New game,
 // and the game is back).
 let router = null, shown = null, later = 0;
-export const routes = { use(fn) { router = fn; }, shown(h) { shown = h; clearTimeout(later); } };
+// (routes.at(): the address of the screen shown now.)
+export const routes = { use(fn) { router = fn; }, shown(h) { shown = h; clearTimeout(later); }, at: () => shown };
 export function go(h, { replace = false } = {}) {
   try { if (replace) location.replace(h); else location.hash = h; } catch { /* the address can't change here */ }
   clearTimeout(later);

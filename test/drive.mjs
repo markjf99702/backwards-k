@@ -161,19 +161,23 @@ for (const p of [a, b]) {
 }
 assert.equal(JSON.parse(gameFiles().find(f => f.appProperties.gid === fox).body).game.ev.length, plays + 3);
 
-step('scored differently on two devices with no signal: both are kept, and the device that finds it says so');
+step('scored differently on two devices with no signal: both are kept, and the device that finds it says so, and stays on its own plays');
 await apart();
 await a.click('[data-p="b"]');
 await b.click('[data-p="s"]');
 await back(a);
 await back(b);
-assert.equal(await b.textContent('#toast'), 'Red Foxes at Comets was scored on another device too, with plays this one didn’t have, so both are kept. The one scored here is marked (second copy).');
+assert.equal(await b.textContent('#toast'), 'Red Foxes at Comets was scored on another device too, with plays this one didn’t have, so both are kept. The one scored here is marked (second copy), and that’s the one on screen.');
 await syncNow(a);
 for (const p of [a, b]) {
   const both = (await stored(p, g => g.teams[0].name === 'Red Foxes')).sort((x, y) => x.place.length - y.place.length);
   assert.deepEqual(both.map(g => [g.place, g.ev.at(-1).k]), [['', 'b'], ['(second copy)', 's']]);
   assert.equal(both[0].id, fox);
+  // The device that found it (the tablet) is on the second copy, with the strike it scored; the phone, on the game.
+  assert.equal(p.url().split('#/g/')[1], p === b ? both[1].id : fox);
 }
+await b.waitForSelector('.live .field');
+assert.match(await b.textContent('.ticker p'), /^Swinging strike/);
 assert.equal(gameFiles().filter(f => !f.trashed).length, 2);
 
 step('a play taken back on one device while the other renamed a team: the play stays taken back, and the name stays');
