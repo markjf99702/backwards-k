@@ -656,7 +656,7 @@ step('a substitute from Lineups for the runner on second runs for him there, and
   await p.click('[data-r="1B"]');
   await p.click('.mv[data-from="2"] [data-to="4"]');
   await p.click('.sheet [data-x=save]');
-  assert.equal(await p.textContent('.ticker p'), 'Batter 2 singles. Speedy scores.');
+  assert.equal(await p.textContent('.ticker p'), 'Batter 2 singles. Speedy scores. Owls take the lead, 1–0.');
   await p.context().close();
 }
 
@@ -1714,7 +1714,7 @@ step('Fix runners starts from the play that was tapped: a line out that scored t
   await p.waitForSelector('.sheet .moves');
   await p.click('.mv[data-from="3"] [data-to="4"]');
   await p.click('.sheet [data-x=save]');
-  assert.equal(await p.textContent('.ticker p'), 'Batter 3 hits a sacrifice fly to left (SF7). Batter 2 scores.');
+  assert.equal(await p.textContent('.ticker p'), 'Batter 3 hits a sacrifice fly to left (SF7). Batter 2 scores. Owls take the lead, 1–0.');
   await p.click('[data-a=fixlast]');
   await p.waitForSelector('.sheet .moves');
   assert.equal(await p.textContent('.sheet h2'), 'Line out L7');
@@ -1952,9 +1952,9 @@ step('a screen reader hears each play and where things stand, in a region that s
   await p.click('[data-p=s]');
   await p.click('[data-r=HR]');
   await p.click('.sheet [data-x=save]');
-  assert.equal(await said(), 'Batter 3 hits a three-run home run. Batter 1 and Batter 2 score. Owls 3, Home 0. Nobody on, nobody out.');
+  assert.equal(await said(), 'Batter 3 hits a three-run home run. Batter 1 and Batter 2 score. Owls take the lead, 3–0. Owls 3, Home 0. Nobody on, nobody out.');
   await p.click('.bar .undo');
-  assert.equal(await said(), 'Took back: Batter 3 hits a three-run home run. Batter 1 and Batter 2 score. Runners on second and third, nobody out, 0 balls, 1 strike.');
+  assert.equal(await said(), 'Took back: Batter 3 hits a three-run home run. Batter 1 and Batter 2 score. Owls take the lead, 3–0. Runners on second and third, nobody out, 0 balls, 1 strike.');
   assert.equal(await region.evaluate(el => el.isConnected), true, 'the same region all along');
   const board = await p.textContent('.bug');
   assert.match(board, /Owls\s*0, batting/);
@@ -2579,7 +2579,7 @@ step('a courtesy runner: only the name on the base changes, and the player she r
   await p.click('[data-r="2B"]');
   await p.click('.mv[data-from="1"] [data-to="4"]');
   await p.click('.sheet [data-x=save]');
-  assert.equal(await tickerOf(p), 'Batter 2 doubles. Emma scores.');
+  assert.equal(await tickerOf(p), 'Batter 2 doubles. Emma scores. Owls take the lead, 1–0.');
   assert.deepEqual(untimed((await stored(p, id)).ev[1]), { t: 'cr', s: 0, b: 1, name: 'Emma', num: '' });
   await p.click('[data-v=box]');
   const box = await p.textContent('.pane[data-p=box]');

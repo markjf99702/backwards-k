@@ -417,7 +417,7 @@ function pitch(S, k, auto = false) {
 }
 
 function pa(S, e) {
-  const g = S.g, side = S.half, fld = 1 - side, slot = S.up[side], p = S.pl[side][slot];
+  const g = S.g, side = S.half, fld = 1 - side, slot = S.up[side], p = S.pl[side][slot], was = S.R[side];
   if (!RESULTS[e.r]) return;
   // When the at-bat began: its first pitch, or the play itself when its pitches weren't counted.
   const at = S.seq ? S.abAt : Number.isFinite(e.at) ? e.at : null;
@@ -560,6 +560,7 @@ function pa(S, e) {
   else if (R.kind === 'out' && !bOut && bTo > 0) text += ` but reaches ${BASE[bTo]}${bWhy}`;
   text += '.' + (bits.length ? ' ' + sentences(bits) + '.' : '');
   if (code !== e.r) text += ` ${credit(e.r, code)}`;
+  text += leadWords(S, was);
   const full = (runs || past.length) && S.outs < 3 && limited(S);
   if (full) text += ' ' + limitWords(S);
   cell.text = text;
@@ -624,6 +625,14 @@ function mercyEnds(S) {
   S.plays.push({ i: S.i, inn: S.inn, half: S.half, text, kind: 'end', runs: 0 });
 }
 
+// A play whose runs tie the game, or put the batting team ahead, says so after it (was: the runs it had before):
+// " That ties it, 2–2." " Comets take the lead, 3–2." Not on the play that wins it: the game is over, and says who won.
+function leadWords(S, was) {
+  const a = S.R[S.half], b = S.R[1 - S.half];
+  if (a === was || was > b || a < b || won(S)) return '';
+  return a === b ? ` That ties it, ${a}–${b}.` : ` ${teamName(S.g, S.half)} take the lead, ${a}–${b}.`;
+}
+
 // A play's sentences, joined. A sentence that lists everyone who scored is a function, written out once they're all
 // known.
 const sentences = bits => bits.map(b => (typeof b === 'function' ? b() : b)).join('. ');
@@ -654,7 +663,7 @@ function fielderWords(code, f) {
 function runners(S, e) {
   S.fresh = false;
   pitching(S);
-  const g = S.g, side = S.half, fld = 1 - side;
+  const g = S.g, side = S.half, fld = 1 - side, was = S.R[side];
   const moves = e.m.slice().sort((a, b) => b[0] - a[0]);
   // Runners who score for the same reason are in one sentence: "Ruiz and Okafor score on a wild pitch."
   const bits = [], scored = {};
@@ -710,7 +719,7 @@ function runners(S, e) {
   if (balk) pstat(S).bk++;
   ghostPlay(S, acts, null, balk);
   const full = (runs || past.length) && S.outs < 3 && limited(S);
-  const text = (balk ? 'Balk. ' : '') + (bits.length ? sentences(bits) + '.' : '') + (full ? ' ' + limitWords(S) : '');
+  const text = (balk ? 'Balk. ' : '') + (bits.length ? sentences(bits) + '.' : '') + leadWords(S, was) + (full ? ' ' + limitWords(S) : '');
   S.text[S.i] = text;
   S.plays.push({ i: S.i, inn: S.inn, half: side, text, kind: 'run', runs, mark: mk });
   walkoff(S);

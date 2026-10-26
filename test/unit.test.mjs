@@ -142,7 +142,7 @@ test('an extra base on the throw or on an error: said so, drawn so, and an error
   assert.equal(S.E[1], 0);
   // From first, home on the right fielder's error: an error, the run, and no RBI for it.
   S = play(game(), '3B', 'BB', { t: 'pa', r: '1B', m: [[0, 1], [1, 4, 'E', [9]], [3, 4]] });
-  assert.equal(S.text.at(-1), 'Batter 3 singles. Batter 1 scores. Batter 2 scores on an error by the right fielder (E9).');
+  assert.equal(S.text.at(-1), 'Batter 3 singles. Batter 1 scores. Batter 2 scores on an error by the right fielder (E9). Foxes take the lead, 2–0.');
   assert.deepEqual([S.R[0], S.cells[2].rbi, S.bat['0.2.0'].rbi, S.E[1], S.errs[1], S.eInn[0]], [2, 1, 1, 1, [9], [1]]);
   assert.deepEqual(S.cells[1].notes, ['', '', '3', '', 'E9']);
   // The batter takes second on the throw, or comes all the way home on errors; the fielder needn't be said.
@@ -150,7 +150,7 @@ test('an extra base on the throw or on an error: said so, drawn so, and an error
   assert.equal(S.text.at(-1), 'Batter 1 singles and takes second on the throw.');
   assert.deepEqual([S.cells[0].reach, S.cells[0].notes[2], S.bases[2].cell.n], [2, 'T', 0]);
   S = play(game(), { t: 'pa', r: '1B', m: [[0, 4, 'E']] });
-  assert.equal(S.text.at(-1), 'Batter 1 singles and comes all the way home on an error by the fielder.');
+  assert.equal(S.text.at(-1), 'Batter 1 singles and comes all the way home on an error by the fielder. Foxes take the lead, 1–0.');
   assert.deepEqual([S.R[0], S.cells[0].rbi, S.E[1], S.errs[1]], [1, 0, 1, [0]]);
   // Reached on the shortstop's error, and the runner from second scored on it too: one error. On another fielder's
   // throw after it, two.
@@ -166,7 +166,7 @@ test('an extra base on the throw or on an error: said so, drawn so, and an error
   // Two who scored on the same throw, in one sentence; kept from a file and a link.
   const g = game();
   S = play(g, '1B', '1B', { t: 'pa', r: '1B', m: [[0, 1], [1, 4, 'T'], [2, 4, 'T']] });
-  assert.equal(S.text.at(-1), 'Batter 3 singles. Batter 1 and Batter 2 score on the throw.');
+  assert.equal(S.text.at(-1), 'Batter 3 singles. Batter 1 and Batter 2 score on the throw. Foxes take the lead, 2–0.');
   assert.deepEqual(cleanGame(JSON.parse(JSON.stringify(g))), g);
   g.ev.push({ t: 'pa', r: '1B', m: [[0, 1], [1, 3, 'E', [8]]] });
   assert.deepEqual(cleanGame(JSON.parse(JSON.stringify(g))).ev.at(-1).m, [[0, 1], [1, 3, 'E', [8]]]);
@@ -941,7 +941,7 @@ test('a double or triple play with fewer outs, an out with the batter safe: scor
   S = play(g, '1B', '1B');
   const m = [[0, 0], [1, 2], [2, 4]];
   S = play(g, { t: 'pa', r: scoredAs(S, 'DP', [6, 4, 3], m), f: [6, 4, 3], m });
-  assert.equal(S.text.at(-1), 'Batter 3 grounds out, short to first (6-4-3). Batter 1 scores. Batter 2 to second.');
+  assert.equal(S.text.at(-1), 'Batter 3 grounds out, short to first (6-4-3). Batter 1 scores. Batter 2 to second. Foxes take the lead, 1–0.');
   assert.deepEqual([S.outs, S.R[0], S.cells[2].rbi], [1, 1, 1]);
 });
 
@@ -1036,7 +1036,7 @@ test('a substitute made from Lineups for a player on base runs for him, and gets
   let S = play(g, '2B', { t: 'sub', s: 0, slot: 0, i: 1, ty: 'def' });
   assert.equal(S.bases[2].p, 1, 'Speedy is on second');
   S = play(g, { t: 'pa', r: '1B', m: [[0, 1], [2, 4]] });
-  assert.equal(S.text.at(-1), 'Batter 2 singles. Speedy scores.');
+  assert.equal(S.text.at(-1), 'Batter 2 singles. Speedy scores. Foxes take the lead, 1–0.');
   assert.equal(S.bat['0.0.1'].r, 1);
   assert.equal(S.bat['0.0.0'].r, 0, 'the batter who doubled left the game');
   assert.equal(S.cells[0].scored, true, 'the run is still drawn in the double’s box');
@@ -1050,7 +1050,7 @@ test('a substitute made from Lineups for a player on base runs for him, and gets
 test('a home run with the batter called out says so', () => {
   const g = game();
   const S = play(g, 'E', { t: 'pa', r: 'HR', m: [[0, 0], [1, 4]] });
-  assert.equal(S.text[1], 'Batter 2 hits a home run, but is called out on the bases. Batter 1 scores.');
+  assert.equal(S.text[1], 'Batter 2 hits a home run, but is called out on the bases. Batter 1 scores. Foxes take the lead, 1–0.');
   assert.equal(S.cells[1].reach, 4, 'the whole way round');
   assert.equal(S.cells[1].outAt, 4);
   assert.equal(S.cells[1].outN, 1);
@@ -1060,7 +1060,7 @@ test('a home run says its size: a two-run or three-run home run, or a grand slam
   const g = game();
   const said = () => replay(g).text.at(-1);
   play(g, 'HR');
-  assert.equal(said(), 'Batter 1 hits a home run.');
+  assert.equal(said(), 'Batter 1 hits a home run. Foxes take the lead, 1–0.');
   play(g, '1B', 'HR');
   assert.equal(said(), 'Batter 3 hits a two-run home run. Batter 2 scores.');
   play(g, 'K', '1B', '1B', 'HR 8');
@@ -1071,6 +1071,27 @@ test('a home run says its size: a two-run or three-run home run, or a grand slam
   const h = game({ rules: { set: 'custom', runs: 2, last: false, all: false, mercy: [] } });
   play(h, '1B', 'BB', 'BB', 'HR');
   assert.match(replay(h).text.at(-1), /^Batter 4 hits a two-run home run\. Batter 1 and Batter 2 score\. Batter 3 and Batter 4 cross the plate too/);
+});
+
+test('a play that ties the game or puts the batting team ahead says so, and the one that wins it doesn’t need to', () => {
+  const g = game({ innings: 2 });
+  const said = () => replay(g).text.at(-1);
+  play(g, 'HR');
+  assert.equal(said(), 'Batter 1 hits a home run. Foxes take the lead, 1–0.');
+  play(g, 'HR');
+  assert.equal(said(), 'Batter 2 hits a home run.', 'already ahead');
+  play(g, ...threeK, '1B', { t: 'r', m: [[1, 3, 'WP']] }, { t: 'r', m: [[3, 4, 'PB']] });
+  assert.equal(said(), 'Batter 1 scores on a passed ball.');
+  play(g, '1B');
+  play(g, { t: 'r', m: [[1, 4, 'E', [8]]] });
+  assert.equal(said(), 'Batter 2 scores on an error by the center fielder (E8). That ties it, 2–2.');
+  // A run that doesn't count changes nothing.
+  play(g, 'K', 'K', '1B', { t: 'pa', r: 'GO', f: [6, 3], m: [[0, 0], [1, 2]] });
+  play(g, 'K', 'K', 'BB', '1B', { t: 'pa', r: 'GO', f: [5, 3], m: [[0, 0], [2, 4], [1, 2]], x: 1 });
+  assert.equal(said(), 'Batter 1 grounds out, third to first (5-3). Batter 8 crosses the plate, but the run doesn’t count. Batter 9 to second.');
+  // The home team ahead in the last inning: the play says the winning run, and the game is over.
+  play(g, 'K', 'K', '2B', { t: 'pa', r: '1B', m: [[0, 1], [2, 4]] });
+  assert.deepEqual([replay(g).over, said()], [true, 'Batter 1 singles. Batter 9 scores the winning run.']);
 });
 
 test('shorthand marks', () => {
@@ -1095,7 +1116,7 @@ test('everyone who scores on a play is in one sentence, so a grand slam fits the
   const g = game();
   ['Mackenzie', 'Alejandro', 'Christopher', 'Josephine'].forEach((name, i) => { g.teams[0].lineup[i][0].name = name; });
   let S = play(g, 'BB', 'BB', 'BB', 'HR');
-  assert.equal(S.text.at(-1), 'Josephine hits a grand slam. Mackenzie, Alejandro and Christopher score.');
+  assert.equal(S.text.at(-1), 'Josephine hits a grand slam. Mackenzie, Alejandro and Christopher score. Foxes take the lead, 4–0.');
   // Each box keeps its own story.
   assert.deepEqual(S.cells.slice(0, 3).map(c => c.story.at(-1)), Array(3).fill('Scored on Josephine’s home run.'));
   // Two who score, and one who moves up.
@@ -1106,9 +1127,9 @@ test('everyone who scores on a play is in one sentence, so a grand slam fits the
   assert.equal(S.text.at(-1), 'Batter 7 scores on a wild pitch. Batter 8 moves to third on a wild pitch.');
   // Two who score on one wild pitch, or on one wild throw.
   S = play(game(), '1B', '1B', { t: 'r', m: [[2, 4, 'WP'], [1, 4, 'WP']] });
-  assert.equal(S.text.at(-1), 'Batter 1 and Batter 2 score on a wild pitch.');
+  assert.equal(S.text.at(-1), 'Batter 1 and Batter 2 score on a wild pitch. Foxes take the lead, 2–0.');
   S = play(game(), '1B', '1B', { t: 'r', m: [[2, 4, 'E', [2]], [1, 4, 'E', [2]]] });
-  assert.equal(S.text.at(-1), 'Batter 1 and Batter 2 score on an error by the catcher (E2).');
+  assert.equal(S.text.at(-1), 'Batter 1 and Batter 2 score on an error by the catcher (E2). Foxes take the lead, 2–0.');
   // Runs that cross the plate on the third out but don't count.
   S = play(game(), '1B', '1B', '1B', 'K', 'K', { t: 'pa', r: 'GO', f: [6, 3], m: [[0, 0], [3, 4], [2, 4], [1, 3]], x: 1 });
   assert.equal(S.text.at(-1), 'Batter 6 grounds out, short to first (6-3). Batter 1 and Batter 2 cross the plate, but the runs don’t count. Batter 3 to third.');
@@ -1227,7 +1248,7 @@ test('a game from a file with a long number, someone listed twice in a play, or 
   // The batter listed twice: he goes to first, once, and the runs and the boxes agree.
   let S = play(game(), '3B', { t: 'pa', r: '1B', m: [[0, 1], [3, 4], [0, 2]] });
   assert.deepEqual([S.R[0], S.cells.filter(c => c.scored).length, S.bases.map(Boolean)], [1, 1, [false, true, false, false]]);
-  assert.equal(S.text.at(-1), 'Batter 2 singles. Batter 1 scores.');
+  assert.equal(S.text.at(-1), 'Batter 2 singles. Batter 1 scores. Foxes take the lead, 1–0.');
   // A runner listed twice in a steal moves once; and nothing happens on a play after its third out.
   S = play(game(), '1B', { t: 'r', m: [[1, 2, 'SB'], [1, 2, 'SB']] });
   assert.deepEqual([S.bat['0.0.0'].sb, S.bases.map(Boolean)], [1, [false, false, true, false]]);
@@ -2263,7 +2284,7 @@ test('a courtesy runner: only the name on the base changes, and the run and the 
   assert.equal(S.bases[1].slot, 0);
   S = play(g, { t: 'r', m: [[1, 2, 'SB']] }, 'K', { t: 'pa', r: '1B', m: [[0, 1], [2, 4]] });
   assert.equal(S.text.at(-3), 'Emma steals second.');
-  assert.equal(S.text.at(-1), 'V3 singles. Emma scores.');
+  assert.equal(S.text.at(-1), 'V3 singles. Emma scores. Foxes take the lead, 1–0.');
   const b = S.bat['0.0.0'];
   assert.deepEqual([b.pa, b.ab, b.h, b.r, b.sb], [1, 1, 1, 1, 1], 'V1’s line stays whole: her hit, her run, her steal');
   assert.equal(S.bat['0.2.0'].rbi, 1, 'the RBI is the batter’s who drove her in');
