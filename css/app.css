@@ -500,6 +500,21 @@ details.partway .hint { margin: 10px 0 0; }
 .count i.b.on { background: var(--lamp-b); box-shadow: 0 0 6px var(--lamp-b); }
 .count i.s.on { background: var(--lamp-s); box-shadow: 0 0 6px var(--lamp-s); }
 .count i.o.on { background: var(--lamp-o); box-shadow: 0 0 6px var(--lamp-o); }
+/* What a tap just changed, where motion is welcome: a run flips over, the lamp that just lit glows, and a new box on
+   the card gets a red pencil ring for a moment. */
+@media (prefers-reduced-motion: no-preference) {
+  .r.flip { display: inline-block; animation: flip .42s ease-out; }
+  .count i.lit { animation: lit .6s ease-out; }
+  .card .box.fresh { position: relative; }
+  .card .box.fresh::after {
+    content: ''; position: absolute; inset: 4px 3px; border: 2px solid var(--red); pointer-events: none;
+    border-radius: 48% 52% 45% 55% / 55% 45% 52% 48%; transform: rotate(-6deg); animation: ring 1.4s ease-out forwards;
+  }
+}
+@keyframes flip { from { transform: perspective(200px) rotateX(-90deg); opacity: .3; } to { transform: none; opacity: 1; } }
+@keyframes lit { from { transform: scale(1.7); } to { transform: none; } }
+@keyframes ring { 0% { opacity: 0; transform: rotate(-30deg) scale(.7); } 25% { opacity: 1; transform: rotate(-6deg) scale(1); } 70% { opacity: 1; } 100% { opacity: 0; transform: rotate(-6deg) scale(1); } }
+.sheet .switch.buzz { margin-top: 16px; }
 .deck {
   position: absolute; left: 8px; bottom: 8px; margin: 0; max-width: 30%; padding: 3px 8px; border-radius: 8px;
   background: var(--board-2); color: var(--board-ink); box-shadow: 0 2px 0 rgba(0, 0, 0, .25);

@@ -1487,6 +1487,65 @@ step('a first-time scorer: how this works where the plays will go, the tips a ta
   await p.context().close();
 }
 
+step('a tap you can see: a run flips over, the lamp that just lit glows, a new box gets a red ring; and one you can feel, if it’s turned on');
+{
+  // (The page's buzzes are kept, to count them.)
+  const p = await phone(() => { navigator.vibrate = x => { (window.buzzes ||= []).push(x); return true; }; });
+  const id = await startGame(p);
+  const anim = sel => p.evaluate(sel => [...document.querySelectorAll(sel)].map(x => getComputedStyle(x, sel.includes('fresh') ? '::after' : null).animationName).join(), sel);
+  await p.click('[data-p=b]');
+  assert.equal(await anim('.count i.lit'), 'lit', 'the first ball lights up');
+  assert.equal(await p.evaluate(() => [...document.querySelectorAll('.count i.b')].indexOf(document.querySelector('.count i.lit'))), 0);
+  await p.click('[data-r=HR]');
+  assert.equal(await anim('.bar .r.flip'), 'flip', 'the visitors’ run flips over');
+  assert.equal(await p.locator('.bar .r.flip').count(), 1);
+  await p.click('[data-r=K]');
+  assert.equal(await p.locator('.count i.o.lit').count(), 1, 'the first out');
+  assert.equal(await p.locator('.r.flip').count(), 0, 'no run: nothing flips');
+  // A new box on the card: its ring, once.
+  await p.click('[data-v=card]');
+  assert.equal(await p.getAttribute('.box.fresh', 'data-cell'), '1');
+  assert.equal(await anim('.box.fresh'), 'ring');
+  await p.click('[data-v=box]');
+  await p.click('[data-v=card]');
+  assert.equal(await p.locator('.box.fresh').count(), 0, 'not again when the card is shown again');
+  // Redrawn with nothing new (another tab), nothing moves.
+  await p.click('[data-v=live]');
+  assert.equal(await p.locator('.lit, .flip').count(), 0);
+  // No buzz until it's turned on, on this device, in the game's menu.
+  assert.equal(await p.evaluate(() => window.buzzes), undefined);
+  await p.click('[data-a=menu]');
+  assert.equal(await p.isChecked('.sheet [data-buzz]'), false);
+  await p.check('.sheet [data-buzz]');
+  assert.equal(await p.evaluate(() => localStorage.getItem('backwards-k.buzz')), '1');
+  await p.click('.sheet [data-close]');
+  await p.click('[data-p=b]');
+  await p.click('[data-r=HR]');
+  await p.click('[data-r=K]');
+  await p.click('[data-r=K]');
+  await p.click('.bar .undo');
+  assert.deepEqual(await p.evaluate(() => window.buzzes), [30, 8, [12, 70, 12], 8, 30, 8], 'the switch, a pitch, a run, an out, the third out, Undo');
+  // It's this device's, not the game's: not in what's saved, and still on after a reload.
+  assert.equal(JSON.stringify(await stored(p, id)).includes('buzz'), false);
+  await p.reload();
+  await p.waitForSelector('.live .field');
+  await p.click('[data-a=menu]');
+  assert.equal(await p.isChecked('.sheet [data-buzz]'), true);
+  await p.context().close();
+  // Where motion isn't welcome, nothing moves; and where a page can't buzz (an iPhone), there's no switch.
+  const c = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, serviceWorkers: 'block', reducedMotion: 'reduce' });
+  await c.addInitScript(() => { delete Navigator.prototype.vibrate; });
+  const q = await c.newPage();
+  q.on('pageerror', e => problems.push(e.message));
+  await startGame(q);
+  await q.click('[data-p=b]');
+  await q.click('[data-r=HR]');
+  assert.deepEqual(await q.evaluate(() => [...document.querySelectorAll('.lit, .flip')].map(x => getComputedStyle(x).animationName)), ['none', 'none']);
+  await q.click('[data-a=menu]');
+  assert.equal(await q.locator('.sheet [data-buzz]').count(), 0);
+  await c.close();
+}
+
 step('Fix runners only after a play with runners, or the batter safe');
 {
   const p = await phone();

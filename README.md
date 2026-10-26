@@ -122,6 +122,12 @@ written out in plain words.
   days of rest each pitcher needs after the game (VI(d): through 14, none after 1-20 pitches, then a day each after
   21, 36, 51 and 66; at 15 and up the steps are 31, 46, 61 and 76, and Pitch Smart's 19-22 has a fifth after 106),
   and in Little League, who threw 41 or more and can't catch that day.
+- **A tap you can see, and feel.** A run flips over on the scoreboard, the ball, strike or out that just lit up glows,
+  and a new box on the card gets a red pencil ring for a moment (unless the phone or computer asks for less motion).
+  **Buzz on each tap**, in the game's menu, gives a short buzz for each tap on a phone that can (Android: an iPhone
+  doesn't let a web page), two for a run and a longer one for the third out, for a scorer whose eyes are on the field.
+  It's off to start with, and it's that device's own setting (backwards-k.buzz in the browser's storage), not the
+  game's.
 - **Phone or tablet.** On a phone the buttons, the card, the box score and the play-by-play are tabs. On a tablet
   held sideways (or any screen 1000 pixels wide or more) the buttons and the card sit side by side, and the card
   fills in while you watch; on one held upright, the card is under the buttons.

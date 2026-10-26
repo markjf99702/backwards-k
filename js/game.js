@@ -38,6 +38,8 @@ export function showGame(el, game, opts = {}) {
   view = 'live'; cardSide = null; lastInn = '';
   if (readOnly) { view = matchMedia('(min-width: 700px)').matches ? 'live' : 'card'; pane = 'card'; }
   S = replay(G);
+  // (Nothing is new when the game opens: see paint().)
+  shown = null; ringed = S.cells.length ? S.cells[S.cells.length - 1].n : -1;
   // A link carries the game as it was when it was sent: one sent mid-game says so, so nobody waits on it for runs.
   // And when this device has the game too, it says so.
   const has = !mine ? '' : onSave ? 'This game is on this device too, and this link has plays yours doesn’t.' : 'This game is on this device too.';
@@ -107,6 +109,7 @@ function act(e) {
   G.ev.push(e);
   moved();
   save();
+  felt();
   say();
 }
 // When a new event was scored, for the times in the box score and the plays: at, in seconds since the first pitch.
@@ -164,6 +167,7 @@ function undo() {
   redo.push(r);
   took = said;
   save();
+  buzz(8);
   // How things stood before it, to tell whether it can go back as it was after other plays (fits() in engine.js).
   Object.assign(r, { at: { half: S.half, inn: S.inn, outs: S.outs, over: S.over }, said });
   if (wide() || view === 'live') return say(was);
@@ -178,6 +182,7 @@ function redoIt() {
   putBack(G, r);
   took = '';
   save();
+  buzz(8);
   say();
 }
 // Put back: the plays kept from before a new play went in go back after it, oldest first, each as it was if it still
@@ -302,11 +307,18 @@ function draw() {
   if (root) keepFocus(paint);
 }
 function paint() {
+  // What changed since the last drawing: a run (on either team), the newest ball, strike or out (see seen()).
+  const was = shown;
+  shown = { R: S.R.slice(), b: S.b, s: S.s, outs: S.outs, half: S.half, inn: S.inn };
+  fresh = !was || readOnly ? NOTHING : {
+    r: [0, 1].map(i => S.R[i] !== was.R[i]), b: S.b > was.b ? S.b - 1 : -1, s: S.s > was.s ? S.s - 1 : -1,
+    o: S.outs > was.outs && S.half === was.half && S.inn === was.inn ? S.outs - 1 : -1,
+  };
   const game = $('.game', root);
   game.dataset.view = view;
   $('.side', root).dataset.pane = view === 'live' ? pane : view;
   $$('.vtabs button', root).forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === view || (view === 'live' && b.dataset.v === pane && wide()))));
-  $('.bar .title', root).innerHTML = `<span class="score-line"><b>${esc(teamName(G, 0))}</b> <span class="r">${S.R[0]}</span><i>–</i><span class="r">${S.R[1]}</span> <b>${esc(teamName(G, 1))}</b></span><small>${esc(halfLabel(S))}${G.date ? ' · ' + esc(fmtDate(G.date)) : ''}</small>`;
+  $('.bar .title', root).innerHTML = `<span class="score-line"><b>${esc(teamName(G, 0))}</b> <span class="r${fresh.r[0] ? ' flip' : ''}">${S.R[0]}</span><i>–</i><span class="r${fresh.r[1] ? ' flip' : ''}">${S.R[1]}</span> <b>${esc(teamName(G, 1))}</b></span><small>${esc(halfLabel(S))}${G.date ? ' · ' + esc(fmtDate(G.date)) : ''}</small>`;
   // (The buttons too are only drawn while they're on screen: not behind a phone's other tabs.)
   if (view === 'live' || wide()) $('.live', root).innerHTML = liveHtml(); else $('.live', root).replaceChildren();
   // The tab's title keeps the score, and the heading the teams' names as they change.
@@ -325,6 +337,27 @@ function paint() {
   wake(!S.over && !S.delayed && !readOnly);
 }
 const wide = () => matchMedia('(min-width: 700px)').matches;
+
+// ---------- a tap you can see and feel ----------
+// What the last drawing showed (shown), so the next marks what changed (fresh): a run flips over, the ball, strike or
+// out that just lit up glows, and a new box on the card gets a red pencil ring (ringed: the newest box the card has
+// shown). Only where motion is welcome (prefers-reduced-motion: no-preference, in app.css); otherwise nothing moves.
+const NOTHING = { r: [false, false], b: -1, s: -1, o: -1 };
+let shown = null, fresh = NOTHING, ringed = -1;
+// And a buzz, on a phone that can (Android: an iPhone doesn't let a web page), when it's turned on for this device in
+// the game's menu: 8 ms for a tap, two for a run, 30 ms for the third out. It's kept on this device only, under a key of
+// its own, not with the games.
+const BUZZ = 'backwards-k.buzz';
+const buzzOn = () => { try { return localStorage.getItem(BUZZ) === '1'; } catch { return false; } };
+function buzz(pattern) {
+  if (!buzzOn() || typeof navigator.vibrate !== 'function') return;
+  try { navigator.vibrate(pattern); } catch { /* not allowed here */ }
+}
+// The buzz for the play just made: two for a run scoring on it, a longer one for the third out, else a short one.
+function felt() {
+  const i = G.ev.length - 1, mine = S.plays.filter(p => p.i === i);
+  buzz(mine.some(p => p.runs > 0) ? [12, 70, 12] : mine.some(p => p.kind === 'end' && p.how === '') ? 30 : 8);
+}
 // The buttons and the card side by side (a tablet on its side, a computer).
 const sideBySide = () => matchMedia('(min-width: 1000px)').matches;
 
@@ -389,6 +422,10 @@ function drawCard() {
     <div class="card-wrap">${cardHtml(S, side, { live: !readOnly })}</div>`;
   const w = card.querySelector('.card-wrap');
   w.scrollLeft = keepX;
+  // A new box since the card was last drawn: a red pencil ring round it, for a moment (where motion is welcome).
+  const newest = S.cells[S.cells.length - 1];
+  if (newest && newest.n > ringed && !readOnly) card.querySelector(`.box[data-cell="${newest.n}"]`)?.classList.add('fresh');
+  ringed = newest ? newest.n : -1;
   // Keep the inning being played in view as the game moves along, and beside the buttons on a big screen, the
   // batter's box as each one comes up. (On a phone the card is a tab away and has no size while hidden, so this waits
   // until it's shown.)
@@ -434,12 +471,13 @@ function liveHtml() {
     if (S.over || S.delayed || readOnly) return `<span class="runner left" style="left:${x}%;top:${y}%"><span class="sr">${S.over ? 'Left on' : 'On'} ${BASE[b]}: </span><span>${name}</span></span>`;
     return `<button type="button" class="runner" data-runner="${b}" style="left:${x}%;top:${y}%" aria-label="Runner on ${BASE[b]}: ${name}. Tap for steals and other moves."><span>${name}</span></button>`;
   };
-  const dots = (on, of, cls) => Array.from({ length: of }, (_, i) => `<i class="${cls}${i < on ? ' on' : ''}"></i>`).join('');
+  // (The one that just lit up is marked, for a moment's glow: see paint().)
+  const dots = (on, of, cls) => Array.from({ length: of }, (_, i) => `<i class="${cls}${i < on ? ' on' : ''}${i === fresh[cls] ? ' lit' : ''}"></i>`).join('');
   // Near the game's pitch limit the pitcher's button turns amber, and at it red (see LIMIT_SHOW).
   const lim = limitState(S);
   const bug = `<div class="bug">
       <div class="bug-teams">
-        ${[0, 1].map(s => `<div class="bt${!S.over && S.half === s ? ' bat' : ''}${winner(S) === s ? ' won' : ''}"><span class="nm">${esc(teamName(g, s))}</span><span class="r">${S.R[s]}</span>${!S.over && S.half === s ? '<span class="sr">, batting</span>' : ''}</div>`).join('')}
+        ${[0, 1].map(s => `<div class="bt${!S.over && S.half === s ? ' bat' : ''}${winner(S) === s ? ' won' : ''}"><span class="nm">${esc(teamName(g, s))}</span><span class="r${fresh.r[s] ? ' flip' : ''}">${S.R[s]}</span>${!S.over && S.half === s ? '<span class="sr">, batting</span>' : ''}</div>`).join('')}
       </div>
       <div class="bug-state">
         <div class="inn">${S.over ? `<b>${esc(halfLabel(S))}</b>` : `<span class="arrow" aria-hidden="true">${S.half ? '▼' : '▲'}</span><span class="sr">${S.half ? 'Bottom' : 'Top'} of the </span><b>${ord(S.inn)}</b>`}</div>
@@ -928,6 +966,7 @@ function reached() {
     tapped = { e: G.ev[k], r: 'KD' };
     moved();
     save();
+    felt();
     say();
   };
   if (quiet('KD', st)) return put({ t: 'pa', r: 'KD', m });
@@ -1371,7 +1410,12 @@ function menuSheet() {
           : '<button type="button" class="li" data-y="eoh"><b>End this half-inning</b><span>For a run limit or the clock.</span></button><button type="button" class="li" data-y="end"><b>End the game here</b><span>Or stop for a delay. Rain, a run rule, or out of time.</span></button>'}
       <button type="button" class="li danger" data-y="delete"><b>Delete this game</b><span>From this device${drive.isOn() ? ' and your Google Drive' : ''}.</span></button>
     </div>
+    ${typeof navigator.vibrate === 'function' ? `<label class="switch buzz"><input type="checkbox" data-buzz${buzzOn() ? ' checked' : ''}><span>Buzz on each tap<small>On this device only: a short buzz for a play, two for a run, a longer one for the third out. Android phones can; iPhones don’t let a web page.</small></span></label>` : ''}
     <div class="row"><button type="button" class="btn quiet" data-close>Close</button></div>`);
+  $('[data-buzz]', body)?.addEventListener('change', e => {
+    try { if (e.target.checked) localStorage.setItem(BUZZ, '1'); else localStorage.removeItem(BUZZ); } catch { /* storage blocked: no buzz */ }
+    buzz(30);
+  });
   body.addEventListener('click', e => {
     const y = e.target.closest('[data-y]');
     if (!y) return;
