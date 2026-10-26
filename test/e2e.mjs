@@ -2566,7 +2566,7 @@ step('the box score as a spreadsheet, from the share sheet');
   assert.equal(file.suggestedFilename(), `${g.date} foxes-at-comets box score.csv`);
   const text = await readFile(await file.path(), 'utf8');
   assert.ok(text.startsWith(`\ufeffFoxes at Comets,${g.date},Riverside Park\r\n"Comets 7, Foxes 1 (Final)"\r\n`), text.slice(0, 80));
-  assert.match(text, /\r\nFoxes batting\r\nPlayer,No\.,Pos,PA,AB,R,H,2B,3B,HR,RBI,BB,K,HBP,SF,SH,SB,CS\r\nRuiz,2,/);
+  assert.match(text, /\r\nFoxes batting\r\nPlayer,No\.,Pos,PA,AB,R,H,2B,3B,HR,RBI,BB,K,HBP,SB,CS,SF,SH\r\nRuiz,2,/);
   await p.context().close();
 }
 

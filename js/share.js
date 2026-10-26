@@ -132,7 +132,8 @@ export function shareSheet(g) {
 
 // The box score as a spreadsheet (CSV), for a coach's season sheet: the line score, then for each team a row for each
 // player who was in each spot (as the box score has them, substitutes after the starter) with his batting line, and a
-// row for each pitcher with his: the same columns as a team's season (stats.js), so the rows can go straight into it.
+// row for each pitcher with his: a team's season's columns, in its order (stats.js), less the ones only a season has
+// (games, averages, ERA), so the rows can go straight into it.
 export function boxCsv(g) {
   const S = replay(g), d = decisions(S), n = innings(S), rows = [];
   rows.push([`${teamName(g, 0)} at ${teamName(g, 1)}`, g.date, g.place], [scoreLine(g, S)], []);
@@ -142,7 +143,7 @@ export function boxCsv(g) {
     if (side === 1 && S.over && S.between && S.half === 0 && S.R[1] > S.R[0] && inn[S.inn - 1] === '') inn[S.inn - 1] = 'x';
     rows.push([teamName(g, side), ...inn, S.R[side], S.H[side], S.E[side]]);
   }
-  const BAT = ['PA', 'AB', 'R', 'H', '2B', '3B', 'HR', 'RBI', 'BB', 'K', 'HBP', 'SF', 'SH', 'SB', 'CS'];
+  const BAT = ['PA', 'AB', 'R', 'H', '2B', '3B', 'HR', 'RBI', 'BB', 'K', 'HBP', 'SB', 'CS', 'SF', 'SH'];
   const PIT = ['IP', 'BF', 'H', 'R', 'ER', 'BB', 'K', 'HR', 'HBP', 'WP', 'BK', ...(g.pitches ? ['Pitches', 'Strikes'] : [])];
   for (const side of [0, 1]) {
     const team = g.teams[side], tot = Array(BAT.length).fill(0);
@@ -153,7 +154,7 @@ export function boxCsv(g) {
       for (const i of seen) {
         const p = (team.lineup[slot] || [])[i] || { name: '', num: '' }, b = S.bat[batKey(side, slot, i)];
         const cells = S.cells.filter(c => c.side === side && c.slot === slot && c.p === i), of = r => cells.filter(c => c.r === r).length;
-        const line = b ? [b.pa, b.ab, b.r, b.h, b.d, b.t, b.hr, b.rbi, b.bb, b.k, b.hbp, of('SF'), of('SAC'), b.sb, b.cs] : BAT.map(() => '');
+        const line = b ? [b.pa, b.ab, b.r, b.h, b.d, b.t, b.hr, b.rbi, b.bb, b.k, b.hbp, b.sb, b.cs, of('SF'), of('SAC')] : BAT.map(() => '');
         if (b) line.forEach((v, k) => { tot[k] += v; });
         rows.push([label(p, slot), p.name ? p.num : '', p.pos || '', ...line]);
       }
