@@ -54,6 +54,18 @@ function backHtml({ g, S }) {
     </section>`;
 }
 
+// When this browser has the only copy of the games: Google Drive is off, and no backup file has been saved here in 30
+// days (or ever) while games have changed since. Safari can clear a site's storage after 7 days without a visit
+// (WebKit's policy since 2020), so one line above Your games says so, with Save a backup. When the last backup was saved
+// is this device's own small note (backwards-k.backup), not game data.
+const BACKUP = 'backwards-k.backup', MONTH = 30 * 86400000;
+const backedUp = () => { try { return +localStorage.getItem(BACKUP) || 0; } catch { return 0; } };
+function nudge(games) {
+  const last = backedUp();
+  if (!games.length || inFrame() || drive.isOn() || Date.now() - last < MONTH || !games.some(g => g.updated > last)) return '';
+  return `<div class="nudge"><p>${games.length === 1 ? 'Your game is' : `Your ${games.length} games are`} only in this browser, and Safari can clear a site’s data after a week without a visit.</p><button type="button" class="btn sm" data-a="export">Save a backup</button></div>`;
+}
+
 export function showHome(el) {
   const games = store.all(), listed = everyGame ? games : games.slice(0, FEW), back = going(games);
   const item = g => {
@@ -88,6 +100,7 @@ export function showHome(el) {
         <figcaption>Every box on the card is one trip to the plate, drawn the way it’s done on paper.</figcaption>
       </figure>`}
       <section class="games">
+        ${nudge(games)}
         <h2>Your games</h2>
         ${games.length ? `<ul class="game-list">${listed.map(item).join('')}</ul>`
           : '<p class="quiet">No games yet. Score one, or open the sample to see a finished card.</p>'}
@@ -125,7 +138,12 @@ export function showHome(el) {
       showHome(el);
       el.querySelectorAll('.ti')[TEAMS]?.focus();
     }
-    if (a.dataset.a === 'export') download(`backwards-k-backup-${today()}.json`, JSON.stringify(store.doc(), null, 1));
+    if (a.dataset.a === 'export') {
+      download(`backwards-k-backup-${today()}.json`, JSON.stringify(store.doc(), null, 1));
+      // (Saved, so the line that asked for one goes.)
+      try { localStorage.setItem(BACKUP, String(Date.now())); } catch { /* storage blocked */ }
+      el.querySelector('.nudge')?.remove();
+    }
     if (a.dataset.a === 'import') {
       const f = await pickFile();
       if (!f) return;

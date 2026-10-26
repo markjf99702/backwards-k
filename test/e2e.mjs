@@ -1168,6 +1168,44 @@ step('a file that isn’t a game says so');
   await p.context().close();
 }
 
+step('games only in this browser: one line above them asks for a backup, until one is saved');
+{
+  const c = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, serviceWorkers: 'block', acceptDownloads: true });
+  const p = await c.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base);
+  assert.equal(await p.locator('.nudge').count(), 0, 'no games, nothing to back up');
+  await startGame(p);
+  await p.click('[data-r=K]');
+  await p.goto(base);
+  assert.equal(await p.textContent('.nudge p'), 'Your game is only in this browser, and Safari can clear a site’s data after a week without a visit.');
+  assert.ok((await box(p, '.nudge')).bottom <= (await box(p, '.games h2')).top, 'above Your games');
+  const [file] = await Promise.all([p.waitForEvent('download'), p.click('.nudge [data-a=export]')]);
+  assert.match(file.suggestedFilename(), /^backwards-k-backup-/);
+  assert.equal(await p.locator('.nudge').count(), 0, 'gone once it’s saved');
+  const at = +await p.evaluate(() => localStorage.getItem('backwards-k.backup'));
+  assert.ok(Math.abs(Date.now() - at) < 60000, 'this device notes when');
+  await p.reload();
+  assert.equal(await p.locator('.nudge').count(), 0);
+  // A month on, with a game changed since: it asks again. With nothing changed since, the backup has it all.
+  await p.evaluate(() => {
+    const doc = JSON.parse(localStorage.getItem('backwards-k.v1'));
+    for (const g of Object.values(doc.games)) g.updated = Date.now() - 32 * 86400000;
+    localStorage.setItem('backwards-k.v1', JSON.stringify(doc));
+    localStorage.setItem('backwards-k.backup', String(Date.now() - 31 * 86400000));
+  });
+  await p.reload();
+  assert.equal(await p.locator('.nudge').count(), 0, 'nothing changed since that backup');
+  await p.click('.gi');
+  await p.waitForSelector('.live .field');
+  await p.click('[data-r=K]');
+  await p.goto(base);
+  assert.equal(await p.locator('.nudge').count(), 1);
+  // The note is this device's, not a game's: it isn't in the backup.
+  assert.equal((await readFile(await file.path(), 'utf8')).includes('backwards-k.backup'), false);
+  await c.close();
+}
+
 step('a backup file saved on one device brings every game, as it was, to another');
 {
   const a = sampleGame(3), b = sampleUntil(7, S => S.inn === 7);

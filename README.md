@@ -183,6 +183,10 @@ written out in plain words.
   turned off, or a device that's out of room), the game screen says so and offers to save the game as a file. Games
   stored but unreadable (damaged) are put aside in the browser's storage, under backwards-k.v1.unreadable-…, rather
   than written over.
+  When Google Drive is off and no backup file has been saved on the device for 30 days (or ever) while games have
+  changed, one line above Your games says they're only in this browser (Safari can clear a site's data after a week
+  without a visit), with **Save a backup**. When the last one was saved is the device's own note, under
+  backwards-k.backup, not part of any game or backup.
 - **In Google Drive, when it's on:** one JSON file per game in the "Backwards K" folder, with a line or two at the top
   saying who played and the score. A game changed on one device is brought up to date on the others. One changed on
   two devices before they caught up is put together by its plays: when one copy's plays are the start of the other's,
