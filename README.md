@@ -30,7 +30,9 @@ written out in plain words.
   a balk or defensive indifference (a base nobody tried to stop him taking: not a steal); everyone who moved up on
   the same wild pitch or throw goes in as one play.
 - **Tap the field for the fielders.** For a ground out, tap the shortstop and then the first baseman, and the card
-  says 6-3. Or skip it. On a keyboard, type their numbers and press Enter.
+  says 6-3. Or skip it. The usual ones are a tap each above the field, and go straight in: 6-3, 4-3, 5-3, 1-3 and 3U
+  for a ground out, 6-4-3, 4-6-3, 5-4-3, 1-6-3 and 3-6-3 for a double play, and a fielder's choice's and a sacrifice's
+  too. On a keyboard, type their numbers and press Enter.
 - **Where hits went, if you like.** Turn on **Ask where hits went** (in New game, or Game settings) and each hit asks
   where it went: one tap on the fielder it went to (or Skip), the plays say "Ruiz singles to left", and the box on
   the card has a thin pencil line from home toward where it went. Then there are **spray charts**: the box score has

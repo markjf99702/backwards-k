@@ -658,16 +658,26 @@ const HINT = {
   SAC: 'Tap who fielded the bunt, then who made the out.',
   E: 'Tap the fielder who made the error.',
 };
-// Who fielded it. One tap for a catch or an error; a sequence for throws. Skipping is fine. From a keyboard, the
-// fielders' numbers pick them too, Backspace takes the last one back, and Enter is Done.
+// The plays a scorer writes most, each in one tap above the field: a 6-3 is [6, 3], and 3U the first baseman alone.
+const USUAL = {
+  GO: [[6, 3], [4, 3], [5, 3], [1, 3], [3]],
+  FC: [[6, 4], [4, 6], [5, 4], [1, 6]],
+  DP: [[6, 4, 3], [4, 6, 3], [5, 4, 3], [1, 6, 3], [3, 6, 3]],
+  SAC: [[1, 3], [5, 3], [3, 4], [2, 3]],
+};
+const dashed = f => (f.length === 1 ? f[0] + 'U' : f.join('-'));
+// Who fielded it. One tap for a catch or an error; a sequence for throws, or one of the usual ones (USUAL), which goes
+// in at once. Skipping is fine. From a keyboard, the fielders' numbers pick them too, Backspace takes the last one
+// back, and Enter is Done.
 // st: how things stood when the ball was hit, for who was where (see fielderNames()).
 // A hit: where it went, in one tap.
 function pickFielders(code, start, done, { title, st = S } = {}) {
   const R = RESULTS[code] || { f: 1, label: title }, hit = R.kind === 'hit';
   let seq = start ? start.slice() : [];
-  const one = R.f === 1 || hit, names = fielderNames(st);
+  const one = R.f === 1 || hit, names = fielderNames(st), usual = USUAL[code] || [];
   const body = openSheet(`<h2 id="sheetTitle">${esc(title || R.label)}: ${hit ? 'where did it go?' : 'who fielded it?'}</h2>
     <p class="hint">${esc(HINT[hit ? 'hit' : code] || 'Tap the fielder who caught it.')}</p>
+    ${usual.length ? `<p class="pick-row usual" role="group" aria-label="The usual ones, in one tap"><span>One tap:</span>${usual.map((f, i) => `<button type="button" class="chip" data-q="${i}" aria-label="${esc(`${dashed(f)}: ${f.map(n => POS_NAME[n]).join(' to ')}${f.length === 1 ? ', unassisted' : ''}`)}">${dashed(f)}</button>`).join('')}</p>` : ''}
     <p class="seq" aria-live="polite"></p>
     <div class="pick">${fieldSvg({ names })}</div>
     <div class="row">
@@ -683,6 +693,8 @@ function pickFielders(code, start, done, { title, st = S } = {}) {
     body.querySelector('.seq').innerHTML = seq.length ? `<b>${esc(mark(code === 'GO' && seq.length === 1 ? 'GO' : code, seq))}</b> ${esc(seq.map(n => POS_NAME[n]).join(' to '))}` : '&nbsp;';
     const d = body.querySelector('[data-x=done]');
     if (d) d.disabled = !seq.length;
+    // (The usual one that's the same as the fielders picked, when changing them, is pressed.)
+    body.querySelectorAll('[data-q]').forEach(c => c.setAttribute('aria-pressed', String(usual[+c.dataset.q].join() === seq.join())));
   };
   const add = n => {
     // (One tap is the answer: the fielder picked before, when changing it, isn't kept as well.)
@@ -693,8 +705,9 @@ function pickFielders(code, start, done, { title, st = S } = {}) {
   };
   upd();
   body.addEventListener('click', e => {
-    const p = e.target.closest('[data-pos]'), x = e.target.closest('[data-x]');
-    if (p) add(+p.dataset.pos);
+    const p = e.target.closest('[data-pos]'), x = e.target.closest('[data-x]'), q = e.target.closest('[data-q]');
+    if (q) done(usual[+q.dataset.q].slice());
+    else if (p) add(+p.dataset.pos);
     else if (x) {
       if (x.dataset.x === 'back') { seq.pop(); upd(); }
       if (x.dataset.x === 'skip') done(null);

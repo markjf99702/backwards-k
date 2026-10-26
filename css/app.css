@@ -385,6 +385,9 @@ details.lineup summary small { color: var(--muted); font-weight: 400; }
 .pitcher-row { grid-template-columns: 74px 1fr; margin-top: 10px; }
 .pitcher-row .lbl { grid-column: 1 / -1; font-weight: 700; font-size: 15px; }
 .from-order .pick-row { margin: 8px 0 0; }
+/* The usual plays in the fielder picker (6-3, 6-4-3 DP): a little narrower, so five fit on a phone's line. */
+.pick-row.usual { margin: 4px 0 0; }
+.pick-row.usual .chip { padding: 6px 10px; font-variant-numeric: tabular-nums; }
 .opts { display: grid; gap: 14px; }
 .opt { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
 .opt .lbl { font-weight: 700; }

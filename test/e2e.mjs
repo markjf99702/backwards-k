@@ -1502,7 +1502,7 @@ step('a ground out 6-3 from a keyboard alone: Enter and Space pick the fielders'
   await keys('Enter');
   await p.waitForSelector('.sheet .pick');
   assert.equal(await p.getAttribute('.sheet [data-pos="6"]', 'aria-label'), '6, shortstop');
-  await keys('Tab', 6); // from the heading past 1 to 5
+  await keys('Tab', 11); // from the heading past the usual ones (6-3, 4-3, 5-3, 1-3, 3U), then 1 to 5
   assert.equal(await at(), '6');
   await keys('Enter');
   assert.match(await p.textContent('.sheet .seq'), /^6U shortstop$/);
@@ -1532,6 +1532,50 @@ step('a ground out 6-3 from a keyboard alone: Enter and Space pick the fielders'
   await p.click('[data-v=card]');
   await p.click('.pane[data-p=card] [data-a=help]');
   assert.match(await p.getAttribute('.sheet .whole-field', 'aria-label'), /1 pitcher, 2 catcher, 3 first baseman.* 6 shortstop.* 9 right fielder$/);
+  await p.context().close();
+}
+
+step('the usual plays in one tap: a 6-3 with nobody on is two taps, and a 6-4-3 double play three');
+{
+  const p = await phone();
+  const id = await startGame(p);
+  const usual = () => p.$$eval('.sheet .usual [data-q]', b => b.map(x => x.textContent));
+  await p.click('[data-r=GO]');
+  assert.deepEqual(await usual(), ['6-3', '4-3', '5-3', '1-3', '3U']);
+  assert.equal(await p.getAttribute('.sheet .usual [data-q="0"]', 'aria-label'), '6-3: shortstop to first baseman');
+  assert.equal(await p.getAttribute('.sheet .usual [data-q="4"]', 'aria-label'), '3U: first baseman, unassisted');
+  await p.click('.sheet .usual [data-q="0"]');
+  assert.equal(await tickerOf(p), 'Batter 1 grounds out, short to first (6-3).');
+  assert.deepEqual((await stored(p, id)).ev.at(-1).f, [6, 3]);
+  // A fielder's choice and a sacrifice have theirs; a fly out (one tap anyway) has none.
+  await p.click('[data-r="1B"]');
+  await p.click('[data-r=BB]');
+  for (const [r, want] of [['FC', ['6-4', '4-6', '5-4', '1-6']], ['SAC', ['1-3', '5-3', '3-4', '2-3']], ['FO', []]]) {
+    await p.click(`[data-r=${r}]`);
+    await p.waitForSelector('.sheet .pick');
+    assert.deepEqual(await usual(), want, r);
+    await p.click('.sheet [data-x=skip]');
+    await p.click('.sheet [data-close]');
+  }
+  // With runners on: the double play's usual ones, then where everyone went, as before.
+  await p.click('[data-r=DP]');
+  assert.deepEqual(await usual(), ['6-4-3', '4-6-3', '5-4-3', '1-6-3', '3-6-3']);
+  await p.click('.sheet .usual [data-q="1"]');
+  await p.waitForSelector('.sheet .moves');
+  assert.equal(await p.textContent('.sheet h2 .mk'), '4-6-3 DP');
+  await p.click('.sheet [data-x=save]');
+  assert.deepEqual((await stored(p, id)).ev.at(-1).f, [4, 6, 3]);
+  assert.equal(await plays(p, id), 'paGO pa1B paBB paDP');
+  // Changing a box's fielders: the one it was is pressed, and another goes in with one tap.
+  await p.click('[data-v=card]');
+  await p.click('[data-cs="0"]');
+  await p.click('[data-cell="0"]');
+  await p.click('.sheet [data-y=f]');
+  assert.equal(await p.getAttribute('.sheet .usual [data-q="0"]', 'aria-pressed'), 'true');
+  assert.equal(await p.getAttribute('.sheet .usual [data-q="1"]', 'aria-pressed'), 'false');
+  await p.click('.sheet .usual [data-q="2"]');
+  assert.match(await p.textContent('.sheet .cell-big'), /5-3 Ground out/);
+  assert.deepEqual((await stored(p, id)).ev[0].f, [5, 3]);
   await p.context().close();
 }
 
