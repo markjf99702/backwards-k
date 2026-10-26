@@ -2028,6 +2028,60 @@ step('a box’s “Change what it was” offers only what could have happened');
   await p.context().close();
 }
 
+step('a dropped third strike after the strikeout was tapped: Batter reached? under the field, or in its box');
+{
+  const p = await phone(), id = await startGame(p);
+  const links = () => p.$$eval('.ticker .acts button', b => b.map(x => x.textContent));
+  for (const k of ['s', 's', 'c']) await p.click(`[data-p=${k}]`);
+  assert.equal(await tickerOf(p), 'Batter 1 strikes out looking.');
+  assert.deepEqual(await links(), ['Undo', 'Batter reached?']);
+  await p.click('.ticker [data-a=reached]');
+  assert.equal(await tickerOf(p), 'Batter 1 strikes out but reaches on a dropped third strike.');
+  assert.equal(await bases(p), '1:Batter 1');
+  assert.equal(await plays(p, id), 'p p paKD');
+  assert.match(await p.textContent('.pitcher'), /3\s*pitches/, 'the pitch count stays');
+  let S = replay(await stored(p, id));
+  assert.deepEqual([S.pitching[1][0].k, S.pitching[1][0].np, S.outs], [1, 3, 0], 'still the pitcher’s strikeout, and nobody out');
+  // With first base taken and nobody out, strike three is an out (OBR 5.09(a)(3)): nothing to ask.
+  for (let i = 0; i < 3; i++) await p.click('[data-p=s]');
+  assert.deepEqual(await links(), ['Undo']);
+  // Its box says so: K swinging, the backwards K looking, and K, reached first, greyed out.
+  await p.click('[data-v=card]');
+  await p.click('[data-cell="1"]');
+  assert.deepEqual(await p.$$eval('.sheet [data-sw]', b => b.map(x => x.textContent)), ['K swinging', 'K looking', 'K, reached first']);
+  assert.equal(await p.getAttribute('.sheet [data-sw=KL]', 'aria-label'), 'Strikeout looking');
+  assert.equal(await p.locator('.sheet [data-sw=KL] .kl').count(), 1, 'a backwards K');
+  assert.equal(await p.locator('.sheet [data-sw=KD]').isDisabled(), true);
+  assert.equal(await p.getAttribute('.sheet [data-sw=KD]', 'title'), 'First base was taken with fewer than two out.');
+  await p.keyboard.press('Escape');
+  // With two out it can be, even on the third out: the runner on first is forced to second.
+  await p.click('[data-v=live]');
+  await p.click('[data-r=K]');
+  for (let i = 0; i < 3; i++) await p.click('[data-p=s]');
+  assert.match(await p.textContent('.bar .title small'), /^Bottom 1st/);
+  assert.deepEqual(await links(), ['Undo', 'Batter reached?']);
+  await p.click('.ticker [data-a=reached]');
+  await p.waitForSelector('.sheet .moves');
+  assert.equal(await p.textContent('.sheet h2'), 'Dropped third strike');
+  assert.equal(await p.locator('.mv[data-from="1"] [data-to][aria-pressed=true]').textContent(), '2nd');
+  await p.click('.sheet [data-x=save]');
+  assert.match(await p.textContent('.bar .title small'), /^Top 1st/);
+  assert.equal(await bases(p), '2:Batter 1 1:Batter 4');
+  assert.equal(await plays(p, id), 'p p paKD p p p paK p p paKD');
+  // In a box a few plays back: the strikeout after it is a pitch, and still fits.
+  await p.click('[data-r=K]');
+  for (let i = 0; i < 6; i++) await p.click('[data-p=s]');
+  await p.click('[data-v=card]');
+  await p.click('[data-cs="1"]');
+  await p.click('[data-cell="5"]');
+  await p.click('.sheet [data-sw=KD]');
+  assert.equal(await seen(p), 'Changed to dropped third strike.Undo');
+  assert.match(await p.textContent('.sheet .cell-big'), /Dropped third strike/);
+  S = replay(await stored(p, id));
+  assert.deepEqual([S.half, S.outs, S.bases.map(Boolean).join()], [1, 1, 'false,true,false,false']);
+  await p.context().close();
+}
+
 step('the runner sheet: a gap between the ways to move up and the balk');
 {
   const p = await playing(seventh());

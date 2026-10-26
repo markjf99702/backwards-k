@@ -65,6 +65,7 @@ export function helpSheet() {
       <li><b>Tap a runner</b> on the field for a steal, a wild pitch or a pickoff.</li>
       <li><b>Tap the batter or the pitcher</b> to give them a name, or to make a substitution. Names can wait until later.</li>
       <li><b>Undo</b> takes back plays, latest first, as many as you need. A change made in a box on the card has its own Undo, right after it.</li>
+      <li><b>Strike three, and the catcher dropped it?</b> Tap <b>Batter reached?</b> under the field, and the strikeout is a dropped third strike, with the batter on first.</li>
       <li><b>Tap any box on the card</b> to see what happened in words, or to fix it.</li>
       <li><b>On a keyboard,</b> keys score too: B ball, C called strike, S swinging strike, F foul; 1 to 4 for a single to a home run; W walk, H hit by pitch, E error; K strikeout (Shift+K looking), G ground out, Y fly out, L line out, P pop out; M for More, and U or Ctrl+Z to undo. Then type the fielders’ numbers and press Enter: G, 6, 3, Enter is a 6-3.</li>
     </ul>

@@ -19,9 +19,12 @@ written out in plain words.
 
 - **Tap what happened.** Ball, Strike or Foul if you're counting pitches (four balls or three strikes finish the
   at-bat by themselves), then what the batter did: a hit, a walk, an error, a strikeout swinging or looking, a ground
-  out, a fly out and the rest. Counting pitches is optional; you can tap only the results. A pitch-clock violation is
-  under More: an automatic ball (the pitcher took too long, or balked with nobody on) or an automatic strike (the
-  batter wasn't ready), which moves the count but isn't a pitch, so it stays out of the pitch count (OBR 5.07(c)).
+  out, a fly out and the rest. Counting pitches is optional; you can tap only the results. When strike three gets away
+  from the catcher and the batter reaches first, **Batter reached?** under the field makes the strikeout a dropped
+  third strike (the pitch count and the pitcher's strikeout stay as they were), and so does "K, reached first" in its
+  box on the card, with first base open or two out (OBR 5.09(a)(3)). A pitch-clock violation is under More: an
+  automatic ball (the pitcher took too long, or balked with nobody on) or an automatic strike (the batter wasn't
+  ready), which moves the count but isn't a pitch, so it stays out of the pitch count (OBR 5.07(c)).
 - **Runners move themselves.** With runners on, you see where everyone usually ends up and change whatever went
   differently (a home run goes straight in: everyone scores, and Fix runners is there for a base someone missed, on
   appeal). A runner marked out is out at the next base unless you say where (thrown out at the plate on a

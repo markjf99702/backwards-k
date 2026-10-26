@@ -482,9 +482,11 @@ function liveHtml() {
   const keep = !redo.length && kept && G.ev.length >= kept.n ? kept.stack.length : 0;
   // (Just after Undo: what it took back, beside Redo.)
   const gone = took && redo.length ? `Took back: ${took}` : '', then = gone ? '' : next();
+  // A strikeout just tapped from its pitches: was it a dropped third strike the batter reached on?
+  const drop = !gone && dropped() >= 0;
   const ticker = `<div class="ticker">
       <div class="said${then ? ' ended' : ''}"><p>${esc(gone || last || 'Tap what happens. Every tap can be undone.')}</p>${then ? `<small class="then">${esc(then)}</small>` : ''}</div>
-      <div class="acts">${back ? `<button type="button" class="link-btn" data-a="undo" title="${esc(back)}" aria-label="${esc(back)}">Undo</button>` : ''}${fix ? `<button type="button" class="link-btn" data-a="fixlast" title="${esc(fix)}" aria-label="${esc(fix)}">Fix runners</button>` : ''}${redo.length ? '<button type="button" class="link-btn" data-a="redo">Redo</button>' : ''}${keep ? `<button type="button" class="link-btn" data-a="putback">Put back ${few(keep, 'play')}</button>` : ''}</div>
+      <div class="acts">${back ? `<button type="button" class="link-btn" data-a="undo" title="${esc(back)}" aria-label="${esc(back)}">Undo</button>` : ''}${fix ? `<button type="button" class="link-btn" data-a="fixlast" title="${esc(fix)}" aria-label="${esc(fix)}">Fix runners</button>` : ''}${drop ? '<button type="button" class="link-btn" data-a="reached" title="Batter reached first on a dropped third strike?" aria-label="Batter reached first on a dropped third strike?">Batter reached?</button>' : ''}${redo.length ? '<button type="button" class="link-btn" data-a="redo">Redo</button>' : ''}${keep ? `<button type="button" class="link-btn" data-a="putback">Put back ${few(keep, 'play')}</button>` : ''}</div>
     </div>`;
   // Over: who won, and the game in short where the field was (the last play and Undo still under it).
   if (S.over) {
@@ -585,6 +587,7 @@ function onClick(e) {
     case 'redo': return redoIt();
     case 'putback': return putBackKept();
     case 'fixlast': return fixLast();
+    case 'reached': return reached();
     case 'more': return moreSheet();
     case 'batter': return batterSheet();
     case 'pitcher': return pitcherSheet(1 - S.half);
@@ -890,6 +893,33 @@ function fixLast() {
       say(`Fixed: ${S.text[k]}`);
     },
   });
+}
+
+// The strikeout just tapped, when it came from a pitch (not an automatic strike) and could have been a dropped third
+// strike: first base open, or two out (OBR 5.09(a)(3)). Its place in the game, or -1. (A strikeout leaves the runners
+// where they were, so first base is as it was, unless it was the third out.)
+function dropped() {
+  const k = G.ev.length - 1, e = G.ev[k], box = S.cells[S.cells.length - 1];
+  if (!e || e.t !== 'p' || e.v || !box || box.ev !== k || (box.r !== 'K' && box.r !== 'KL') || S.delayed) return -1;
+  return box.outN === 3 || !S.bases[1] ? k : -1;
+}
+// Batter reached? The strikeout was a dropped third strike, and he reached first: the pitch that struck him out comes
+// off, and a dropped third strike goes in in its place, from how things stood before it, as if it had been tapped (with
+// the runners sheet when anyone's on). The pitch count and the pitcher's strikeout stay the same.
+function reached() {
+  const k = dropped();
+  if (k < 0) return;
+  const e = G.ev[k], st = replay(G, k), id = G.id, was = plays(G.ev), m = likely(st, 'KD');
+  const put = e2 => {
+    if (!G || G.id !== id || plays(G.ev) !== was) return toast('The game changed somewhere else while this was open, so the play wasn’t changed.');
+    G.ev[k] = keepAt(e2, e);
+    tapped = { e: G.ev[k], r: 'KD' };
+    moved();
+    save();
+    say();
+  };
+  if (quiet('KD', st)) return put({ t: 'pa', r: 'KD', m });
+  runnersSheet('KD', null, m, { st, done: put });
 }
 
 function moreSheet() {
@@ -1428,6 +1458,9 @@ function settingsSheet() {
 
 // ---------- one box on the card ----------
 const SAME = [['K', 'KL', 'GO', 'FO', 'LO', 'PU', 'SF', 'SAC'], ['1B', 'BB', 'IBB', 'HBP', 'E', 'FC', 'KD', 'CI']];
+// A strikeout from its pitches: swinging, looking, or a dropped third strike he reached first on, each a K.
+const K_WORDS = { K: 'K swinging', KL: `${KL} looking`, KD: 'K, reached first' };
+const K_SAY = { K: 'Strikeout swinging', KL: 'Strikeout looking', KD: 'Strikeout, but reached first on a dropped third strike' };
 // What a box's play couldn't have been, from how things stood before it, with why: a fielder's choice or a sacrifice
 // needs a runner on (and a sacrifice, fewer than two out), a sacrifice fly a run in from third with fewer than two
 // out, and a dropped third strike two strikes (when pitches are counted) and first base open or two out (OBR
@@ -1452,20 +1485,20 @@ function cellSheet(c) {
   // automatic strike: nobody swung).
   const fromPitch = e && e.t === 'p' && !e.v && (c.r === 'K' || c.r === 'KL');
   // (By what was tapped: a double that won the game and counts as a single is still a double, and can't be a walk.)
-  const group = readOnly || !e ? null : e.t === 'pa' ? SAME.find(gr => gr.includes(e.r)) : fromPitch ? ['K', 'KL'] : null;
+  const group = readOnly || !e ? null : e.t === 'pa' ? SAME.find(gr => gr.includes(e.r)) : fromPitch ? ['K', 'KL', 'KD'] : null;
   // Any box the scorer tapped can be made another result, or have where everyone ended up changed (see changeBox()):
   // not the runner put on second to start an extra inning, nor an automatic ball or strike.
   const whole = !readOnly && !!e && ((e.t === 'pa' && !!RESULTS[e.r]) || (e.t === 'p' && !e.v && ['K', 'KL', 'BB'].includes(c.r)));
   // A hit can say where it went, or change it (in a game that asks where hits went, or one that said).
   const hit = !readOnly && !!e && e.t === 'pa' && R.kind === 'hit' && (G.spray || !!c.f);
-  const why = group && e.t === 'pa' ? cantBe(c, e) : {};
+  const why = group && e.t === 'pa' ? cantBe(c, e) : fromPitch ? { KD: cantBe(c, { m: [] }).KD } : {};
   // (With when the at-bat began, from its first pitch.)
   const at = clockAt(G, c.at), link = seasonLink(c.side, player(G, c.side, c.slot, c.p));
   const body = openSheet(`<h2 id="sheetTitle">${esc(name)} <small>${c.side ? 'Bottom' : 'Top'} of the ${ord(c.inn)}${at ? `, ${at}` : ''}</small></h2>
     <div class="cell-big"><div class="cell-pic">${cellSvg(c, { count: G.pitches })}</div>
       <div><p><b>${markHtml(c.r, c.mark)}</b> ${esc(R.label)}</p><p>${esc(c.text)}</p>${c.story.length ? `<p>${esc(c.story.join(' '))}</p>` : ''}
       ${seq ? `<p class="quiet">Pitches: ${esc(seq)}.</p>` : ''}</div></div>
-    ${group ? `<h3>Change what it was</h3><div class="chips wide" role="group" aria-label="What it was">${group.map(k => `<button type="button" data-sw="${k}" aria-pressed="${k === c.r}"${why[k] && k !== c.r ? ` disabled title="${esc(why[k])}"` : ''}>${esc(RESULTS[k].label)}</button>`).join('')}</div>` : ''}
+    ${group ? `<h3>Change what it was</h3><div class="chips wide" role="group" aria-label="What it was">${group.map(k => `<button type="button" data-sw="${k}" aria-pressed="${k === c.r}"${why[k] && k !== c.r ? ` disabled title="${esc(why[k])}"` : ''}${fromPitch ? ` aria-label="${esc(K_SAY[k])}">${K_WORDS[k]}` : `>${esc(RESULTS[k].label)}`}</button>`).join('')}</div>` : ''}
     ${group && e.t === 'pa' && (R.f || (c.f && R.kind !== 'hit')) ? `<div class="row"><button type="button" class="btn quiet" data-y="f">Change the fielders${c.f ? ` (${esc(c.f.join('-'))})` : ''}</button></div>` : ''}
     ${hit ? `<div class="row"><button type="button" class="btn quiet" data-y="w">${c.f ? `Change where it went (${esc(toWhere(c.f[0]))})` : 'Say where it went'}</button></div>` : ''}
     ${whole ? `<div class="list fix-box">
@@ -1498,6 +1531,13 @@ function cellSheet(c) {
   };
   body.addEventListener('click', ev => {
     const sw = ev.target.closest('[data-sw]'), y = ev.target.closest('[data-y]');
+    // A strikeout from its pitches that was a dropped third strike: the pitch comes off and one goes in in its place,
+    // with the runners sheet when anyone was on, and the plays after it checked (see changeBox()).
+    if (sw && !sw.disabled && sw.dataset.sw === 'KD' && e.t === 'p') {
+      const st = replay(G, c.ev), m = likely(st, 'KD');
+      if (quiet('KD', st)) return changeBox(c, e, { t: 'pa', r: 'KD', m });
+      return runnersSheet('KD', null, m, { st, editing: 'box', done: e2 => changeBox(c, e, e2) });
+    }
     if (sw && !sw.disabled) {
       const was = e.r;
       if (e.t === 'p') e.k = sw.dataset.sw === 'KL' ? 'c' : 's';
