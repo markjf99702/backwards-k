@@ -37,7 +37,7 @@ const server = createServer(async (req, res) => {
 const base = `http://localhost:${server.address().port}/`;
 
 const browser = await pw.chromium.launch();
-const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true });
+const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
 const page = await ctx.newPage();
 const problems = [];
 page.on('pageerror', e => problems.push(e.message));
@@ -48,7 +48,9 @@ page.on('request', r => { if (!r.url().startsWith(base) && !r.url().startsWith('
 const tap = sel => page.locator(sel).first().click();
 const ticker = () => page.locator('.ticker p').textContent();
 const bases = (p = page) => p.evaluate(() => [...document.querySelectorAll('.runner')].map(r => r.dataset.runner + ':' + r.textContent.trim()).join(' '));
-const fitsPhone = async what => assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `${what} scrolls sideways`);
+// (Against the page's own width, not innerWidth: a phone that's shown a page wider than itself zooms out to fit it,
+// and innerWidth grows with it.)
+const fitsPhone = async what => assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true, `${what} scrolls sideways`);
 const step = name => console.log('·', name);
 // Where an element is, and whether it's wholly inside another one.
 const box = (p, sel) => p.evaluate(sel => { const r = document.querySelector(sel).getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom }; }, sel);
@@ -238,7 +240,7 @@ const link = await page.evaluate(async () => {
   return linkFor(store.all()[0]);
 });
 assert.ok(link.startsWith('https://backwards-k.junkdrawer.works/#s=c'), link.slice(0, 60));
-const friend = await browser.newContext({ viewport: { width: 390, height: 844 } });
+const friend = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 const fp = await friend.newPage();
 fp.on('pageerror', e => problems.push('friend: ' + e.message));
 await fp.goto(base + link.slice(link.indexOf('#')));
@@ -329,7 +331,7 @@ await page.waitForSelector('.live .field');
 
 // A phone of its own for each of these, with its own storage (init: a script to run before the page's own).
 async function phone(init) {
-  const c = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, serviceWorkers: 'block' });
+  const c = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, serviceWorkers: 'block' });
   if (init) await c.addInitScript(init);
   const p = await c.newPage();
   p.on('pageerror', e => problems.push(e.message));
@@ -999,7 +1001,7 @@ step('a delay: the game waits as it was, the screen can sleep, and Resume picks 
   await p.click('[data-end=time]');
   assert.equal(await p.textContent('.final h2'), 'Owls win, 2–0 (time limit)');
   assert.match(await p.textContent('.bar .title small'), /^Final/);
-  assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'the final, with its reason, scrolls sideways');
+  assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true, 'the final, with its reason, scrolls sideways');
   await p.context().close();
 }
 
@@ -1140,7 +1142,7 @@ step('starting a game asks the browser to keep this site’s games');
 step('with many games, the home lists the 20 changed last, and Show all lists the rest');
 {
   const games = Array.from({ length: 25 }, (_, i) => ({ ...sampleGame(1 + (i % 5)), id: 'gmany' + String(i).padStart(2, '0'), updated: 1000 + i }));
-  const c = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
+  const c = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, serviceWorkers: 'block' });
   await c.addInitScript(doc => { if (!sessionStorage.getItem('seeded')) { localStorage.setItem('backwards-k.v1', doc); sessionStorage.setItem('seeded', '1'); } },
     JSON.stringify({ app: 'backwards-k', v: 1, games: Object.fromEntries(games.map(g => [g.id, g])), gone: {} }));
   const p = await c.newPage();
@@ -1170,7 +1172,7 @@ step('a file that isn’t a game says so');
 
 step('games only in this browser: one line above them asks for a backup, until one is saved');
 {
-  const c = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, serviceWorkers: 'block', acceptDownloads: true });
+  const c = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, serviceWorkers: 'block', acceptDownloads: true });
   const p = await c.newPage();
   p.on('pageerror', e => problems.push(e.message));
   await p.goto(base);
@@ -1263,7 +1265,7 @@ step('a backup file saved on one device brings every game, as it was, to another
 {
   const a = sampleGame(3), b = sampleUntil(7, S => S.inn === 7);
   a.id = 'gbackupa'; b.id = 'gbackupb'; b.teams[0].name = 'Owls';
-  const c = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, serviceWorkers: 'block', acceptDownloads: true });
+  const c = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, serviceWorkers: 'block', acceptDownloads: true });
   await c.addInitScript(doc => { if (!localStorage.getItem('backwards-k.v1')) localStorage.setItem('backwards-k.v1', doc); }, JSON.stringify({ app: 'backwards-k', v: 1, games: { [a.id]: a, [b.id]: b }, gone: {} }));
   const p = await c.newPage();
   p.on('pageerror', e => problems.push(e.message));
@@ -1624,7 +1626,7 @@ step('a tap you can see: a run flips over, the lamp that just lit glows, a new b
   assert.equal(await p.isChecked('.sheet [data-buzz]'), true);
   await p.context().close();
   // Where motion isn't welcome, nothing moves; and where a page can't buzz (an iPhone), there's no switch.
-  const c = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, serviceWorkers: 'block', reducedMotion: 'reduce' });
+  const c = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, serviceWorkers: 'block', reducedMotion: 'reduce' });
   await c.addInitScript(() => { delete Navigator.prototype.vibrate; });
   const q = await c.newPage();
   q.on('pageerror', e => problems.push(e.message));
@@ -2559,14 +2561,14 @@ step('after deleting a game, Undo has the keyboard and waits for it; Escape lets
 
 step('zoomed in to 150% and 200% (260 and 195 pixels across), nothing scrolls sideways');
 for (const width of [260, 195]) {
-  const c = await browser.newContext({ viewport: { width, height: Math.round(width * 844 / 390) }, hasTouch: true, serviceWorkers: 'block' });
+  const c = await browser.newContext({ viewport: { width, height: Math.round(width * 844 / 390) }, isMobile: true, hasTouch: true, serviceWorkers: 'block' });
   await c.addInitScript(doc => { if (!sessionStorage.getItem('seeded')) { localStorage.setItem('backwards-k.v1', doc); sessionStorage.setItem('seeded', '1'); } },
     JSON.stringify({ app: 'backwards-k', v: 1, games: { gsample7cut: seventh() }, gone: {} }));
   const p = await c.newPage();
   p.on('pageerror', e => problems.push(e.message));
   const fits = async what => assert.deepEqual(await p.evaluate(() => {
     const b = document.querySelector('dialog[open] .sheet-body');
-    return [document.documentElement.scrollWidth <= innerWidth, !b || b.scrollWidth <= b.clientWidth];
+    return [document.documentElement.scrollWidth <= document.documentElement.clientWidth, !b || b.scrollWidth <= b.clientWidth];
   }), [true, true], `${width}: ${what} scrolls sideways`);
   await p.goto(base + '#/g/gsample7cut');
   await p.waitForSelector('.live .field');
@@ -2587,7 +2589,7 @@ for (const width of [260, 195]) {
 
 step('saving a link to a game this device has: the link’s new plays come in, and plays only this copy has are kept');
 {
-  const c = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
+  const c = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, serviceWorkers: 'block' });
   const p = await c.newPage();
   p.on('pageerror', e => problems.push('links: ' + e.message));
   await p.goto(base);
@@ -2637,7 +2639,7 @@ for (const [n, e] of [[1, { t: 'pa', r: 'ZZ', m: [[0, 1]] }], [2, { t: 'xr', b: 
   assert.equal(await p.textContent('.shared-bar p'), 'Part of this game was saved by a newer Backwards K. Reload to get it before changing this game.');
   assert.deepEqual(await p.evaluate(() => ['[data-r]', '.live [data-p]', '[data-a=undo]', '[data-a=menu]', '[data-a=fixlast]', '[data-a=keep]'].map(s => document.querySelectorAll(s).length)), [0, 0, 0, 0, 0, 0], 'nothing to change it with');
   assert.equal(await p.locator('.card').isVisible(), true, 'the card is there to read');
-  assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'a look-only game scrolls sideways');
+  assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true, 'a look-only game scrolls sideways');
   // Saving another game writes this one back as it came.
   await p.evaluate(async () => { const { store } = await import('./js/store.js'), { newGame } = await import('./js/model.js'); store.save(newGame({ away: 'A', home: 'B' })); });
   assert.deepEqual((await stored(p, g.id)).ev.at(-1), e);
@@ -3135,7 +3137,7 @@ step('positions: kept from a pasted lineup, changed in Lineups, on the card and 
   await p.click('[data-v=box]');
   // (The name a link to his season: a game on this device.)
   assert.match(await p.innerHTML('.pane[data-p=box]'), />Nakamura<\/a> <small class="ps">2B<\/small>/);
-  assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'the box score with positions scrolls sideways');
+  assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true, 'the box score with positions scrolls sideways');
   await p.context().close();
 }
 
@@ -3143,7 +3145,7 @@ step('tablet sizes: side by side, nothing sideways');
 for (const [w, h] of [[820, 1180], [1180, 820]]) {
   await page.setViewportSize({ width: w, height: h });
   await page.waitForTimeout(100);
-  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `${w} wide scrolls sideways`);
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true, `${w} wide scrolls sideways`);
   assert.ok(await page.locator('.live .field').isVisible() && await page.locator('.card').isVisible(), `${w} wide shows the controls and the card together`);
 }
 await page.setViewportSize({ width: 390, height: 844 });
@@ -3291,7 +3293,7 @@ step('season stats: the home lists the teams, and a team’s page adds up its ga
   // The pitchers, the games newest first, and nothing wider than the phone but the tables, which scroll.
   assert.deepEqual(await p.$$eval('[data-t=pit] tbody th a', l => l.map(a => a.textContent)), T.pit.map(x => x.name));
   assert.deepEqual(await p.$$eval('.game-log .gl', l => l.map(a => a.getAttribute('href'))), ['#/g/gseason3', '#/g/gseason2', '#/g/gseason1']);
-  assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'the team’s page scrolls sideways');
+  assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true, 'the team’s page scrolls sideways');
   assert.equal(await p.evaluate(() => getComputedStyle(document.querySelector('.season tbody th')).position), 'sticky', 'the names stay put');
   // Last season, and every year.
   const says = text => p.waitForFunction(t => (document.querySelector('.team-head p')?.textContent || '').startsWith(t), text);
@@ -3322,7 +3324,7 @@ step('season stats: a player’s page has her line, each game with her boxes fro
   // A game each, newest first, each with his day in words and his boxes, one for each trip to the plate.
   const days = await p.$$eval('.days .gl', l => l.map(a => [a.getAttribute('href'), a.querySelector('.gl-line').textContent, a.querySelectorAll('.cell-pic').length]));
   assert.deepEqual(days, ruiz.days.slice().reverse().map(d => [`#/g/${d.game.id}`, ST.batWords(d.line), d.line.pa]));
-  assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'a player’s page scrolls sideways');
+  assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true, 'a player’s page scrolls sideways');
   // The text, for the grandparents.
   await p.click('[data-a=text]');
   assert.equal(await p.evaluate(() => navigator.clipboard.readText()), ST.seasonText(T, ruiz));
@@ -3492,7 +3494,7 @@ const version = p => p.evaluate(() => document.documentElement.dataset.probe || 
 const until = async (f, ms, what) => { const t = Date.now(); while (!(await f())) { assert.ok(Date.now() - t < ms, `waited ${ms} ms for ${what}`); await new Promise(r => setTimeout(r, 100)); } };
 // A phone that has opened the app once, with its own service worker and the copy that keeps.
 async function visited() {
-  const c = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true });
+  const c = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const p = await c.newPage();
   await p.goto(base);
   await p.waitForFunction(() => navigator.serviceWorker?.controller, null, { timeout: 10000 });
@@ -3653,7 +3655,7 @@ step('Ask where hits went: a hit asks, one tap or Skip, and the plays say where'
   assert.equal(await p.textContent('.pane[data-p=box] .spray figcaption'), 'Where the Owls hit it');
   assert.equal(await p.locator('.pane[data-p=box] .spray .ball.hit').count(), 2);
   assert.equal(await p.textContent('.pane[data-p=box] .spray-words'), 'Hits: 1 to center, 1 to right.');
-  assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'the box score with its chart fits the phone');
+  assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true, 'the box score with its chart fits the phone');
   // The next new game starts with it on, as the last one had it.
   await p.goto(base + '#/new');
   assert.equal(await p.isChecked('[name=spray]'), true);
