@@ -142,6 +142,10 @@ await tap('[data-x=done]');
 // The batter made the third out, so nobody could move up or score: there's nothing to ask.
 assert.equal(await page.locator('.sheet .moves').count(), 0);
 assert.equal(await ticker(), 'Lindqvist grounds out, short to first (6-3).');
+// Under it, quieter, the half is over and who's up, each on a line of its own.
+assert.equal(await page.textContent('.ticker .then'), 'Three outs. Bottom of the 1st: Comets batting.');
+const lines = await page.evaluate(() => [...document.querySelectorAll('.ticker .said > *')].map(x => Math.round(10 * x.getBoundingClientRect().height / parseFloat(getComputedStyle(x).lineHeight)) / 10));
+assert.deepEqual(lines, [1, 1], 'one whole line each');
 assert.equal(await page.locator('[data-a=fixlast]').count(), 1);
 assert.match(await page.textContent('.bar .title'), /Bottom 1st/);
 assert.equal(await bases(), '');
@@ -184,6 +188,7 @@ assert.match(await page.textContent('.pitcher'), /Moreno\s*0\s*pitches/);
 
 step('a home run, the box score, the play-by-play');
 await tap('[data-r="HR"]');
+assert.equal(await page.locator('.ticker .then').count(), 0, 'the line under the play is for the end of a half-inning');
 assert.match(await page.textContent('.bug'), /Comets\s*1/i);
 await tap('[data-v=box]');
 assert.match(await page.textContent('.pane[data-p=box]'), /Moreno/);
@@ -476,6 +481,7 @@ step('league rules: the Minors end a half at five runs, and the next new game st
   await p.click('[data-r="2B"]');
   await p.click('.sheet [data-x=save]');
   assert.match(await p.textContent('.ticker p'), /crosses the plate too, but the 5-run limit was reached, so the run doesn’t count\. Batter 7 to third\. That’s 5 runs: the half-inning is over\.$/);
+  assert.equal(await p.textContent('.ticker .then'), 'Bottom of the 1st: Home batting.', 'not three outs');
   assert.match(await p.textContent('.bar .title'), /5\s*–\s*0.*Bottom 1st/s);
   // Game settings: the Minors are picked, and Custom's numbers change the game as they're typed.
   await p.click('[data-a=menu]');
@@ -537,6 +543,7 @@ step('extra innings that start with a runner on second: he is on the field, on t
   assert.match(await p.textContent('.bar .title small'), /^Top 4th/);
   assert.equal(await p.textContent('.live [data-runner="2"]'), 'Batter 9');
   assert.equal(await p.textContent('.live .batter span'), 'Batter 1');
+  assert.equal(await p.textContent('.ticker .then'), 'Three outs. Top of the 4th: Visitors batting, Batter 9 on second.');
   assert.match(await p.textContent('.recent'), /AR\s*Extra innings: Batter 9 starts on second\./);
   await p.click('[data-v=card]');
   await p.click('.card td.cur [data-cell]');

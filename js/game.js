@@ -461,8 +461,9 @@ function liveHtml() {
   // height, so the buttons below never move. Undo comes first: it takes back the play just above it.
   const k = fixable(), fix = k < 0 ? '' : `Fix runners: ${S.text[k]}`, back = last && `Undo: ${last}`;
   const keep = !redo.length && kept && G.ev.length >= kept.n ? kept.stack.length : 0;
+  const then = next();
   const ticker = `<div class="ticker">
-      <p>${last ? esc(last) : 'Tap what happens. Every tap can be undone.'}</p>
+      <div class="said${then ? ' ended' : ''}"><p>${esc(last || 'Tap what happens. Every tap can be undone.')}</p>${then ? `<small class="then">${esc(then)}</small>` : ''}</div>
       <div class="acts">${back ? `<button type="button" class="link-btn" data-a="undo" title="${esc(back)}" aria-label="${esc(back)}">Undo</button>` : ''}${fix ? `<button type="button" class="link-btn" data-a="fixlast" title="${esc(fix)}" aria-label="${esc(fix)}">Fix runners</button>` : ''}${redo.length ? '<button type="button" class="link-btn" data-a="redo">Redo</button>' : ''}${keep ? `<button type="button" class="link-btn" data-a="putback">Put back ${few(keep, 'play')}</button>` : ''}</div>
     </div>`;
   // Over: who won, or for a game called before it counted, who's ahead (OBR 7.01(c)). A run rule or a time limit says
@@ -515,6 +516,15 @@ function liveHtml() {
     </div>
     </div>
     <div class="recent"><h3>Latest plays</h3>${playsHtml(S, { limit: 5 })}</div>`;
+}
+
+// When the last play ended a half-inning, a quieter line under it says so, and who's up: "Three outs. Bottom of the
+// 1st: Comets batting." (With the runner put on second to start an extra inning.) '' otherwise, and after the final.
+function next() {
+  const i = G.ev.length - 1, end = !S.over && S.plays.findLast(p => p.kind === 'end' && p.i === i && p.how != null);
+  if (!end) return '';
+  const r = S.bases[2], on = r && r.cell.auto ? `, ${runnerName(G, r)} on second` : '';
+  return `${end.how ? '' : 'Three outs. '}${S.half ? 'Bottom' : 'Top'} of the ${ord(S.inn)}: ${teamName(G, S.half)} batting${on}.`;
 }
 
 // The pitcher's button near and at the pitch limit: under the count, and for a screen reader. At it, Little League

@@ -510,12 +510,16 @@ details.partway .hint { margin: 10px 0 0; }
   display: grid; grid-template-rows: 2.7em 44px; height: calc(2.7em + 52px); padding: 6px 12px 0; font-size: 15px;
   border-radius: 10px; background: var(--card); border: 1px solid var(--line);
 }
+.ticker .said { min-width: 0; }
 .ticker p { min-width: 0; margin: 0; line-height: 1.35; color: var(--ink-2); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+/* A half-inning just ended: the play on one line, and under it, quieter, who's up now. */
+.ticker .ended p { -webkit-line-clamp: 1; }
+.ticker .then { display: block; font-size: 14px; line-height: 1.35; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ticker .acts { display: flex; gap: 2px; margin: 0 -8px; }
 .ticker .link-btn { min-width: 44px; min-height: 44px; padding: 0 8px; font-size: 14px; line-height: 1.2; white-space: nowrap; }
 @media (min-width: 1000px) {
   .ticker { display: flex; align-items: center; gap: 4px; height: 52px; padding: 3px 4px 3px 12px; }
-  .ticker p { flex: 1; }
+  .ticker .said { flex: 1; }
   .ticker .acts { flex: none; margin: 0; }
 }
 

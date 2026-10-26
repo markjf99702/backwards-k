@@ -916,7 +916,7 @@ function endHalf(S, how = '') {
   // The half-inning in numbers, as a broadcaster gives it: 0 runs, 2 hits, no errors, 3 left on base.
   const n = S.inn - 1, few = (k, w) => `${k} ${w}${k === 1 ? '' : 's'}`, err = S.eInn[side][n] || 0;
   const sum = `${few(S.line[side][n] || 0, 'run')}, ${few(S.hInn[side][n] || 0, 'hit')}, ${err ? few(err, 'error') : 'no errors'}, ${S.lob[side][n]} left on base.`;
-  S.plays.push({ i: S.i, inn: S.inn, half: side, text, kind: 'end', runs: 0, sum });
+  S.plays.push({ i: S.i, inn: S.inn, half: side, text, kind: 'end', runs: 0, sum, how });
   if (S.inn >= S.g.innings) {
     if (side === 0 && S.R[1] > S.R[0]) S.over = true;
     if (side === 1 && S.R[0] !== S.R[1]) S.over = true;
