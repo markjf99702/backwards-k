@@ -3,7 +3,7 @@
 import {
   replay, suggest, check, runsCount, scoredAs, now, RESULTS, BASE, POS, POS_NAME, halfLabel, label, player, teamName,
   pitcherLabel, ord, runnersOn, mark, pitchStat, pitchWords, pitchDay, pitchWork, pitchCount, winningRun, creditedHit, credit, fits,
-  ENDS, regulation, official, winner, AUTO, limitState, restDays, restBand, noCatch, LIMIT_BY, sameSoFar, outAt, outBases, usualBase,
+  ENDS, regulation, official, winner, AUTO, limitState, restOf, restCite, restBand, noCatch, LIMIT_BY, sameSoFar, outAt, outBases, usualBase,
   runnerName, PLAY, toWhere, decider, milestones, runMark, misfit,
 } from './engine.js';
 import { store } from './store.js';
@@ -599,14 +599,23 @@ function next() {
 const LIMIT_SHOW = { near: max => `of ${max}`, finish: () => 'finish this batter', over: () => 'limit reached' };
 const LIMIT_SAY = { near: max => `5 or fewer from the limit of ${max}`, finish: max => `at the limit of ${max}: finish this batter`, over: max => `at the limit of ${max}: time for a new pitcher` };
 // The pitcher's day against the game's pitch limit, for the pitcher sheet: how far from it, the days of rest he'll
-// need after (Regulation VI(d)), and in Little League, whether he can still catch today.
-function limitLines(st) {
-  const L = G.limit;
+// need after (Regulation VI(d)), and in Little League, whether he can still catch today. When his count went past a
+// day threshold in his last at-bat (or this one), it says he owes the days for the threshold if he comes out when
+// that at-bat ends, as the regulation has it (see restOf()).
+function limitLines(side, i) {
+  const L = G.limit, st = pitchStat(S, side, i);
   if (!L || !G.pitches) return '';
-  const left = L.max - st.np, d = restDays(L, st.np), by = LIMIT_BY[L.by] ? ` (${LIMIT_BY[L.by]}, ${L.age.replace('-', '–')})` : '';
+  const left = L.max - st.np, r = restOf(S, side, i), by = LIMIT_BY[L.by] ? ` (${LIMIT_BY[L.by]}, ${L.age.replace('-', '–')})` : '';
+  const need = d => (d ? `${d} day${d > 1 ? 's' : ''}` : 'none needed'), band = r ? `${need(r.full)} (${restBand(L, st.np)})` : '';
+  const why = r && `the ${ord(r.x)} pitch came in ${r.last === 'this' ? 'this' : 'the last'} at-bat: ${restCite(L)}`;
+  const rest = !r ? ''
+    : r.last === 'done' ? `Rest after today: ${need(r.days)} (${r.np} pitches, but ${why}).`
+    : r.last === 'now' ? `Rest after today: ${need(r.days)} if this pitcher comes out now (${why}), or ${band} after another batter.`
+    : r.last === 'this' ? `Rest after today: ${need(r.full - 1)} if this batter is the last (${why}), or ${band} after another.`
+    : `Rest after today: ${band}.`;
   return [
     left > 0 ? `Limit ${L.max}${by}: ${pitchCount(left)} to go.` : `At the limit of ${L.max}${by}: finish the batter it was reached on, then a new pitcher.`,
-    d == null ? '' : `Rest after today: ${d ? `${d} day${d > 1 ? 's' : ''}` : 'none needed'} (${restBand(L, st.np)}).`,
+    rest,
     noCatch(L, st.np) ? '41 or more pitches today: can’t catch for the rest of the day.' : '',
   ].filter(Boolean).map(t => `<p class="quiet">${esc(t)}</p>`).join('');
 }
@@ -1275,7 +1284,7 @@ function pitcherSheet(side) {
   const body = openSheet(`<h2 id="sheetTitle">Pitching <small>for ${esc(teamName(G, side))}</small></h2>
     ${nameFields(p)}
     <p class="quiet">${esc(pitchDay(st, G.pitches))}</p>
-    ${limitLines(st)}
+    ${limitLines(side, i)}
     <div class="list">
       <button type="button" class="li" data-y="new"><b>New pitcher</b><span>Bring in a reliever. Their pitch count starts at zero.</span></button>
       ${G.teams[side].pitchers.length > 1 ? '<button type="button" class="li" data-y="back"><b>Bring back an earlier pitcher</b><span>Someone who already pitched today.</span></button>' : ''}

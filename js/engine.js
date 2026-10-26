@@ -164,6 +164,7 @@ export function replay(g, upTo = g.ev.length) {
     // was scored ('inning.half': at), when the batter's first pitch was (abAt), when the game ended (endAt), and how
     // long play stopped for delays (delays, and stop: when the one going on began).
     starts: {}, abAt: null, endAt: null, delays: 0, stop: null,
+    abN: 0, // at-bats over so far (one more as each ends, or a half-inning does): which one each pitcher last faced
 
     fresh: false, // a half-inning has just started and nothing has happened in it yet
     relief: null, // the pitcher a walk goes to, when a new one came in with the batter ahead in the count
@@ -384,9 +385,22 @@ function bstat(S, side, slot, p) {
   return S.bat[key(side, slot, p)] ||= { pa: 0, ab: 0, r: 0, h: 0, d: 0, t: 0, hr: 0, rbi: 0, bb: 0, k: 0, hbp: 0, sb: 0, cs: 0 };
 }
 // (er: the runs charged that are earned, OBR 9.16; ur: those unearned because the runner was put on second to start an
-// extra inning.)
+// extra inning. And for his rest after the game, see faced(): ab, pre and done.)
 function pstat(S, side = 1 - S.half, i = S.pit[side]) {
   return S.pitching[side][i] ||= { np: 0, balls: 0, str: 0, bf: 0, outs: 0, h: 0, r: 0, er: 0, ur: 0, bb: 0, k: 0, hr: 0, hbp: 0, wp: 0, bk: 0 };
+}
+// The pitcher faces the batter up (a pitch, or the play): for his rest if that batter is his last (Little League
+// Regulation VI(d), see restOf()), which at-bat it is (ab, from S.abN), his count before his first pitch in it (pre),
+// and whether it ended with him still pitching (done, see abOver()).
+function faced(S, P) {
+  if (P.ab !== S.abN) { P.ab = S.abN; P.pre = P.np; P.done = false; }
+}
+// The at-bat is over: the batter reached base or was put out, or the half-inning ended. The pitcher who faced him did
+// so to the end of it.
+function abOver(S) {
+  const P = S.pitching[1 - S.half][S.pit[1 - S.half]];
+  if (P && P.ab === S.abN) P.done = true;
+  S.abN++;
 }
 
 // auto: an automatic ball or strike, for the pitch clock (OBR 5.07(c)): the pitcher too slow is a ball, and the batter
@@ -396,6 +410,7 @@ function pitch(S, k, auto = false) {
   S.fresh = false;
   pitching(S);
   const P = pstat(S);
+  faced(S, P);
   const count = () => `${S.b}-${S.s}`;
   if (auto) {
     S.seq += k === 'b' ? 'B' : 'C';
@@ -430,6 +445,7 @@ function pa(S, e) {
   S.fresh = false;
   pitching(S);
   const P = pstat(S);
+  faced(S, P);
   if (!e.auto && R.pitch) {
     P.np++;
     if (R.pitch === 'b') P.balls++; else P.str++;
@@ -570,6 +586,7 @@ function pa(S, e) {
   S.plays.push({ i: S.i, inn: S.inn, half: side, text, kind: 'pa', runs, cell: cell.n, r: code });
 
   S.b = 0; S.s = 0; S.seq = ''; S.relief = null; S.ph = null;
+  abOver(S);
   S.up[side] = nextSlot(S, side, slot);
   S.last = cell;
   walkoff(S);
@@ -927,6 +944,7 @@ function endHalf(S, how = '') {
   S.hold = false;
   S.bases = [null, null, null, null];
   S.outs = 0; S.b = 0; S.s = 0; S.seq = ''; S.relief = null; S.ph = null;
+  abOver(S);
   if (S.over) { S.between = true; return; }
   nextHalf(S);
 }
@@ -1340,6 +1358,22 @@ export function restBand(limit, np) {
   const steps = restSteps(limit), d = steps.filter(x => np > x).length;
   return d === steps.length ? `${steps[d - 1] + 1} or more pitches` : `${d ? steps[d - 1] + 1 : 1} to ${steps[d]} pitches`;
 }
+// A pitcher's rest after today, under a limit by league age with pitches counted (null otherwise): { days, full, x,
+// last, np }. full: the days by his count. A pitcher who reaches a day threshold while facing a batter may finish him,
+// and if he comes out when that at-bat ends, he owes only the days for the threshold he reached in it (Regulation
+// VI(d)): x, the threshold his count went past in his last at-bat (35, say; 0 for none), and last, where that leaves
+// him: 'done' when the at-bat ended with him in, and he pitched to nobody after it (he's out of the game, or it's
+// over); 'now' when it did, and he's still in; 'this' when he's in the middle of it; '' when he came out in the middle
+// of it, without finishing it. days: what he owes if he pitches no more, one fewer than full when the exception holds.
+export function restOf(S, side, i) {
+  const L = S.g.limit, st = pitchStat(S, side, i), full = S.g.pitches ? restDays(L, st.np) : null;
+  if (full == null) return null;
+  const x = (full && restSteps(L).findLast(t => st.pre < t && t < st.np)) || 0, inNow = S.pit[side] === i && !S.over;
+  const last = !x ? '' : inNow ? (st.done ? 'now' : 'this') : st.done || S.pit[side] === i ? 'done' : '';
+  return { days: last === 'done' || last === 'now' ? full - 1 : full, full, x, last, np: st.np };
+}
+// The rule to cite for it: Little League's, which a Pitch Smart limit follows too, with the same table.
+export const restCite = L => (L.by === 'll' ? 'Regulation VI(d)' : 'as Little League’s Regulation VI(d) has it');
 // In Little League a pitcher who threw 41 or more in a game can't catch for the rest of the day (Regulation VI).
 export const noCatch = (limit, np) => !!limit && limit.by === 'll' && np >= 41;
 // Where the pitcher now in the field stands against the limit: '' (well short, or no limit), 'near' (5 pitches or

@@ -1,7 +1,7 @@
 // The rules of scoring, without a browser:  node --test test/unit.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { replay, suggest, check, runsCount, scoredAs, mark, now, columns, halfLabel, RESULTS, runnersOn, pitchDay, pitchStat, pitchWork, pitchCount, winningRun, fits, misfit, official, winner, endNote, regulation, limitState, restDays, restBand, noCatch, sameSoFar, clockOf } from '../js/engine.js';
+import { replay, suggest, check, runsCount, scoredAs, mark, now, columns, halfLabel, RESULTS, runnersOn, pitchDay, pitchStat, pitchWork, pitchCount, winningRun, fits, misfit, official, winner, endNote, regulation, limitState, restDays, restBand, restOf, noCatch, sameSoFar, clockOf } from '../js/engine.js';
 import { newGame, cleanGame, cleanDoc, parseLineup, parsePaste, takeBack, putBack, starters, newer, merge, seenOf, carried, setField } from '../js/model.js';
 import { sampleGame } from '../js/sample.js';
 // The card is drawn with ui.js, which looks for the page's sheet as it loads: here there's no page, so no sheet.
@@ -830,7 +830,8 @@ test('pitch limits: amber five before, red at it with a batter to finish, and th
   assert.deepEqual([S.pitching[1][0].np, limitState(S)], [86, 'over'], 'that batter done, a new one up');
   assert.deepEqual([restDays(L, 86), restBand(L, 86), noCatch(L, 86), noCatch(L, 40)], [4, '66 or more pitches', true, false]);
   const box = boxHtml(S);
-  assert.match(box, /Days of rest \(Little League, 11–12\):<\/b> Pitcher 4 days\./);
+  // (All 86 to one batter: past 65 in that at-bat, so 3 days if he comes out now, Regulation VI(d).)
+  assert.match(box, /Days of rest \(Little League, 11–12\):<\/b> Pitcher 3 days if done now \(86 pitches, but the 65th came in the last at-bat: Regulation VI\(d\)\), 4 days after another batter\./);
   assert.match(box, /Can’t catch today \(41 or more pitches\):<\/b> Pitcher\./);
   assert.equal((box.match(/Days of rest/g) || []).length, 1, 'only the team whose pitcher threw');
   // The rest by Regulation VI(d): 14 and under, and 15 to 18; Pitch Smart's 19-22 has a fifth day.
@@ -847,6 +848,53 @@ test('pitch limits: amber five before, red at it with a batter to finish, and th
   assert.equal(limitState(play(game(), ...Array(4).fill(P('f')))), '');
   const off = game({ limit: L, pitches: false });
   assert.equal(limitState(play(off, ...Array(30).fill('K'))), '');
+});
+
+test('the rest after a threshold reached on the last batter: the days for the threshold, if the pitcher came out when that at-bat ended (Little League Regulation VI(d))', async () => {
+  const { gameLines } = await import('../js/stats.js');
+  const L = { by: 'll', age: '11-12', max: 85 };
+  const start = () => { const g = game({ limit: L }); g.teams[1].pitchers.push({ name: 'Reliever', num: '' }); return g; };
+  // 33 pitches to the first batter, then 5 to the second: 38, past 35 in the at-bat that began at 33.
+  const first = [P('c'), P('c'), ...Array(30).fill(P('f')), P('s')], second = [P('c'), P('c'), P('f'), P('f')];
+  const g = start();
+  let S = play(g, ...first, ...second);
+  assert.deepEqual(restOf(S, 1, 0), { days: 2, full: 2, x: 35, last: 'this', np: 37 }, 'in the middle of it: 2 days, unless this batter is the last');
+  assert.match(boxHtml(S), /Pitcher 2 days, or 1 day if this batter is the last \(the 35th pitch came in this at-bat: Regulation VI\(d\)\)\./);
+  S = play(g, P('s'));
+  assert.deepEqual(restOf(S, 1, 0), { days: 1, full: 2, x: 35, last: 'now', np: 38 }, 'that batter done, still in: 1 day if he comes out now');
+  assert.match(boxHtml(S), /Pitcher 1 day if done now \(38 pitches, but the 35th came in the last at-bat: Regulation VI\(d\)\), 2 days after another batter\./);
+  S = play(g, { t: 'pch', s: 1, i: 1 });
+  assert.deepEqual(restOf(S, 1, 0), { days: 1, full: 2, x: 35, last: 'done', np: 38 }, 'out of the game: 1 day');
+  assert.match(boxHtml(S), /Days of rest \(Little League, 11–12\):<\/b> Pitcher 1 day \(38 pitches, but the 35th came in the last at-bat: Regulation VI\(d\)\)\./);
+  assert.equal(gameLines(g).sides[1].pit[0].rest, 1, 'and on the season pages');
+  // Back in to face another batter: past it again, and every pitch counts.
+  S = play(g, { t: 'pch', s: 1, i: 0 }, P('b'));
+  assert.deepEqual([restOf(S, 1, 0).days, restOf(S, 1, 0).last], [2, '']);
+  // Taken out in the middle of the at-bat: he didn't finish it, so the rest is by his count (2 days).
+  const h = start();
+  S = play(h, ...first, ...second, { t: 'pch', s: 1, i: 1 });
+  assert.deepEqual([restOf(S, 1, 0).days, restOf(S, 1, 0).last], [2, '']);
+  // At 35 before the at-bat: the threshold was reached on the batter before, and he went on: 2 days.
+  const k = start();
+  S = play(k, P('c'), P('c'), ...Array(32).fill(P('f')), P('s'), P('b'), P('b'), P('s'), { t: 'pch', s: 1, i: 1 });
+  assert.deepEqual([pitchStat(S, 1, 0).np, restOf(S, 1, 0).days, restOf(S, 1, 0).x], [38, 2, 0]);
+  // A strikeout for the third out ends the at-bat, and then the game ends: 3 pitches before the last batter and 23
+  // after him, past 20 on him, is no rest at all.
+  const m = game({ innings: 1, limit: L });
+  S = play(m, 'HR', 'K', 'K', P('c'), P('c'), ...Array(17).fill(P('f')), P('s'));
+  assert.deepEqual([S.half, restOf(S, 1, 0)], [1, { days: 0, full: 1, x: 20, last: 'now', np: 23 }], 'his team batting: he could come out now');
+  S = play(m, ...threeK);
+  assert.deepEqual([S.over, restOf(S, 1, 0)], [true, { days: 0, full: 1, x: 20, last: 'done', np: 23 }]);
+  assert.match(boxHtml(S), /Pitcher none \(23 pitches, but the 20th came in the last at-bat: Regulation VI\(d\)\)/);
+  // Pitch Smart's table is the same, and so is the exception; a number of one's own has no table.
+  const ps = start();
+  ps.limit = { by: 'ps', age: '11-12', max: 85 };
+  S = play(ps, ...first, ...second, P('s'), { t: 'pch', s: 1, i: 1 });
+  assert.match(boxHtml(S), /Pitcher 1 day \(38 pitches, but the 35th came in the last at-bat: as Little League’s Regulation VI\(d\) has it\)\./);
+  const own = start();
+  own.limit = { by: '', age: '', max: 40 };
+  assert.equal(restOf(play(own, ...first, ...second), 1, 0), null);
+  assert.equal(restOf(play(game({ limit: L, pitches: false }), 'K'), 1, 0), null);
 });
 
 test('a pitch limit is kept from a file, a link and Drive', () => {

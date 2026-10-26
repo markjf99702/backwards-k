@@ -1,5 +1,5 @@
 // The box score (batting and pitching lines for both teams) and the play-by-play.
-import { batKey, pitchStat, pitcherLabel, ip, teamName, label, player, ord, pitchWords, POS_NAME, RESULTS, AUTO, restDays, noCatch, LIMIT_BY, decisions, decisionWords, decider, milestones, clockOf, pitchesIn, toWhere, located, saysWhere, runnersOn } from './engine.js';
+import { batKey, pitchStat, pitcherLabel, ip, teamName, label, player, ord, pitchWords, POS_NAME, RESULTS, AUTO, restOf, restCite, noCatch, LIMIT_BY, decisions, decisionWords, decider, milestones, clockOf, pitchesIn, toWhere, located, saysWhere, runnersOn } from './engine.js';
 import { esc, KL, clockAt, hm } from './ui.js';
 import { abbr, lineHtml } from './card.js';
 import { sprayField } from './field.js';
@@ -95,7 +95,7 @@ function notes(S, side) {
     const [, slot, p] = k.split('.').map(Number);
     return [label(player(g, side, slot, p), slot), b];
   });
-  const arms = [...new Set([0, ...g.ev.filter(e => e.t === 'pch' && e.s === side).map(e => e.i)])].map(i => [pitcherLabel(g, side, i), pitchStat(S, side, i)]);
+  const arms = [...new Set([0, ...g.ev.filter(e => e.t === 'pch' && e.s === side).map(e => e.i)])].map(i => [pitcherLabel(g, side, i), pitchStat(S, side, i), i]);
   const hit = S.cells.filter(c => c.side !== side && c.r === 'HBP');
   // By position, in words: "3B" beside the triples would read as one.
   const errs = names(S.errs[side].map(f => [f === 'CI' ? 'catcher’s interference' : POS_NAME[f] || 'fielder not given', 1]));
@@ -112,7 +112,7 @@ function notes(S, side) {
     ['Unearned runs, from the runner put on second', names(arms.map(([n, p]) => [n, p.ur || 0]))],
     ['Hit batters', names(hit.map(c => [`${pitcherLabel(g, side, c.pi)} (${label(player(g, c.side, c.slot, c.p), c.slot)})`, 1]))],
     ['Balks', names(arms.map(([n, p]) => [n, p.bk]))],
-    ...rest(S, arms),
+    ...rest(S, side, arms),
   ];
   const feats = milestones(S).filter(m => m.side === side).map(m => `<p class="feat">${esc(m.text)}</p>`).join('');
   return feats + lines.filter(([, t]) => t).map(([w, t]) => `<p><b>${w}:</b> ${esc(t)}.</p>`).join('') + proof(S, side);
@@ -133,12 +133,22 @@ function proof(S, side) {
 }
 
 // Under a pitch limit by league age, with pitches counted: each pitcher's days of rest, and in Little League, those who
-// threw 41 or more and can't catch today.
-function rest(S, arms) {
+// threw 41 or more and can't catch today. A pitcher who went past a day threshold in his last at-bat, and came out
+// when it ended, owes the days for the threshold (Regulation VI(d), see restOf()), and it says so; while he's still in,
+// it says what he owes if he's done now, or with this batter the last.
+function rest(S, side, arms) {
   const L = S.g.limit, thrown = arms.filter(([, p]) => p.np);
   if (!L || !LIMIT_BY[L.by] || !S.g.pitches || !thrown.length) return [];
+  const days = d => (d ? `${d} day${d > 1 ? 's' : ''}` : 'none'), cite = restCite(L);
+  const each = ([n, , i]) => {
+    const r = restOf(S, side, i), x = ord(r.x);
+    if (r.last === 'done') return `${n} ${days(r.days)} (${r.np} pitches, but the ${x} came in the last at-bat: ${cite})`;
+    if (r.last === 'now') return `${n} ${days(r.days)} if done now (${r.np} pitches, but the ${x} came in the last at-bat: ${cite}), ${days(r.full)} after another batter`;
+    if (r.last === 'this') return `${n} ${days(r.full)}, or ${days(r.full - 1)} if this batter is the last (the ${x} pitch came in this at-bat: ${cite})`;
+    return `${n} ${days(r.days)}`;
+  };
   return [
-    [`Days of rest (${LIMIT_BY[L.by]}, ${L.age.replace('-', '–')})`, thrown.map(([n, p]) => { const d = restDays(L, p.np); return `${n} ${d ? `${d} day${d > 1 ? 's' : ''}` : 'none'}`; }).join(', ')],
+    [`Days of rest (${LIMIT_BY[L.by]}, ${L.age.replace('-', '–')})`, thrown.map(each).join(', ')],
     ['Can’t catch today (41 or more pitches)', thrown.filter(([, p]) => noCatch(L, p.np)).map(([n]) => n).join(', ')],
   ];
 }

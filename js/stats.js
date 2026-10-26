@@ -1,7 +1,7 @@
 // Season stats: each team's games on this device (those Google Drive brought here among them) played back, and its
 // players' batting and pitching added up, for a team's page and a player's (team.js). Nothing here is saved: it all
 // comes from replay(), and each game is played back once, until it changes (kept by its id and when it changed).
-import { replay, batKey, winner, official, decisions, teamName, restDays, ip, halfLabel, saysWhere } from './engine.js';
+import { replay, batKey, winner, official, decisions, teamName, restOf, ip, halfLabel, saysWhere } from './engine.js';
 import { today } from './model.js';
 import { fmtDate } from './ui.js';
 
@@ -72,7 +72,8 @@ export function gameLines(g) {
       // (Pitches only from games that count them: without, the count is one a batter.)
       if (!g.pitches) { line.np = 0; line.str = 0; } else line.pg = 1;
       if (d && d.win === side) { line.w = +(i === d.w); line.s = +(i === d.s); } else if (d) line.l = +(i === d.l);
-      pit.push({ p, key: personKey(p), line, rest: g.pitches ? restDays(g.limit, st.np) : null, np: st.np });
+      // (The days of rest he owes, with the finish-the-batter exception, Regulation VI(d): see restOf().)
+      pit.push({ p, key: personKey(p), line, rest: restOf(S, side, i)?.days ?? null, np: st.np });
     });
     return { name: team.name, key: teamKey(team.name), opp: teamName(g, fld), home: side === 1, R: S.R[side], RA: S.R[fld], result, bat, pit };
   });

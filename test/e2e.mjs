@@ -1376,6 +1376,27 @@ step('a pitch limit: the pitcher’s button turns amber five before it and red a
   await p.context().close();
 }
 
+step('a threshold reached on the last batter: the pitcher’s sheet and the box score give the rest for it if he comes out when that at-bat ends (Regulation VI(d))');
+{
+  const g = newGame({ away: 'Foxes', home: 'Comets', limit: { by: 'll', age: '11-12', max: 85 } });
+  g.id = 'grestlast';
+  g.teams[1].pitchers[0].name = 'Ruiz';
+  const k = x => ({ t: 'p', k: x });
+  // 33 pitches to the first batter, and 4 so far to the second.
+  g.ev.push(k('c'), k('c'), ...Array(30).fill(k('f')), k('s'), k('c'), k('c'), k('f'), k('f'));
+  const p = await playing(g);
+  await p.click('[data-a=pitcher]');
+  assert.match(await p.textContent('.sheet'), /Rest after today: 1 day if this batter is the last \(the 35th pitch came in this at-bat: Regulation VI\(d\)\), or 2 days \(36 to 50 pitches\) after another\./);
+  await p.keyboard.press('Escape');
+  await p.click('[data-p=s]');
+  await p.click('[data-a=pitcher]');
+  assert.match(await p.textContent('.sheet'), /Rest after today: 1 day if this pitcher comes out now \(the 35th pitch came in the last at-bat: Regulation VI\(d\)\), or 2 days \(36 to 50 pitches\) after another batter\./);
+  await p.keyboard.press('Escape');
+  await p.click('[data-v=box]');
+  assert.match(await p.textContent('.pane[data-p=box]'), /Days of rest \(Little League, 11–12\): Ruiz 1 day if done now \(38 pitches, but the 35th came in the last at-bat: Regulation VI\(d\)\), 2 days after another batter\./);
+  await p.context().close();
+}
+
 step('a tap on the line score, the box score or the plays scores nothing');
 {
   const g = sampleGame(1);

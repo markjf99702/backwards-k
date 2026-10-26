@@ -123,7 +123,10 @@ written out in plain words.
   League lets the pitcher finish the batter the limit was reached on). The pitcher's sheet and the box score say the
   days of rest each pitcher needs after the game (VI(d): through 14, none after 1-20 pitches, then a day each after
   21, 36, 51 and 66; at 15 and up the steps are 31, 46, 61 and 76, and Pitch Smart's 19-22 has a fifth after 106),
-  and in Little League, who threw 41 or more and can't catch that day.
+  and in Little League, who threw 41 or more and can't catch that day. A pitcher who reaches one of those steps while
+  facing a batter, and comes out when that at-bat ends, owes only the rest for the step he reached (VI(d)'s
+  exception, for Pitch Smart too): 33 pitches before his last batter and 38 after is 1 day, not 2. While he's still
+  in, his sheet says both: 1 day if he comes out now, 2 after another batter.
 - **A tap you can see, and feel.** A run flips over on the scoreboard, the ball, strike or out that just lit up glows,
   and a new box on the card gets a red pencil ring for a moment (unless the phone or computer asks for less motion).
   **Buzz on each tap**, in the game's menu, gives a short buzz for each tap on a phone that can (Android: an iPhone
