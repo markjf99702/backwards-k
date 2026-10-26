@@ -9,7 +9,7 @@ import {
 import { store } from './store.js';
 import { blank, takeBack, putBack, newer, plays, setField } from './model.js';
 import { cardHtml, lineHtml, cellSvg } from './card.js';
-import { boxHtml, playsHtml, dayOf, spray } from './box.js';
+import { boxHtml, playsHtml, dayOf, spray, recapHtml } from './box.js';
 import { infieldSvg, fieldSvg, BASE_AT } from './field.js';
 import { $, $$, esc, openSheet, closeSheet, sheetOpen, reveal, toast, KL, markHtml, fmtDate, go, inFrame, nextName, posField, clockAt } from './ui.js';
 import { drive } from './sync.js';
@@ -286,7 +286,7 @@ function frame() {
         <button type="button" data-v="box">Box score</button>
         <button type="button" data-v="plays">Plays</button>
       </nav>
-      <section class="live" aria-label="Scoring"></section>
+      <section class="live${readOnly ? ' look' : ''}" aria-label="${readOnly ? 'The game' : 'Scoring'}"></section>
       <section class="side">
         <div class="pane" data-p="card"></div>
         <div class="pane" data-p="box"></div>
@@ -422,13 +422,13 @@ function liveHtml() {
   // The first time through, the order coming back round to the top is worth a warning: a youth team that bats
   // everyone may have more kids than the order has spots yet.
   const top = n.deck <= n.slot && S.size[n.side] > 1 && !S.cells.some(c => c.side === n.side && c.slot === n.slot);
-  // After the final, whoever was left on base is still drawn there, but there's nothing more to tap; and during a
-  // delay, nobody runs.
+  // During a delay nobody runs, and in a game someone shared (look, don't touch) nothing is to be tapped: the runners
+  // are drawn by name, and so are the batter and the pitcher.
   const runner = b => {
     const r = S.bases[b];
     if (!r) return '';
     const [x, y] = BASE_AT[b], name = esc(runnerName(g, r));
-    if (S.over || S.delayed) return `<span class="runner left" style="left:${x}%;top:${y}%"><span class="sr">${S.over ? 'Left on' : 'On'} ${BASE[b]}: </span><span>${name}</span></span>`;
+    if (S.over || S.delayed || readOnly) return `<span class="runner left" style="left:${x}%;top:${y}%"><span class="sr">${S.over ? 'Left on' : 'On'} ${BASE[b]}: </span><span>${name}</span></span>`;
     return `<button type="button" class="runner" data-runner="${b}" style="left:${x}%;top:${y}%" aria-label="Runner on ${BASE[b]}: ${name}. Tap for steals and other moves."><span>${name}</span></button>`;
   };
   const dots = (on, of, cls) => Array.from({ length: of }, (_, i) => `<i class="${cls}${i < on ? ' on' : ''}"></i>`).join('');
@@ -442,24 +442,36 @@ function liveHtml() {
         <div class="inn">${S.over ? `<b>${esc(halfLabel(S))}</b>` : `<span class="arrow" aria-hidden="true">${S.half ? '▼' : '▲'}</span><span class="sr">${S.half ? 'Bottom' : 'Top'} of the </span><b>${ord(S.inn)}</b>`}</div>
       </div>
     </div>`;
-  if (readOnly) {
-    return `${bug}<div class="field-col"><div class="field over">${infieldSvg()}</div></div>
-      <div class="shared-note"><p>Every box on the card is one trip to the plate. Tap one to see what happened, or see <button type="button" class="link-btn" data-a="help">how to read the card</button>.</p>
-      ${later && !onSave ? '' : '<a class="btn" href="#/new">Score your own game</a>'}</div>`;
-  }
   // The count and the outs, as a ballpark's board shows them: a row of lamps each for B, S and O (just the outs when
   // pitches aren't counted, labelled OUT, since in the board's lettering an O on its own looks like a 0), in the
   // corner opposite On deck. The pitcher is on the mound, and the top edge is left to the runner on second.
   const lamps = (k, on, of, cls) => `<span class="lamps"><span aria-hidden="true">${k}</span>${dots(on, of, cls)}</span>`;
   const board = `<div class="count">${g.pitches ? `<span class="sr">${countWords()}</span>${lamps('B', S.b, 3, 'b')}${lamps('S', S.s, 2, 's')}` : ''}<span class="lamps outs"><span aria-hidden="true">${g.pitches ? 'O' : 'OUT'}</span>${dots(S.outs, 2, 'o')}<span class="sr">${few(S.outs, 'out')}</span></span></div>`;
-  const field = `<div class="field${S.over ? ' over' : ''}">
+  const at = `style="left:${BASE_AT[0][0]}%;top:${BASE_AT[0][1]}%"`, count = g.pitches ? `<b>${n.pitches}</b><small>${lim ? LIMIT_SHOW[lim](g.limit.max) : `pitch${n.pitches === 1 ? '' : 'es'}`}</small>` : '';
+  const field = `<div class="field">
       ${infieldSvg()}
       ${[3, 2, 1].map(runner).join('')}
-      ${S.over ? '' : `<button type="button" class="batter" data-a="batter" style="left:${BASE_AT[0][0]}%;top:${BASE_AT[0][1]}%" aria-label="At bat: ${esc(n.name)}. Tap to name or pinch-hit."><small>${n.slot + 1}</small><span>${esc(n.name)}</span></button>`}
-      ${S.over ? '' : `<p class="deck"><span>On deck</span> ${esc(n.deckName)}${top ? '<small>Top of the order</small>' : ''}</p>`}
-      ${S.over ? '' : board}
-      ${S.over ? '' : `<button type="button" class="pitcher${lim ? ' ' + lim : ''}" data-a="pitcher" aria-label="Pitching: ${esc(n.pitcherName)}${g.pitches ? ', ' + n.pitches + ' pitches' : ''}${lim ? `, ${LIMIT_SAY[lim](g.limit.max)}` : ''}. Tap to change pitchers."><span>${esc(n.pitcherName)}</span>${g.pitches ? `<b>${n.pitches}</b><small>${lim ? LIMIT_SHOW[lim](g.limit.max) : `pitch${n.pitches === 1 ? '' : 'es'}`}</small>` : ''}</button>`}
+      ${readOnly ? `<span class="batter" ${at}><span class="sr">At bat: </span><small>${n.slot + 1}</small><span>${esc(n.name)}</span></span>`
+        : `<button type="button" class="batter" data-a="batter" ${at} aria-label="At bat: ${esc(n.name)}. Tap to name or pinch-hit."><small>${n.slot + 1}</small><span>${esc(n.name)}</span></button>`}
+      <p class="deck"><span>On deck</span> ${esc(n.deckName)}${top ? '<small>Top of the order</small>' : ''}</p>
+      ${board}
+      ${readOnly ? `<span class="pitcher${lim ? ' ' + lim : ''}"><span class="sr">Pitching: </span><span>${esc(n.pitcherName)}</span>${count}</span>`
+        : `<button type="button" class="pitcher${lim ? ' ' + lim : ''}" data-a="pitcher" aria-label="Pitching: ${esc(n.pitcherName)}${g.pitches ? ', ' + n.pitches + ' pitches' : ''}${lim ? `, ${LIMIT_SAY[lim](g.limit.max)}` : ''}. Tap to change pitchers."><span>${esc(n.pitcherName)}</span>${count}</button>`}
     </div>`;
+  // Who won, or for a game called before it counted, who's ahead (OBR 7.01(c)), with a run rule or a time limit
+  // after the score.
+  const lead = S.R[1] > S.R[0] ? 1 : 0, tag = S.why ? ENDS[S.why].short : S.mercy ? `${S.mercy.by}-run rule` : '';
+  const head = S.R[0] === S.R[1] ? `Tied, ${S.R[0]}–${S.R[1]}`
+    : `${esc(teamName(g, lead))} ${winner(S) == null ? 'ahead' : 'win'}, ${S.R[lead]}–${S.R[1 - lead]}${tag ? ` <small>(${tag})</small>` : ''}`;
+  // A game someone shared: how it stood when it was sent, the field and its last plays (or once it's over, the game
+  // in short), and nothing to tap but the card.
+  if (readOnly) {
+    const help = `<div class="shared-note"><p>Every box on the card is one trip to the plate. Tap one to see what happened, or see <button type="button" class="link-btn" data-a="help">how to read the card</button>.</p>
+      ${later && !onSave ? '' : '<a class="btn" href="#/new">Score your own game</a>'}</div>`;
+    if (S.over) return `${bug}<div class="field-col">${recapHtml(S, { head })}</div>${help}`;
+    return `${bug}<div class="field-col">${field}</div>
+      <div class="recent"><h3>Latest plays</h3>${playsHtml(S, { limit: 5 })}</div>${help}`;
+  }
   const last = G.ev.length ? S.text[G.ev.length - 1] : '';
   // The links have a row of their own (beside the play, on a big screen), each a thumb's height, and the line a fixed
   // height, so the buttons below never move. Undo comes first: it takes back the play just above it.
@@ -471,17 +483,13 @@ function liveHtml() {
       <div class="said${then ? ' ended' : ''}"><p>${esc(gone || last || 'Tap what happens. Every tap can be undone.')}</p>${then ? `<small class="then">${esc(then)}</small>` : ''}</div>
       <div class="acts">${back ? `<button type="button" class="link-btn" data-a="undo" title="${esc(back)}" aria-label="${esc(back)}">Undo</button>` : ''}${fix ? `<button type="button" class="link-btn" data-a="fixlast" title="${esc(fix)}" aria-label="${esc(fix)}">Fix runners</button>` : ''}${redo.length ? '<button type="button" class="link-btn" data-a="redo">Redo</button>' : ''}${keep ? `<button type="button" class="link-btn" data-a="putback">Put back ${few(keep, 'play')}</button>` : ''}</div>
     </div>`;
-  // Over: who won, or for a game called before it counted, who's ahead (OBR 7.01(c)). A run rule or a time limit says
-  // so after the score.
+  // Over: who won, and the game in short where the field was (the last play and Undo still under it).
   if (S.over) {
-    const lead = S.R[1] > S.R[0] ? 1 : 0, n = regulation(g.innings);
-    const tag = S.why ? ENDS[S.why].short : S.mercy ? `${S.mercy.by}-run rule` : '';
-    const head = S.R[0] === S.R[1] ? `Tied, ${S.R[0]}–${S.R[1]}`
-      : `${esc(teamName(g, lead))} ${winner(S) == null ? 'ahead' : 'win'}, ${S.R[lead]}–${S.R[1 - lead]}${tag ? ` <small>(${tag})</small>` : ''}`;
+    const n = regulation(g.innings);
     const says = S.mercy ? `That’s the ballgame, on the ${S.mercy.by}-run rule after ${S.mercy.inn} inning${S.mercy.inn === '1' ? '' : 's'}.`
       : !S.ended ? 'That’s the ballgame.' : S.why ? `${ENDS[S.why].text}` : official(S) ? 'The game was called, and it counts.'
       : `The game was called before it was official: that takes ${n} innings, or ${n - 1}½ with the home team ahead. Keep playing picks it up where it stopped.`;
-    return `${bug}<div class="field-col">${field}${ticker}</div><div class="final">
+    return `${bug}<div class="field-col">${recapHtml(S, { told: false })}${ticker}</div><div class="final">
         <h2>${head}</h2>
         ${decider(S) ? `<p class="decider">${esc(decider(S))}</p>` : ''}${milestones(S).map(m => `<p class="feat">${esc(m.text)}</p>`).join('')}
         <p>${says} The whole card is ${sideBySide() ? 'beside this' : wide() ? 'below' : 'under <b>Card</b>'}, and the box score under <b>Box score</b>.</p>

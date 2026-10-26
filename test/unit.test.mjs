@@ -2527,6 +2527,23 @@ test('what the game is remembered for, said only once it’s over: a no-hitter, 
   assert.deepEqual(feats(play(named(game({ innings: 1 })), { t: 'join', inn: 1, half: 0, r: [0, 0], up: 0 }, 'HR', ...threeK, ...threeK)), []);
 });
 
+test('a finished game in short, for the Score tab: the line score, its best lines, and who won only where nothing else says it', async () => {
+  const { recapHtml } = await import('../js/box.js');
+  const S = replay(sampleGame(7)), text = h => h.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+  const look = recapHtml(S, { head: 'Comets win, 7–1' }), mine = recapHtml(S, { told: false });
+  assert.match(look, /<h2>Comets win, 7–1<\/h2>/);
+  assert.match(look, /<table class="linescore">/);
+  assert.match(look, /<p class="decider">Quinn’s two-run home run in the bottom of the 5th put the Comets ahead for good\.<\/p>/);
+  assert.deepEqual([...look.matchAll(/<dt>(.*?)<\/dt><dd>(.*?)<\/dd>/g)].map(([, t, d]) => `${t}: ${text(d)}`), [
+    'Home runs: Ibarra, Quinn, Nakamura (Comets)', 'Two hits or more: Pruitt 3 for 4, Brennan 2 for 4 (Foxes); Velez 2 for 4 (Comets)',
+    'Foxes pitching: Whitlock L: 6 IP, 5 H, 4 R, 4 ER, 2 BB, 8 K, 106 pitches; Moreno: 2 IP, 1 H, 3 R, 3 ER, 5 BB, 2 K, 51 pitches',
+    'Comets pitching: Halvorsen W: 6 IP, 5 H, 1 R, 1 ER, 2 BB, 5 K, 97 pitches; Bishop S: 3 IP, 3 H, 0 R, 0 ER, 2 BB, 5 K, 53 pitches',
+  ]);
+  // Under the final card, which says who won and the play that won it, it doesn't say them again.
+  assert.doesNotMatch(mine, /<h2>|decider/);
+  assert.match(mine, /Bishop <abbr class="dec" title="Save">S<\/abbr>: 3 <abbr title="Innings pitched">IP<\/abbr>/);
+});
+
 test('the win: a starter needs five innings; a reliever who pitched briefly and badly gives way to the one after him (OBR 9.17)', async () => {
   const { decisions } = await import('../js/engine.js');
   // Seven innings: the Foxes' starter goes 3 with a 1-0 lead, two relievers finish (the second with more outs): the

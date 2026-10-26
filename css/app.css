@@ -570,6 +570,16 @@ details.partway .hint { margin: 10px 0 0; }
 .trouble p { flex: 1 1 14em; margin: 0; font-size: 15px; color: var(--ink); }
 @media (min-width: 700px) { .trouble { grid-column: 1 / -1; margin: 0; } }
 .shared-note { padding: 16px; border-radius: 14px; background: var(--card); border: 1px solid var(--line); display: grid; gap: 10px; justify-items: start; }
+/* A finished game in short, where the field was: who won (on a shared link), the line score, the play that won it, and
+   the game's best lines. */
+.recap { display: grid; gap: 10px; min-width: 0; padding: 14px; border-radius: 14px; background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow); }
+.recap h2 { font: 900 30px/1 var(--board-font); text-transform: uppercase; margin: 0; }
+.recap h2 small { font-size: 19px; font-weight: 800; color: var(--muted); white-space: nowrap; }
+.recap .decider, .recap .feat { margin: 0; }
+.recap dl { margin: 0; display: grid; gap: 8px; }
+.recap dt { font: 800 14px/1.2 var(--board-font); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.recap dd { margin: 2px 0 0; font-size: 15px; line-height: 1.35; color: var(--ink-2); }
+.recap dd abbr { text-decoration: none; }
 .shared-note .link-btn { padding: 0; font-size: inherit; }
 
 /* A phone: the bar has the score and the inning, and the board on the field the count and the outs, so the green strip
@@ -588,6 +598,11 @@ details.partway .hint { margin: 10px 0 0; }
   .live { grid-area: live; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 14px; }
   .live > .bug, .live > .shared-note, .live > .recent { grid-column: 1 / -1; }
   .live > .recent { display: none; }
+  /* A game someone shared: its latest plays beside the field, or beside the game in short, how to read the card. */
+  .live.look > .recent { display: block; grid-column: auto; margin-top: 0; }
+  .live.look:not(:has(> .recent)) > .shared-note { grid-column: auto; align-self: start; }
+  /* (The card or the box score beside it or under it has the line score.) */
+  .recap .line-wrap { display: none; }
   .vtabs { grid-area: tabs; position: static; margin: 0; padding: 0; border: 0; background: none; display: flex; }
   .vtabs button { flex: 0 0 auto; padding: 0 16px; }
   .vtabs button[data-v="live"] { display: none; }

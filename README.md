@@ -82,7 +82,9 @@ written out in plain words.
   ahead in it. That run is the last to count, and a hit that brings it in counts for the bases it needed, as an
   official scorer has it: with the bases loaded, a double that wins the game is a single (a home run still scores
   everyone). **Keep playing** after a Final finishes that half-inning, for a league that plays it out, and then every
-  run on the play that won it counts; a game you ended early picks up where it stopped and ends the usual way.
+  run on the play that won it counts; a game you ended early picks up where it stopped and ends the usual way. Once
+  it's over, the field gives way to the game in short: the line score, each team's home runs, everyone with two hits
+  or more, and each pitcher's line, with the win, the loss and the save.
 - **Rain, lightning, a run rule, the clock.** End the game here (under More, or in the game's menu) asks why. **Stop
   for a delay** keeps the game as it was, reading "Delayed, top 5th" everywhere, lets the screen sleep, and one tap
   resumes it. **Game over: run rule** or **time limit** is a complete game, Final, with "(run rule)" or "(time
@@ -145,7 +147,9 @@ written out in plain words.
   Nothing more is saved: it's all worked out from the games, each played back once until it changes.
 - **Sharing.** Send a link that carries the whole game (nothing is uploaded to share it, and a checksum in it means
   one that a chat app cut short or changed says so, rather than opening as some other game), with the score in the
-  message ("Comets 8, Foxes 1 (Final) · Sat, Oct 24", or "Top 7th, 1 out" for a game going on). Or copy the score as
+  message ("Comets 8, Foxes 1 (Final) · Sat, Oct 24", or "Top 7th, 1 out" for a game going on). Whoever opens it
+  sees the game as it stood, look-only: its Score tab has the runners, the count, the batter and the pitcher (with his
+  pitch count) by name, and the last five plays, or once it's over, who won and the game in short. Or copy the score as
   text for a group chat: the line score as a newspaper prints it ("Foxes 000 010 000 — 1 8 1"), the hits, errors and
   each team's home runs. Or print both cards and the box score (a page each, Letter or A4, upright or sideways), save
   the game as a file, or save the box score as a spreadsheet for Sheets or Excel (the line score, and each player's

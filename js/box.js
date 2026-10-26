@@ -1,7 +1,7 @@
 // The box score (batting and pitching lines for both teams) and the play-by-play.
 import { batKey, pitchStat, pitcherLabel, ip, teamName, label, player, ord, pitchWords, POS_NAME, RESULTS, AUTO, restDays, noCatch, LIMIT_BY, decisions, decisionWords, decider, milestones, clockOf, pitchesIn, toWhere, located, saysWhere, runnersOn } from './engine.js';
 import { esc, KL, clockAt, hm } from './ui.js';
-import { abbr } from './card.js';
+import { abbr, lineHtml } from './card.js';
 import { sprayField } from './field.js';
 import { teamHref } from './stats.js';
 
@@ -154,6 +154,35 @@ export function dayOf(S, side, slot, p) {
   const line = [`${b.h} for ${b.ab}`, n(b.r, 'a run', 'runs'), n(b.rbi, 'an RBI', 'RBI'), n(b.bb, 'a walk', 'walks'),
     n(b.hbp, 'hit by a pitch', 'times hit by a pitch'), n(b.sb, 'a stolen base', 'stolen bases'), n(b.k, 'a strikeout', 'strikeouts')];
   return { trips, line: line.filter(Boolean).join(', ') };
+}
+
+// The game in short, once it's over, for the Score tab in place of the empty field: who won (head, in HTML, when
+// nothing else on the screen says it), the line score, then (told: the same) the play that won it and the game's feats,
+// then each team's home runs, everyone with two hits or more, and each pitcher's line, with the win, the loss and the
+// save.
+export function recapHtml(S, { told = true, head = '' } = {}) {
+  const g = S.g, d = decisions(S), team = s => teamName(g, s);
+  const each = (fn, sep = '; ') => [0, 1].map(s => [s, fn(s)]).filter(([, x]) => x).map(([s, x]) => `${x} (${esc(team(s))})`).join(sep);
+  const homers = each(s => esc(names(S.cells.filter(c => c.side === s && c.r === 'HR').map(c => [label(player(g, s, c.slot, c.p), c.slot), 1]))));
+  const hits = each(s => Object.entries(S.bat).filter(([k, b]) => k.startsWith(s + '.') && b.h >= 2).sort(([, a], [, b]) => b.h - a.h)
+    .map(([k, b]) => { const [, slot, p] = k.split('.').map(Number); return `${esc(label(player(g, s, slot, p), slot))} ${b.h} for ${b.ab}`; }).join(', '));
+  const arms = s => {
+    const used = new Set([0]);
+    for (const e of g.ev) if (e.t === 'pch' && e.s === s) used.add(e.i);
+    return [...used].filter(i => S.pitching[s][i]).map(i => {
+      const p = pitchStat(S, s, i), k = d && (s === d.win ? (i === d.w ? 'w' : i === d.s ? 's' : '') : i === d.l ? 'l' : '');
+      const dec = k ? ` <abbr class="dec" title="${DEC[k][1]}">${DEC[k][0]}</abbr>` : '';
+      return `${esc(pitcherLabel(g, s, i))}${dec}: ${ip(p.outs)} ${abbr('IP')}, ${p.h} ${abbr('H')}, ${p.r} ${abbr('R')}, ${p.er} ${abbr('ER')}, ${p.bb} ${abbr('BB')}, ${p.k} ${abbr('K')}${g.pitches ? `, ${p.np} pitches` : ''}`;
+    }).join('; ');
+  };
+  const won = told ? decider(S) : '', feats = told ? milestones(S) : [];
+  const rows = [['Home runs', homers], ['Two hits or more', hits], ...[0, 1].map(s => [`${esc(team(s))} pitching`, arms(s)])].filter(([, x]) => x);
+  return `<section class="recap" aria-label="The game in short">
+    ${head ? `<h2>${head}</h2>` : ''}
+    <div class="line-wrap">${lineHtml(S)}</div>
+    ${won ? `<p class="decider">${esc(won)}</p>` : ''}${feats.map(m => `<p class="feat">${esc(m.text)}</p>`).join('')}
+    ${rows.length ? `<dl>${rows.map(([k, x]) => `<div><dt>${k}</dt><dd>${x}</dd></div>`).join('')}</dl>` : ''}
+  </section>`;
 }
 
 // links: each name a link to the player's season (for a game on this device).

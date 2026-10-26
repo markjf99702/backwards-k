@@ -243,6 +243,13 @@ await fp.waitForSelector('[data-a=keep]');
 assert.match(await fp.textContent('.bar .title'), /Foxes\s*0\s*–\s*1\s*Comets/);
 // Sent mid-game, so it says the link is the game as it stood then.
 assert.equal(await fp.textContent('.shared-bar p'), 'The scorecard as it stood in the bottom of the 1st. The link doesn’t update: ask for a new one to see the rest. Tap any box to see what happened.');
+// Its Score tab: the field as it stood, by name, with nothing to tap, and the last five plays.
+await fp.click('[data-v=live]');
+const look = await fp.evaluate(() => [...document.querySelectorAll('.live .field > :is(.batter, .pitcher, .count)')].map(e => `${e.tagName} ${e.className}`));
+assert.deepEqual(look, ['SPAN batter', 'DIV count', 'SPAN pitcher']);
+assert.match(await fp.textContent('.live .pitcher'), /^Pitching: Moreno\d+pitch/);
+assert.equal(await fp.locator('.live button:not(.link-btn)').count(), 0, 'nothing to score with');
+assert.equal(await fp.locator('.live .recent li').count(), 5);
 await fp.click('[data-a=keep]');
 await fp.waitForSelector('.live .field');
 await fp.goto(base);
@@ -261,6 +268,12 @@ const final = await fp.evaluate(async () => {
 await fp.goto(base + final);
 await fp.waitForSelector('.shared-bar');
 assert.equal(await fp.textContent('.shared-bar p'), 'A scorecard someone shared with you. Tap any box to see what happened.');
+// Its Score tab: who won, the line score, the play that won it, and the game's best lines.
+await fp.click('[data-v=live]');
+assert.equal(await fp.textContent('.live .recap h2'), 'Comets win, 7–1');
+assert.equal(await fp.textContent('.live .recap .decider'), 'Quinn’s two-run home run in the bottom of the 5th put the Comets ahead for good.');
+assert.deepEqual(await fp.$$eval('.live .recap dt', x => x.map(e => e.textContent)), ['Home runs', 'Two hits or more', 'Foxes pitching', 'Comets pitching']);
+assert.equal(await fp.locator('.live .field').count(), 0);
 // A link from before links had a checksum (z: the game compressed, and nothing else) still opens.
 const old = await fp.evaluate(async () => {
   const { sampleGame } = await import('./js/sample.js'), g = sampleGame(3);
@@ -325,7 +338,7 @@ step('saving the sample twice keeps one copy, and the second Save says so');
   for (let i = 0; i < 2; i++) {
     await p.goto(base + '#/sample');
     await p.click('[data-a=keep]');
-    await p.waitForSelector('.live .field');
+    await p.waitForSelector('.live .recap'); // (a finished game: the game in short where the field was)
   }
   assert.equal(await seen(p), 'You already have the sample in your games.');
   await written(p);
@@ -857,7 +870,7 @@ step('undoing a pitcher brought back keeps both pitchers and every change');
   await p.context().close();
 }
 
-step('after a walk-off, the runner left on is still drawn, and can’t be moved');
+step('after a walk-off, the runner left on can’t be moved: the game in short is where the field was');
 {
   const p = await phone();
   await startGame(p);
@@ -874,8 +887,11 @@ step('after a walk-off, the runner left on is still drawn, and can’t be moved'
   assert.match(await p.textContent('.final h2'), /Home win, 1–0/);
   assert.deepEqual(await p.$$eval('.bug .bt', b => b.map(x => x.className)), ['bt', 'bt won'], 'the winner is lit on the board');
   assert.equal(await p.textContent('.bug .inn'), 'Final');
-  assert.equal(await p.locator('.live [data-runner]').count(), 0);
-  assert.equal(await p.textContent('.live .runner'), 'Left on third: Batter 8');
+  assert.equal(await p.locator('.live [data-runner], .live .runner, .live .field').count(), 0);
+  // The line score and the game's best lines, and under them the last play, which Fix runners can still change.
+  assert.equal(await p.textContent('.live .recap .linescore'), 'Team123RHEOwls000000Home001110');
+  assert.match(await p.textContent('.live .recap'), /Home pitching\s*Pitcher W: 3 IP, 0 H, 0 R, 0 ER, 0 BB, 9 K/);
+  assert.equal(await p.locator('.ticker [data-a=fixlast]').count(), 1);
   await p.context().close();
 }
 
@@ -2719,7 +2735,7 @@ step('after the final, the words say where the card is: under Card, below, or be
 for (const [width, height, where] of [[390, 844, 'under Card'], [768, 1024, 'below'], [1024, 768, 'beside this']]) {
   const g = sampleGame(7);
   g.id = 'gsample7final';
-  const p = await playing(g, { width, height });
+  const p = await playing(g, { width, height }, '.final');
   assert.match(await p.textContent('.final p:not(.decider)'), new RegExp(`The whole card is ${where}, and the box score under Box score`), `${width} wide`);
   // And the play that won it, under who won.
   assert.equal(await p.textContent('.final h2 + .decider'), 'Quinn’s two-run home run in the bottom of the 5th put the Comets ahead for good.');
