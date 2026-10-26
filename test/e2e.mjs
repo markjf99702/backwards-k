@@ -2218,6 +2218,22 @@ step('a box change that moves a third out: what’s taken back, and when it can 
   await p.context().close();
 }
 
+step('on a laptop, the line under the field with a half-inning’s end, Undo and Put back stays clear of the card');
+{
+  const g = newGame({ away: 'Owls', home: 'Comets' });
+  g.id = 'gtickerwide';
+  const p = await playing(g, { width: 1280, height: 800 });
+  await p.click('[data-r=K]');
+  await p.click('[data-r=K]');
+  await p.click('[data-r="1B"]');
+  await p.click('[data-a=undo]');
+  await p.click('[data-r=K]');
+  assert.equal(await p.textContent('[data-a=putback]'), 'Put back 1 play');
+  const [ticker, put, pads, side] = await p.evaluate(() => ['.ticker', '[data-a=putback]', '.pads', '.side'].map(s => document.querySelector(s).getBoundingClientRect()[s === '.side' ? 'left' : 'right']));
+  assert.ok(Math.max(ticker, put, pads) <= side, `the line ends at ${ticker}, Put back at ${put} and the buttons at ${pads}, past the card at ${side}`);
+  await p.context().close();
+}
+
 step('a box’s “Change what it was” offers only what could have happened');
 {
   const p = await phone(), id = await startGame(p);

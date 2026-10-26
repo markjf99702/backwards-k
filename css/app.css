@@ -539,7 +539,7 @@ details.partway .hint { margin: 10px 0 0; }
 .ticker .acts { display: flex; gap: 2px; margin: 0 -8px; }
 .ticker .link-btn { min-width: 44px; min-height: 44px; padding: 0 8px; font-size: 14px; line-height: 1.2; white-space: nowrap; }
 @media (min-width: 1000px) {
-  .ticker { display: flex; align-items: center; gap: 4px; height: 52px; padding: 3px 4px 3px 12px; }
+  .ticker { display: flex; align-items: center; gap: 4px; height: 52px; padding: 3px 4px 3px 12px; min-width: 0; }
   .ticker .said { flex: 1; }
   .ticker .acts { flex: none; margin: 0; }
 }
