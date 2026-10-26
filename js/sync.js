@@ -25,7 +25,8 @@ const KS = 'backwards-k.sync', KT = 'junkdrawer.google';
 const get = k => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch { return null; } };
 const put = (k, v) => { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); } catch { /* storage full or blocked */ } };
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-// seen: for each game, the copy this device and Drive last agreed on: { t: its updated, n and h: its plays (seenOf) }.
+// seen: for each game, the copy this device and Drive last agreed on: { t: its updated, n and h: its plays, k: its names
+// and settings (seenOf) }.
 const fresh = () => ({ on: false, email: '', name: '', last: 0, seen: {} });
 
 let st = { ...fresh(), ...(get(KS) || {}) }, tok = get(KT);

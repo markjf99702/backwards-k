@@ -216,6 +216,24 @@ for (const p of [a, b]) {
   assert.deepEqual([g.ev.length, g.ev.at(-2).r, g.ev.at(-2).f, g.teams[0].name], [go + 1, 'GO', [6, 3], 'Foxes']);
   assert.equal((await stored(p, x => /\(second copy\)$/.test(x.place))).length, 1, 'only the one from before');
 }
+
+step('a name fixed on the tablet, then a pitch on the phone after it: the pitch stays, and so does the name');
+// The phone's copy is the one changed last, but it didn't change the name. (A phone sends what it scored a moment after
+// each tap, and hears what's new in Drive then: the one still to come from the step before goes first, so this pitch
+// is the phone's next word with Drive.)
+await a.waitForTimeout(2600);
+await syncNow(a);
+const pitched = (await stored(a))[0].ev.length;
+await rename(b, 1, 'Comets');
+await syncNow(b);
+await a.click('[data-p="s"]');
+await syncNow(a);
+await syncNow(b);
+for (const p of [a, b]) {
+  const [g] = await stored(p);
+  assert.deepEqual([g.ev.length, g.ev.at(-1).k, g.teams.map(t => t.name)], [pitched + 1, 's', ['Foxes', 'Comets']]);
+}
+assert.match(await a.textContent('.bar .title'), /\d Comets(?! II)/, 'and the phone’s screen has it');
 await a.goto(base);
 
 step('a sign-in that ran out: the cloud asks for a tap, and one tap fixes it');

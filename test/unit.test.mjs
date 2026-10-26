@@ -1644,6 +1644,46 @@ test('a play taken back with Undo stays taken back, when Drive saw the longer li
   assert.deepEqual(merge(a, b, seen).game.ev, b.ev);
 });
 
+test('two copies with names changed on each: every name from the copy that changed it, the latest when both did', () => {
+  // The tablet fixed a team's name, a batter's number, the place and the innings; the phone scored on after it, and
+  // fixed another batter's number and the innings too.
+  const { base, a, b } = copies();
+  const seen = JSON.parse(JSON.stringify(seenOf(base))); // (as Drive's note of it comes back from the browser's storage)
+  base.teams[1].lineup[0][0].pos = 'SS'; // (and a position both copies had)
+  a.teams[1].lineup[0][0].pos = b.teams[1].lineup[0][0].pos = 'SS';
+  const was = seenOf(base);
+  b.teams[0].name = 'Red Foxes'; b.teams[1].lineup[2][0].num = '12'; b.place = 'Riverside Park'; b.innings = 7;
+  delete b.teams[1].lineup[0][0].pos;
+  later(b, 2000);
+  play(a, 'HR', 'K');
+  a.teams[0].lineup[0][0].num = '7'; a.innings = 6;
+  later(a, 3000);
+  for (const [x, y] of [[a, b], [b, a]]) {
+    const { game, second } = merge(x, y, was);
+    assert.equal(second, null);
+    assert.deepEqual(game.ev, a.ev, 'every play');
+    assert.deepEqual([game.teams[0].name, game.teams[1].lineup[2][0].num, game.place], ['Red Foxes', '12', 'Riverside Park'], 'the tablet’s');
+    assert.equal(game.teams[0].lineup[0][0].num, '7', 'the phone’s');
+    assert.equal(game.teams[1].lineup[0][0].pos, undefined, 'a position taken off stays off');
+    assert.equal(game.innings, 6, 'both changed it: the one changed last');
+    assert.ok(game.updated > 3000);
+    assert.deepEqual(cleanGame(JSON.parse(JSON.stringify(game))), game);
+  }
+  // With nothing to compare with (a shared link, or a note of the plays alone), the names of the copy changed last.
+  for (const s of [null, { n: seen.n, h: seen.h }]) assert.deepEqual([merge(a, b, s).game.teams[0].name, merge(a, b, s).game.place], ['Foxes', '']);
+  assert.equal(merge(b, a, seen).game.teams[0].name, 'Red Foxes', 'from the note as stored');
+  // The same plays, a name changed on each: both stay.
+  const { base: c0, a: c, b: d } = copies();
+  c.teams[0].name = 'Owls'; later(c, 2000);
+  d.teams[1].name = 'Bears'; later(d, 3000);
+  assert.deepEqual(merge(c, d, seenOf(c0)).game.teams.map(t => t.name), ['Owls', 'Bears']);
+  assert.equal(merge(c, d).game, d, 'with nothing to compare with, the copy changed last, as before');
+  // Nothing changed on the copy changed last since: that copy is the answer itself.
+  const { base: e0, a: e, b: f } = copies();
+  play(f, 'K'); later(f, 2000);
+  assert.equal(merge(e, f, seenOf(e0)).game, f);
+});
+
 test('two copies that each have plays the other lacks are both kept, the second marked', () => {
   const { a, b } = copies();
   play(a, 'HR');
@@ -1672,7 +1712,7 @@ test('a play made here and the same play read back from Drive or a link are the 
   const a = here(), seen = seenOf(a), drive = later(cleanGame(JSON.parse(JSON.stringify(a))), 3000);
   drive.teams[0].name = 'Red Foxes';
   assert.notEqual(JSON.stringify(drive.ev), JSON.stringify(a.ev));
-  assert.deepEqual(seenOf(drive), seen);
+  assert.deepEqual([seenOf(drive).n, seenOf(drive).h], [seen.n, seen.h], 'the same plays, to Drive’s note');
   // The same plays: one game, not a second copy.
   assert.equal(merge(drive, a, seen).game, drive);
   assert.equal(merge(a, drive).second, null);

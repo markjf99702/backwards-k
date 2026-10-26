@@ -335,36 +335,53 @@ export function putBack(g, r) {
 }
 
 // Two copies of one game made one, for Google Drive and for saving a shared link: a, the copy that keeps the game,
-// and b, the other. When one copy's plays are the start of the other's, the longer list wins, with the names and
-// settings of the copy changed last. But when the longer list is exactly the plays both copies had the last time they
-// were compared (seen, from Drive: see seenOf()), the shorter one took plays back with Undo, and it keeps them taken
-// back. When each copy has plays the other lacks, both are kept: b goes in as a game of its own, marked (second copy).
-// Returns { game, second }; game is a or b itself when that copy is already the answer, or else a new copy, changed
-// after both.
+// and b, the other. When one copy's plays are the start of the other's, the longer list wins. But when the longer list
+// is exactly the plays both copies had the last time they were compared (seen, from Drive: see seenOf()), the shorter
+// one took plays back with Undo, and it keeps them taken back. The names and settings are put together one by one:
+// each from the copy that changed it since that comparison, and from the copy changed last when both did, or when
+// there's nothing to compare with (a shared link). When each copy has plays the other lacks, both are kept: b goes in as
+// a game of its own, marked (second copy). Returns { game, second }; game is a or b itself when that copy is already
+// the answer, or else a new copy, changed after both.
 export function merge(a, b, seen = null) {
   const now = Math.max(Date.now(), a.updated + 1, b.updated + 1), newer = b.updated > a.updated ? b : a;
-  if (plays(a.ev) === plays(b.ev)) return { game: newer, second: null };
+  if (plays(a.ev) === plays(b.ev) && !seen) return { game: newer, second: null };
   const [short, long] = a.ev.length <= b.ev.length ? [a, b] : [b, a];
   if (plays(long.ev.slice(0, short.ev.length)) !== plays(short.ev)) {
     const place = /\(second copy\)$/.test(b.place) ? b.place : `${b.place.slice(0, 66)} (second copy)`.trim();
     return { game: a.updated > b.updated ? a : { ...a, updated: now }, second: { ...b, id: 'g' + uid(), place, updated: now } };
   }
   const from = seen && long.ev.length === seen.n && hash(plays(long.ev)) === seen.h ? short : long;
-  // A player's name, number and position as the copy changed last has them.
-  const same = (p, n) => { const { pos, ...rest } = { ...p, name: n.name, num: n.num }; return n.pos ? { ...rest, pos: n.pos } : rest; };
-  const named = (t, n) => ({
-    ...t, name: n.name,
-    lineup: t.lineup.map((slot, i) => slot.map((p, j) => (n.lineup[i]?.[j] ? same(p, n.lineup[i][j]) : p))),
-    pitchers: t.pitchers.map((p, j) => (n.pitchers[j] ? same(p, n.pitchers[j]) : p)),
-  });
-  const game = {
-    ...from, date: newer.date, place: newer.place, innings: newer.innings, pitches: newer.pitches, rules: newer.rules, tie: newer.tie, limit: newer.limit, spray: newer.spray,
-    teams: from.teams.map((t, s) => named(t, newer.teams[s])), updated: now,
+  // One name or setting: x is a's, y is b's and z what they both had (undefined when that isn't known).
+  const pick = (x, y, z) => (plays(x) === plays(y) ? x : z !== undefined && plays(x) === plays(z) ? y : z !== undefined && plays(y) === plays(z) ? x : newer === b ? y : x);
+  const was = seen?.k, own = (p, f) => (p ? p[f] ?? '' : undefined);
+  // A player's name, number and position, for one the two copies both have.
+  const player = (p, x, y, z) => {
+    if (!x || !y) return p;
+    const [name, num, pos] = ['name', 'num', 'pos'].map(f => pick(own(x, f), own(y, f), own(z, f)));
+    const { pos: _, ...rest } = { ...p, name, num };
+    return pos ? { ...rest, pos } : rest;
   };
+  const team = (t, s) => {
+    const [x, y, z] = [a.teams[s], b.teams[s], was?.teams?.[s]];
+    return {
+      ...t, name: pick(x.name, y.name, z?.name),
+      lineup: t.lineup.map((slot, i) => slot.map((p, j) => player(p, x.lineup[i]?.[j], y.lineup[i]?.[j], z?.lineup?.[i]?.[j]))),
+      pitchers: t.pitchers.map((p, j) => player(p, x.pitchers[j], y.pitchers[j], z?.pitchers?.[j])),
+    };
+  };
+  const game = { ...from, ...Object.fromEntries(SET.map(k => [k, pick(a[k], b[k], was?.[k])])), teams: from.teams.map(team), updated: now };
+  // (Already one of them: that copy, when it's the one changed last, as nothing about it changes.)
   return { game: canon({ ...game, updated: 0 }) === canon({ ...newer, updated: 0 }) ? newer : game, second: null };
 }
-// What Drive remembers of a game's plays after comparing it (see merge()): how many, and a fingerprint of them.
-export const seenOf = g => ({ n: g.ev.length, h: hash(plays(g.ev)) });
+// The names and settings merge() puts together one by one.
+const SET = ['date', 'place', 'innings', 'pitches', 'rules', 'tie', 'limit', 'spray'];
+const named = p => ({ name: p.name, num: p.num, ...(p.pos ? { pos: p.pos } : {}) });
+// What Drive remembers of a game after comparing it (see merge()): how many plays, a fingerprint of them, and its
+// names and settings (k).
+export const seenOf = g => ({
+  n: g.ev.length, h: hash(plays(g.ev)),
+  k: { ...Object.fromEntries(SET.map(x => [x, g[x]])), teams: g.teams.map(t => ({ name: t.name, lineup: t.lineup.map(s => s.map(named)), pitchers: t.pitchers.map(named) })) },
+});
 // A short fingerprint of some text (FNV-1a).
 function hash(s) {
   let h = 0x811c9dc5;
