@@ -2478,6 +2478,43 @@ test('the play that won it, at the final: the one that put the winners ahead for
   assert.equal(decider(play(game({ innings: 1 }), { t: 'join', inn: 1, half: 1, r: [0, 2], up: 0 }, ...threeK)), '');
 });
 
+test('what the game is remembered for, said only once it’s over: a no-hitter, a perfect game, the cycle, four hits, nine pitches', async () => {
+  const { milestones } = await import('../js/engine.js');
+  const { summary } = await import('../js/share.js');
+  const feats = S => milestones(S).map(m => `${m.side}: ${m.text}`);
+  const named = g => { g.teams[0].pitchers[0].name = 'Whitlock'; g.teams[1].pitchers[0].name = 'Halvorsen'; g.teams[1].pitchers.push({ name: 'Moreno', num: '' }); return g; };
+  // A perfect game: nobody on, every out, every inning. Not a word while it's going.
+  let g = named(game({ innings: 2 })), S = play(g, ...threeK, ...threeK, ...threeK);
+  assert.deepEqual([S.over, feats(S)], [false, []]);
+  S = play(g, P('b'), P('b'), P('b'), P('b'), { t: 'r', m: [[1, 2, 'WP']] }, { t: 'r', m: [[2, 3, 'WP']] }, { t: 'r', m: [[3, 4, 'WP']] });
+  // (The Comets won it without a hit, but their pitcher got only the outs of one inning: no no-hitter for the Foxes.)
+  assert.deepEqual([S.over, feats(S)], [true, ['1: Halvorsen throws a perfect game.']]);
+  // A walk: a no-hitter. Two pitchers: they combine on it.
+  g = named(game({ innings: 1 }));
+  S = play(g, 'BB', 'K', { t: 'pch', s: 1, i: 1 }, 'K', 'K', 'HR');
+  assert.deepEqual(feats(S), ['1: Halvorsen and Moreno combine on a no-hitter.']);
+  assert.match(summary(g), /\nHalvorsen and Moreno combine on a no-hitter\.$/, 'in the score as text');
+  // First in that team's notes under the box score, and on the final card (see e2e).
+  const notes = side => boxHtml(S).split('<div class="extras">')[side + 1].split('</div>')[0];
+  assert.match(notes(1), /^<p class="feat">Halvorsen and Moreno combine on a no-hitter\.<\/p><p><b>/);
+  assert.doesNotMatch(notes(0), /class="feat"/);
+  // The cycle, and a perfect game by the other side; four hits without the cycle; and the side struck out on nine
+  // pitches, every one a strike.
+  g = named(game({ innings: 1, size: 1 }));
+  S = play(g, '3B', '1B', 'HR', '2B', 'K', 'K', 'K', ...threeK);
+  assert.deepEqual(feats(S), ['0: Whitlock throws a perfect game.', '0: Batter 1 hits for the cycle.']);
+  g = named(game({ innings: 1, size: 1 }));
+  S = play(g, '1B', '1B', 'HR', '2B', ...threeK, P('c'), P('f'), P('s'), P('s'), P('s'), P('c'), P('c'), P('s'), P('c'));
+  assert.deepEqual(feats(S), ['0: Whitlock throws a perfect game.', '0: Whitlock strikes out the side on nine pitches in the 1st.', '0: Batter 1 goes 4 for 7.']);
+  // A ball among them, or a foul with two strikes, is more than nine pitches, or not all strikes.
+  g = named(game({ innings: 1, size: 1 }));
+  S = play(g, 'HR', 'K', 'K', 'K', P('b'), P('c'), P('c'), P('c'), P('c'), P('c'), P('c'), P('c'), P('c'), P('c'));
+  assert.deepEqual(feats(S), ['0: Whitlock throws a perfect game.']);
+  // Called before it counted, or picked up partway through: nothing.
+  assert.deepEqual(feats(play(named(game({ innings: 1 })), ...threeK, { t: 'end' })), []);
+  assert.deepEqual(feats(play(named(game({ innings: 1 })), { t: 'join', inn: 1, half: 0, r: [0, 0], up: 0 }, 'HR', ...threeK, ...threeK)), []);
+});
+
 test('the win: a starter needs five innings; a reliever who pitched briefly and badly gives way to the one after him (OBR 9.17)', async () => {
   const { decisions } = await import('../js/engine.js');
   // Seven innings: the Foxes' starter goes 3 with a 1-0 lead, two relievers finish (the second with more outs): the

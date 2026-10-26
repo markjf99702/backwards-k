@@ -1209,6 +1209,41 @@ export function decider(S) {
   return `${what} in the ${p.half ? 'bottom' : 'top'} of the ${ord(p.inn)} put the ${teamName(g, win)} ahead for good.`;
 }
 
+// What the game will be remembered for, once it's over (and not a word before: nobody mentions a no-hitter while
+// it's going): [{ side: the team whose feat it is, text }], in sentences. A team's pitchers who allowed no hits in a
+// game they pitched every inning of ("Whitlock throws a no-hitter.", "Whitlock and Moreno combine on a no-hitter."),
+// or let nobody reach base (a perfect game); a pitcher who struck out the side on nine pitches, all strikes; a batter
+// who hit for the cycle (a single, a double, a triple and a home run); and one with four hits or more ("Pruitt goes 4
+// for 4."). None for a game called before it counted, or one picked up partway through (its start wasn't seen).
+export function milestones(S) {
+  const g = S.g, out = [];
+  if (!S.over || S.joined || (S.ended && !S.why && !official(S))) return out;
+  const said = (side, text) => out.push({ side, text });
+  const arms = side => S.pitching[side].map((p, i) => (p && (p.bf || p.outs) ? i : -1)).filter(i => i >= 0);
+  const names = (side, list) => list.map(i => pitcherLabel(g, side, i));
+  for (const side of [0, 1]) {
+    const bat = S.cells.filter(c => c.side === 1 - side && !c.auto), used = arms(side);
+    const outs = used.reduce((n, i) => n + S.pitching[side][i].outs, 0);
+    if (!bat.length || S.H[1 - side] || outs < 3 * g.innings) continue;
+    const what = bat.every(c => c.outN && !c.reach && RESULTS[c.r].kind === 'out') ? 'a perfect game' : 'a no-hitter';
+    const who = names(side, used);
+    said(side, who.length > 1 ? `${list(who)} combine on ${what}.` : `${who[0]} throws ${what}.`);
+  }
+  // Three strikeouts on nine pitches, every one a strike, by one pitcher: an immaculate inning.
+  if (g.pitches) {
+    const halves = new Map();
+    for (const c of S.cells) if (!c.auto) { const k = `${c.inn}.${c.side}`; halves.set(k, [...(halves.get(k) || []), c]); }
+    for (const cs of halves.values()) {
+      if (cs.length !== 3 || !cs.every(c => (c.r === 'K' || c.r === 'KL') && c.pi === cs[0].pi && /^[csf]{2}[cs]$/.test(c.seq))) continue;
+      said(1 - cs[0].side, `${pitcherLabel(g, 1 - cs[0].side, cs[0].pi)} strikes out the side on nine pitches in the ${ord(cs[0].inn)}.`);
+    }
+  }
+  const bats = Object.entries(S.bat).map(([k, b]) => { const [side, slot, p] = k.split('.').map(Number); return { side, b, name: label(player(g, side, slot, p), slot) }; });
+  for (const { side, b, name } of bats) if (b.d && b.t && b.hr && b.h - b.d - b.t - b.hr > 0) said(side, `${name} hits for the cycle.`);
+  for (const { side, b, name } of bats) if (b.h >= 4 && !(b.d && b.t && b.hr && b.h - b.d - b.t - b.hr > 0)) said(side, `${name} goes ${b.h} for ${b.ab}.`);
+  return out;
+}
+
 // The decisions in words: "Halvorsen gets the win, Whitlock the loss, and Bishop the save."
 export function decisionWords(S) {
   const d = decisions(S);

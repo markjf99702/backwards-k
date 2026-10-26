@@ -4,7 +4,7 @@ import {
   replay, suggest, check, runsCount, scoredAs, now, RESULTS, BASE, POS, POS_NAME, halfLabel, label, player, teamName,
   pitcherLabel, ord, runnersOn, mark, pitchStat, pitchWords, pitchDay, pitchWork, pitchCount, winningRun, creditedHit, credit, fits,
   ENDS, regulation, official, winner, AUTO, limitState, restDays, restBand, noCatch, LIMIT_BY, sameSoFar, outAt, outBases, usualBase,
-  runnerName, PLAY, toWhere, decider,
+  runnerName, PLAY, toWhere, decider, milestones,
 } from './engine.js';
 import { store } from './store.js';
 import { blank, takeBack, putBack, newer, plays, setField } from './model.js';
@@ -483,7 +483,7 @@ function liveHtml() {
       : `The game was called before it was official: that takes ${n} innings, or ${n - 1}½ with the home team ahead. Keep playing picks it up where it stopped.`;
     return `${bug}<div class="field-col">${field}${ticker}</div><div class="final">
         <h2>${head}</h2>
-        ${decider(S) ? `<p class="decider">${esc(decider(S))}</p>` : ''}
+        ${decider(S) ? `<p class="decider">${esc(decider(S))}</p>` : ''}${milestones(S).map(m => `<p class="feat">${esc(m.text)}</p>`).join('')}
         <p>${says} The whole card is ${sideBySide() ? 'beside this' : wide() ? 'below' : 'under <b>Card</b>'}, and the box score under <b>Box score</b>.</p>
         <div class="row"><button type="button" class="btn primary" data-a="share">Share this game</button><button type="button" class="btn" data-a="on">Keep playing</button></div>
       </div>`;

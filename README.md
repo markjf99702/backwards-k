@@ -68,6 +68,14 @@ written out in plain words.
   brings back the plays Undo took, each as it was if it still fits: a batter's play with other runners on now asks
   where they went, and anything that can't have happened any more is left out, with a message saying which. A change
   made in a box has its own Undo, right after it.
+- **The big moments, in words.** A home run says its size ("hits a three-run home run", "hits a grand slam"), a play
+  that ties it or puts a team ahead says so ("Comets take the lead, 3–2."), and when a half-inning ends, the line under
+  the field says who's up ("Three outs. Bottom of the 1st: Comets batting."). At the final, the plays and the result
+  say which play won it ("Abernathy's single wins it in the bottom of the 9th."), and what the game will be remembered
+  for, and not a word of it before (nobody mentions a no-hitter while it's going): a no-hitter or a perfect game, one
+  pitcher's or several combining, a pitcher who struck out the side on nine pitches, a batter who hit for the cycle
+  or got four hits. They're on the final card, first in that team's notes under the box score, and in the score as
+  text.
 - **It knows when the game is over.** Final comes when the last inning is decided, or the moment the home team goes
   ahead in it. That run is the last to count, and a hit that brings it in counts for the bases it needed, as an
   official scorer has it: with the bases loaded, a double that wins the game is a single (a home run still scores

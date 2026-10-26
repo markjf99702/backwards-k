@@ -1,6 +1,6 @@
 // Sharing a game: a link that carries the whole scorecard, the score as text for a group chat, a printout, a file.
 // The link holds the game itself (packed small after the #), so nothing is uploaded anywhere to share it.
-import { replay, teamName, halfLabel, endNote, label, player } from './engine.js';
+import { replay, teamName, halfLabel, endNote, label, player, milestones } from './engine.js';
 import { cardHtml, lineHtml } from './card.js';
 import { boxHtml } from './box.js';
 import { esc, openSheet, closeSheet, toast, copy, download, inFrame, SITE, slug, fmtDate } from './ui.js';
@@ -37,8 +37,8 @@ export async function unpack(s) {
 const base = () => (location.origin + '/' === SITE ? location.origin + location.pathname : SITE);
 export const linkFor = async g => base() + '#s=' + await pack(g);
 
-// The score as text: "Tigers 11, Bears 1 (Final, run rule)", the day and place, each team's runs, hits and errors, and
-// the home runs.
+// The score as text: "Tigers 11, Bears 1 (Final, run rule)", the day and place, each team's runs, hits and errors, the
+// home runs, and once it's over, what the game will be remembered for (a no-hitter, the cycle).
 export function summary(g, link) {
   const S = replay(g), w = S.R[1] > S.R[0] ? 1 : 0, why = endNote(S);
   const hrs = [];
@@ -50,6 +50,7 @@ export function summary(g, link) {
     '',
     line(0), line(1),
     hrs.length ? `Home runs: ${hrs.join(', ')}` : '',
+    ...milestones(S).map(m => m.text),
     link ? `\nThe whole scorecard: ${link}` : '',
   ].filter((x, i) => x !== '' || i === 2).join('\n');
 }

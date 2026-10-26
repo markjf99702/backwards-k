@@ -721,6 +721,9 @@ details.partway .hint { margin: 10px 0 0; }
 /* The play that won it: in the plays, and under who won. */
 .decider { font-weight: 650; color: var(--ink); margin: 10px 0; }
 .final .decider { margin: 0 0 8px; font-size: 17px; }
+/* What the game will be remembered for (a no-hitter, the cycle), once it's over: a red rule beside it, as on paper. */
+.feat { font-weight: 650; color: var(--ink); border-left: 3px solid var(--red); padding-left: 8px; margin: 0 0 8px; }
+.final .feat { font-size: 17px; }
 .stats small.ps { display: inline; font-size: 12px; font-weight: 600; color: var(--muted); margin-left: 2px; }
 .stats .how { font-size: 10px; font-weight: 700; color: var(--red); text-transform: uppercase; letter-spacing: .02em; }
 .stats tfoot th, .stats tfoot td { font-weight: 800; border-bottom: 0; }

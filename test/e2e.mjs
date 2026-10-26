@@ -7,7 +7,8 @@ import { join, dirname, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import assert from 'node:assert/strict';
 import { sampleGame } from '../js/sample.js';
-import { replay, now as upNow } from '../js/engine.js';
+import { replay, now as upNow, suggest } from '../js/engine.js';
+import { newGame } from '../js/model.js';
 
 const require = createRequire(import.meta.url);
 let pw;
@@ -2510,6 +2511,22 @@ step('a continuous order: a player who left the game is skipped with no out, and
   assert.deepEqual((await stored(p, id)).ev.filter(e => e.t !== 'pa').map(untimed), [{ t: 'gone', s: 0, slot: 3 }, { t: 'gone', s: 0, slot: 4 }, { t: 'back', s: 0, slot: 3 }]);
   await p.click('[data-v=box]');
   assert.match(await p.textContent('.pane[data-p=box]'), /Left the game: Batter 4 \(1st\), Batter 5 \(1st\)\.\s*Back in the game: Batter 4 \(1st\)\./);
+  await p.context().close();
+}
+
+step('a perfect game: not a word while it goes on, then on the final card and first in that team’s box score notes');
+{
+  const g = newGame({ away: 'Foxes', home: 'Comets', innings: 1 });
+  g.teams[1].pitchers[0].name = 'Halvorsen';
+  for (const r of ['K', 'K']) g.ev.push({ t: 'pa', r, m: suggest(replay(g), r) });
+  const p = await playing(g);
+  assert.equal(await p.locator('.feat').count(), 0);
+  await p.click('[data-r=K]');
+  await p.click('[data-r=HR]');
+  assert.equal(await p.textContent('.final .feat'), 'Halvorsen throws a perfect game.');
+  await p.click('[data-v=box]');
+  assert.deepEqual(await p.$$eval('.pane[data-p=box] .extras', x => x.map(e => e.firstElementChild.className)), ['', 'feat']);
+  assert.equal(await p.textContent('.pane[data-p=box] .feat'), 'Halvorsen throws a perfect game.');
   await p.context().close();
 }
 

@@ -1,5 +1,5 @@
 // The box score (batting and pitching lines for both teams) and the play-by-play.
-import { batKey, pitchStat, pitcherLabel, ip, teamName, label, player, ord, pitchWords, POS_NAME, RESULTS, AUTO, restDays, noCatch, LIMIT_BY, decisions, decisionWords, decider, clockOf, pitchesIn, toWhere, located, saysWhere } from './engine.js';
+import { batKey, pitchStat, pitcherLabel, ip, teamName, label, player, ord, pitchWords, POS_NAME, RESULTS, AUTO, restDays, noCatch, LIMIT_BY, decisions, decisionWords, decider, milestones, clockOf, pitchesIn, toWhere, located, saysWhere } from './engine.js';
 import { esc, KL, clockAt, hm } from './ui.js';
 import { abbr } from './card.js';
 import { sprayField } from './field.js';
@@ -82,7 +82,8 @@ function pinch(S, side) {
   return [out.ph.join('; '), out.pr.join('; ')];
 }
 
-// The notes under one team's box score, the way a newspaper prints them: its pinch hitters and runners, courtesy
+// The notes under one team's box score, the way a newspaper prints them: once the game is over, what it did that the
+// game will be remembered for (a no-hitter, the cycle: see milestones()), then its pinch hitters and runners, courtesy
 // runners (the runs and steals they made are the players' they ran for), who left the game and came back (a
 // continuous order), extra-base hits, sacrifices, hit batters, steals, runners left on base and errors, then its
 // pitchers' wild pitches, hit batters and balks, and under a pitch limit by league age, the days of rest each pitcher
@@ -113,7 +114,8 @@ function notes(S, side) {
     ['Balks', names(arms.map(([n, p]) => [n, p.bk]))],
     ...rest(S, arms),
   ];
-  return lines.filter(([, t]) => t).map(([w, t]) => `<p><b>${w}:</b> ${esc(t)}.</p>`).join('');
+  const feats = milestones(S).filter(m => m.side === side).map(m => `<p class="feat">${esc(m.text)}</p>`).join('');
+  return feats + lines.filter(([, t]) => t).map(([w, t]) => `<p><b>${w}:</b> ${esc(t)}.</p>`).join('');
 }
 
 // Under a pitch limit by league age, with pitches counted: each pitcher's days of rest, and in Little League, those who
