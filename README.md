@@ -196,7 +196,9 @@ written out in plain words.
   it gets the rest (and a play taken back with Undo stays taken back), and each name and setting comes from the device
   that changed it, so a name fixed on the tablet stays while the phone scores on (when both changed the same one, the
   copy changed last wins; what they last agreed on is the device's own note, in backwards-k.sync, not part of the
-  game). When each copy has plays the other lacks, both are kept, and the one from the device that finds it is marked
+  game). Innings, league rules or a runner on second that would change plays already scored (a run limit the other
+  device's half-inning went past) stay as the plays had them, as Game settings wouldn't take them either. When each
+  copy has plays the other lacks, both are kept, and the one from the device that finds it is marked
   "(second copy)"; if that device has the game open, it goes to the second copy, so whoever is scoring there carries on
   with their own plays, and the message says so. Saving a shared link to a game you already have works the same way by
   its plays (with the names and settings of the copy changed last, as there's no note to compare them with), and the

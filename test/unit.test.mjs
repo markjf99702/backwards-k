@@ -1684,6 +1684,35 @@ test('two copies with names changed on each: every name from the copy that chang
   assert.equal(merge(e, f, seenOf(e0)).game, f);
 });
 
+test('a setting from one copy that would change the plays the other scored isn’t taken, as Game settings wouldn’t take it', () => {
+  // The tablet put in Little League Minors (5 runs a half), 6 innings and a runner on second from the 7th, with nobody
+  // in yet; the phone, with the copy from before, scored on to 7 runs in the top of the 1st, and is the copy changed
+  // last.
+  const { base, a, b } = copies();
+  const seen = JSON.parse(JSON.stringify(seenOf(base))), MINORS = { set: 'minors', runs: 5, last: false, all: false, mercy: [[3, 15], [4, 10]] };
+  b.rules = MINORS; b.innings = 6; b.tie = 7; b.teams[1].name = 'Bears';
+  assert.equal(sameSoFar(base, { ...base, rules: MINORS }), true, 'the tablet could');
+  later(b, 2000);
+  play(a, 'HR', 'HR', 'HR', 'HR');
+  later(a, 3000);
+  const runs = replay(a).R;
+  assert.ok(runs[0] > 5);
+  for (const [x, y] of [[a, b], [b, a]]) {
+    const { game } = merge(x, y, seen);
+    assert.deepEqual(game.ev, a.ev);
+    // The run limit would end the half at 5 and move the last plays to the home team: it stays off. The rest is taken.
+    assert.deepEqual([game.rules, game.innings, game.tie, game.teams[1].name], [null, 6, 7, 'Bears']);
+    assert.deepEqual(replay(game).R, runs);
+  }
+  // Before the plays went past it, it's taken.
+  const { base: c0, a: c, b: d } = copies();
+  d.rules = MINORS; later(d, 2000);
+  play(c, 'HR'); later(c, 3000);
+  assert.deepEqual(merge(c, d, seenOf(c0)).game.rules, MINORS);
+  // A shared link, with nothing to compare with, that set it last: the same.
+  assert.equal(merge(a, later(b, 4000)).game.rules, null);
+});
+
 test('two copies that each have plays the other lacks are both kept, the second marked', () => {
   const { a, b } = copies();
   play(a, 'HR');

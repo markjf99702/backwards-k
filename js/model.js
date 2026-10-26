@@ -20,7 +20,7 @@
 // Anything a newer Backwards K saves that this one doesn't know (a new kind of event, pitch, play or substitution, or a
 // new value on a game, team, player or event) is kept as it came, as long as it's small, so this copy can show the
 // game and save it again without losing it; and a game holding any of it opens look-only (see newer()).
-import { RESULTS, ENDS, PITCH_AGES, LIMIT_BY } from './engine.js';
+import { RESULTS, ENDS, PITCH_AGES, LIMIT_BY, sameSoFar } from './engine.js';
 
 export const APP = 'backwards-k';
 export const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -369,7 +369,11 @@ export function merge(a, b, seen = null) {
       pitchers: t.pitchers.map((p, j) => player(p, x.pitchers[j], y.pitchers[j], z?.pitchers?.[j])),
     };
   };
-  const game = { ...from, ...Object.fromEntries(SET.map(k => [k, pick(a[k], b[k], was?.[k])])), teams: from.teams.map(team), updated: now };
+  const want = { ...from, ...Object.fromEntries(SET.map(k => [k, pick(a[k], b[k], was?.[k])])), teams: from.teams.map(team), updated: now };
+  // Innings, league rules or a runner on second that would change plays already scored (a run limit a half-inning went
+  // past on the other device) isn't taken, as Game settings wouldn't take it: that one stays as the plays had it.
+  let game = { ...want, innings: from.innings, rules: from.rules, tie: from.tie };
+  for (const k of ['innings', 'rules', 'tie']) if (plays(want[k]) !== plays(game[k]) && sameSoFar(game, { ...game, [k]: want[k] })) game = { ...game, [k]: want[k] };
   // (Already one of them: that copy, when it's the one changed last, as nothing about it changes.)
   return { game: canon({ ...game, updated: 0 }) === canon({ ...newer, updated: 0 }) ? newer : game, second: null };
 }
