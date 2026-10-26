@@ -2523,6 +2523,20 @@ step('a continuous order: a player who left the game is skipped with no out, and
   await p.context().close();
 }
 
+step('the box score as a spreadsheet, from the share sheet');
+{
+  const g = { ...sampleGame(7), id: 'gsample7csv' };
+  const p = await playing(g, undefined, '.live');
+  await p.click('[data-a=menu]');
+  await p.click('.sheet [data-y=share]');
+  const [file] = await Promise.all([p.waitForEvent('download'), p.click('.sheet [data-y=csv]')]);
+  assert.equal(file.suggestedFilename(), `${g.date} foxes-at-comets box score.csv`);
+  const text = await readFile(await file.path(), 'utf8');
+  assert.ok(text.startsWith(`\ufeffFoxes at Comets,${g.date},Riverside Park\r\n"Comets 7, Foxes 1 (Final)"\r\n`), text.slice(0, 80));
+  assert.match(text, /\r\nFoxes batting\r\nPlayer,No\.,Pos,PA,AB,R,H,2B,3B,HR,RBI,BB,K,HBP,SF,SH,SB,CS\r\nRuiz,2,/);
+  await p.context().close();
+}
+
 step('a perfect game: not a word while it goes on, then on the final card and first in that team’s box score notes');
 {
   const g = newGame({ away: 'Foxes', home: 'Comets', innings: 1 });

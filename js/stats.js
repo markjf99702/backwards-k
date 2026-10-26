@@ -246,7 +246,8 @@ const cell = v => {
   if (/^[=+\-@]/.test(s) && !/^-?\d/.test(s)) s = "'" + s;
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
-const csv = rows => '﻿' + rows.map(r => r.map(cell).join(',')).join('\r\n') + '\r\n';
+// A spreadsheet from its rows (CSV): UTF-8 with a mark at the start, so Excel reads the names' accents right.
+export const csv = rows => '﻿' + rows.map(r => r.map(cell).join(',')).join('\r\n') + '\r\n';
 export const BAT_COLS = ['G', 'PA', 'AB', 'R', 'H', '2B', '3B', 'HR', 'RBI', 'BB', 'K', 'HBP', 'SB', 'CS', 'SF', 'SH', 'AVG', 'OBP', 'SLG', 'OPS'];
 const batRow = b => [b.g, b.pa, b.ab, b.r, b.h, b.d, b.t, b.hr, b.rbi, b.bb, b.k, b.hbp, b.sb, b.cs, b.sf, b.sh, three(avg(b)), three(obp(b)), three(slg(b)), three(ops(b))];
 export const PIT_COLS = ['G', 'W', 'L', 'S', 'IP', 'BF', 'H', 'R', 'ER', 'ERA', 'BB', 'K', 'HR', 'HBP', 'WP', 'BK', 'Pitches', 'Strikes', 'Strike %'];

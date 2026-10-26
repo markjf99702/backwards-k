@@ -1,8 +1,9 @@
 // Sharing a game: a link that carries the whole scorecard, the score as text for a group chat, a printout, a file.
 // The link holds the game itself (packed small after the #), so nothing is uploaded anywhere to share it.
-import { replay, teamName, halfLabel, endNote, label, player, milestones, innings, missed, PLAY } from './engine.js';
+import { replay, teamName, halfLabel, endNote, label, player, milestones, innings, missed, PLAY, batKey, pitchStat, pitcherLabel, decisions, ip } from './engine.js';
 import { cardHtml, lineHtml } from './card.js';
 import { boxHtml } from './box.js';
+import { csv } from './stats.js';
 import { esc, openSheet, closeSheet, toast, copy, download, inFrame, SITE, slug, fmtDate } from './ui.js';
 
 const b64 = bytes => { let s = ''; for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000)); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
@@ -102,7 +103,8 @@ export function shareSheet(g) {
       <button type="button" class="li" data-y="link"><b>Send a link to the scorecard</b><span>Whoever opens it sees the whole card and box score, and can save a copy. The game travels in the link itself.</span></button>
       <button type="button" class="li" data-y="text"><b>Copy the score as text</b><span>For a group chat: the score, the line score, hits, errors and home runs.</span></button>
       ${framed ? '' : `<button type="button" class="li" data-y="print"><b>Print it, or save it as a PDF</b><span>Both teams’ cards and the box score, on paper.</span></button>
-      <button type="button" class="li" data-y="file"><b>Save it as a file</b><span>To keep, or to open in Backwards K on another device.</span></button>`}
+      <button type="button" class="li" data-y="file"><b>Save it as a file</b><span>To keep, or to open in Backwards K on another device.</span></button>
+      <button type="button" class="li" data-y="csv"><b>Save the box score as a spreadsheet</b><span>For Sheets or Excel: the line score, and each player’s batting and pitching line.</span></button>`}
     </div>
     <div class="out" hidden><textarea readonly rows="5"></textarea><p class="hint">Copy this and paste it wherever you like.</p></div>
     <div class="row"><button type="button" class="btn quiet" data-close>Close</button></div>`);
@@ -124,7 +126,46 @@ export function shareSheet(g) {
     }
     if (what === 'print') { closeSheet(); printGame(g); }
     if (what === 'file') saveFile(g);
+    if (what === 'csv') download(`${g.date} ${slug(teamName(g, 0))}-at-${slug(teamName(g, 1))} box score.csv`, boxCsv(g), 'text/csv;charset=utf-8');
   });
+}
+
+// The box score as a spreadsheet (CSV), for a coach's season sheet: the line score, then for each team a row for each
+// player who was in each spot (as the box score has them, substitutes after the starter) with his batting line, and a
+// row for each pitcher with his: the same columns as a team's season (stats.js), so the rows can go straight into it.
+export function boxCsv(g) {
+  const S = replay(g), d = decisions(S), n = innings(S), rows = [];
+  rows.push([`${teamName(g, 0)} at ${teamName(g, 1)}`, g.date, g.place], [scoreLine(g, S)], []);
+  rows.push(['Line score'], ['Team', ...Array.from({ length: n }, (_, i) => i + 1), 'R', 'H', 'E']);
+  for (const side of [0, 1]) {
+    const inn = Array.from({ length: n }, (_, i) => (missed(S, side, i + 1) ? '–' : S.line[side][i] ?? ''));
+    if (side === 1 && S.over && S.between && S.half === 0 && S.R[1] > S.R[0] && inn[S.inn - 1] === '') inn[S.inn - 1] = 'x';
+    rows.push([teamName(g, side), ...inn, S.R[side], S.H[side], S.E[side]]);
+  }
+  const BAT = ['PA', 'AB', 'R', 'H', '2B', '3B', 'HR', 'RBI', 'BB', 'K', 'HBP', 'SF', 'SH', 'SB', 'CS'];
+  const PIT = ['IP', 'BF', 'H', 'R', 'ER', 'BB', 'K', 'HR', 'HBP', 'WP', 'BK', ...(g.pitches ? ['Pitches', 'Strikes'] : [])];
+  for (const side of [0, 1]) {
+    const team = g.teams[side], tot = Array(BAT.length).fill(0);
+    rows.push([], [`${teamName(g, side)} batting`], ['Player', 'No.', 'Pos', ...BAT]);
+    for (let slot = 0; slot < S.size[side]; slot++) {
+      const seen = [0];
+      for (const e of g.ev) if (e.t === 'sub' && e.s === side && e.slot === slot && !seen.includes(e.i)) seen.push(e.i);
+      for (const i of seen) {
+        const p = (team.lineup[slot] || [])[i] || { name: '', num: '' }, b = S.bat[batKey(side, slot, i)];
+        const cells = S.cells.filter(c => c.side === side && c.slot === slot && c.p === i), of = r => cells.filter(c => c.r === r).length;
+        const line = b ? [b.pa, b.ab, b.r, b.h, b.d, b.t, b.hr, b.rbi, b.bb, b.k, b.hbp, of('SF'), of('SAC'), b.sb, b.cs] : BAT.map(() => '');
+        if (b) line.forEach((v, k) => { tot[k] += v; });
+        rows.push([label(p, slot), p.name ? p.num : '', p.pos || '', ...line]);
+      }
+    }
+    rows.push(['Totals', '', '', ...tot], [], [`${teamName(g, side)} pitching`], ['Player', 'No.', 'Dec', ...PIT]);
+    team.pitchers.forEach((p, i) => {
+      if (!S.pitching[side][i]) return;
+      const st = pitchStat(S, side, i), dec = !d ? '' : side === d.win ? (i === d.w ? 'W' : i === d.s ? 'S' : '') : i === d.l ? 'L' : '';
+      rows.push([pitcherLabel(g, side, i), p.name ? p.num : '', dec, ip(st.outs), st.bf, st.h, st.r, st.er, st.bb, st.k, st.hr, st.hbp, st.wp, st.bk, ...(g.pitches ? [st.np, st.str] : [])]);
+    });
+  }
+  return csv(rows);
 }
 
 // The game as a file, to keep or to open in Backwards K on another device (it reads like a backup with one game).

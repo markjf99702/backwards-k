@@ -2722,6 +2722,29 @@ test('the score as text carries the score: the line score in threes, home runs b
   assert.deepEqual(lineText(replay(j)), ['Foxes  ––– 0 — 2 0 0', 'Comets ––0 — 1 0 0']);
 });
 
+test('the box score as a spreadsheet: the line score, and each player’s batting and pitching line, as a season’s columns', async () => {
+  const { boxCsv } = await import('../js/share.js');
+  const g = sampleGame(7), rows = boxCsv(g).split('\r\n');
+  assert.equal(rows[0], `\ufeffFoxes at Comets,${g.date},Riverside Park`, 'UTF-8, with the mark Excel looks for');
+  assert.deepEqual(rows.slice(1, 7), ['"Comets 7, Foxes 1 (Final)"', '', 'Line score', 'Team,1,2,3,4,5,6,7,8,9,R,H,E', 'Foxes,0,0,0,0,1,0,0,0,0,1,8,1', 'Comets,0,0,0,1,2,0,1,3,x,7,6,1']);
+  assert.deepEqual(rows.slice(8, 10), ['Foxes batting', 'Player,No.,Pos,PA,AB,R,H,2B,3B,HR,RBI,BB,K,HBP,SF,SH,SB,CS']);
+  assert.equal(rows[12], 'Brennan,24,,5,4,0,2,1,1,0,1,0,0,1,0,0,0,0');
+  assert.equal(rows[19], 'Totals,,,40,35,1,8,1,1,0,1,4,10,1,0,0,0,1');
+  assert.deepEqual(rows.slice(21, 25), ['Foxes pitching', 'Player,No.,Dec,IP,BF,H,R,ER,BB,K,HR,HBP,WP,BK,Pitches,Strikes', 'Whitlock,33,L,6,27,5,4,4,2,8,2,1,0,0,106,69', 'Moreno,41,,2,12,1,3,3,5,2,1,0,0,0,51,27']);
+  assert.ok(rows.includes('Halvorsen,21,W,6,26,5,1,1,2,5,0,1,0,0,97,63') && rows.includes('Bishop,37,S,3,14,3,0,0,2,5,0,0,0,0,53,35'));
+  // A pinch hitter after the starter, a sacrifice fly and a bunt in their columns, someone who hasn't batted blank, a
+  // reliever, and without pitches counted, no pitch columns; an inning not played yet is empty.
+  const h = game({ pitches: false });
+  h.teams[0].lineup[2].push({ name: 'Diaz', num: '12', pos: 'LF' });
+  h.teams[1].pitchers.push({ name: 'Bishop', num: '37' });
+  play(h, '3B', 'SF 8', { t: 'sub', s: 0, slot: 2, i: 1, ty: 'ph' }, '1B', { t: 'pch', s: 1, i: 1 }, 'SAC 1 3', 'K');
+  const r = boxCsv(h).split('\r\n');
+  assert.equal(r[5], 'Foxes,1,,,,,,,,,1,2,0');
+  assert.deepEqual(r.slice(10, 15), ['Batter 1,,,1,1,1,1,0,1,0,0,0,0,0,0,0,0,0', 'Batter 2,,,1,0,0,0,0,0,0,1,0,0,0,1,0,0,0', 'Batter 3,,,,,,,,,,,,,,,,,', 'Diaz,12,LF,1,1,0,1,0,0,0,0,0,0,0,0,0,0,0', 'Batter 4,,,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0']);
+  assert.equal(r[r.indexOf('Comets pitching') + 1], 'Player,No.,Dec,IP,BF,H,R,ER,BB,K,HR,HBP,WP,BK');
+  assert.deepEqual(r.slice(r.indexOf('Comets pitching') + 2, -1), ['Pitcher,,,0.1,3,2,1,1,0,0,0,0,0,0', 'Bishop,37,,0.2,2,0,0,0,0,1,0,0,0,0']);
+});
+
 test('a season in words for a group chat, and as a spreadsheet', () => {
   const T = ST.season(seasonGames(), 'Foxes'), r = T.bat.find(x => x.key === 'ruiz');
   const text = ST.seasonText(T, r).split('\n');

@@ -147,8 +147,9 @@ written out in plain words.
   one that a chat app cut short or changed says so, rather than opening as some other game), with the score in the
   message ("Comets 8, Foxes 1 (Final) · Sat, Oct 24", or "Top 7th, 1 out" for a game going on). Or copy the score as
   text for a group chat: the line score as a newspaper prints it ("Foxes 000 010 000 — 1 8 1"), the hits, errors and
-  each team's home runs. Or print both cards and the box score (a page each, Letter or A4, upright or sideways), or
-  save the game as a file.
+  each team's home runs. Or print both cards and the box score (a page each, Letter or A4, upright or sideways), save
+  the game as a file, or save the box score as a spreadsheet for Sheets or Excel (the line score, and each player's
+  batting and pitching line, in a team's season columns).
 - **Google Drive, if you like.** Each game is saved as its own file in a "Backwards K" folder in your Drive, and shows
   up on every phone, tablet and computer where you turn it on.
 - No account and no server. Games are saved in your browser. It works offline (and on one bar of signal, when the
@@ -209,7 +210,8 @@ To put it online with GitHub Pages: **Settings → Pages → Build and deploymen
   player, in words, and as a spreadsheet. `js/team.js`: a team's page, and a player's.
 - `js/rules.js`: league rules (Little League's, the Minors', or a league's own) and pitch limits, picked in New game
   and Game settings.
-- `js/share.js`: share links, the score as text, printing. `js/sync.js`: Google Drive.
+- `js/share.js`: share links, the score as text, printing, and the box score as a spreadsheet. `js/sync.js`: Google
+  Drive.
 - `js/sample.js`: a made-up game played with seeded dice, for the sample, the pictures and the tests.
 - `js/ui.js`: the sheet, the toast, saving and opening files, and the other small helpers every screen uses.
 - `fonts/`: Big Shoulders, Source Sans 3 and Patrick Hand (SIL Open Font License), served from here so nothing loads
