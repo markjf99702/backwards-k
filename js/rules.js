@@ -1,6 +1,6 @@
-// League rules for a game, picked in New game and in Game settings: none, Little League's, the Minors', or a league's
-// own (Custom): the most runs a half-inning, and a mercy rule. And a pitch limit for youth pitchers. engine.js plays
-// them, and model.js keeps them.
+// League rules for a game, picked in New game and in Game settings: none, Little League's, the Minors', USA Softball's,
+// high-school softball's, or a league's own (Custom): the most runs a half-inning, and a mercy rule. And a pitch limit
+// for youth pitchers. engine.js plays them, and model.js keeps them.
 import { $, esc } from './ui.js';
 import { PITCH_AGES, LIMIT_BY } from './engine.js';
 
@@ -8,10 +8,17 @@ import { PITCH_AGES, LIMIT_BY } from './engine.js';
 // the home team. The Minors add a common local rule: a half-inning ends at 5 runs, except in the last inning, and the
 // 5th run is the last to count on that play.
 const LL = { set: 'll', runs: 0, last: false, all: false, mercy: [[3, 15], [4, 10]] };
-export const LEAGUES = { ll: LL, minors: { ...LL, set: 'minors', runs: 5 } };
+// Softball. USA Softball's run-ahead rule for fast pitch, women's and Junior Olympic (Rule 5, Section 9 A): 15 runs
+// ahead after 3 innings, 12 after 4 or 8 after 5, and the home team doesn't bat when it's that far ahead (9 B). High
+// school: NFHS rule 4-2-3 leaves it to each state association, and most have 15 after 3 or 10 after 5.
+const USA = { ...LL, set: 'usa', mercy: [[3, 15], [4, 12], [5, 8]] };
+export const LEAGUES = { ll: LL, minors: { ...LL, set: 'minors', runs: 5 }, usa: USA, hs: { ...USA, set: 'hs', mercy: [[3, 15], [5, 10]] } };
+const CITE = { ll: 'Little League rule 4.10(e)', minors: 'Little League rule 4.10(e)', usa: 'USA Softball rule 5-9, fast pitch', hs: 'as most state associations have it for high school, NFHS rule 4-2-3' };
 const CUSTOM = { set: 'custom', runs: 5, last: false, all: false, mercy: [[4, 10]] };
-const CHOICES = [['none', 'None'], ['ll', 'Little League'], ['minors', 'LL Minors'], ['custom', 'Custom']];
+const CHOICES = [['none', 'None'], ['ll', 'Little League'], ['minors', 'LL Minors'], ['usa', 'USA Softball'], ['hs', 'High school softball'], ['custom', 'Custom']];
 const copy = r => (r ? { ...r, mercy: r.mercy.map(m => m.slice()) } : null);
+// Which choice the rules are: 'none', a league's, or 'custom'.
+const kind = r => (!r ? 'none' : Object.hasOwn(LEAGUES, r.set) ? r.set : 'custom');
 const either = a => (a.length < 2 ? a.join('') : `${a.slice(0, -1).join(', ')} or ${a.at(-1)}`);
 
 // The rules in words, under the choice.
@@ -19,7 +26,7 @@ export function rulesWords(r) {
   if (!r) return 'Three outs end each half-inning, and the game goes the innings set.';
   const bits = [];
   if (r.runs) bits.push(`A half-inning ends at ${r.runs} run${r.runs === 1 ? '' : 's'}${r.last ? '' : ', except in the last inning'}: ${r.all ? 'every run on that play counts' : 'a run after that on the same play doesn’t count'}.`);
-  if (r.mercy.length) bits.push(`The game is over with a team ${either(r.mercy.map(([n, by], i) => `${by}${i ? '' : ' runs'} ahead after ${n} inning${n === 1 ? '' : 's'}`))}, or half an inning sooner when it’s the home team${r.set === 'custom' ? '' : ' (Little League rule 4.10(e))'}.`);
+  if (r.mercy.length) bits.push(`The game is over with a team ${either(r.mercy.map(([n, by], i) => `${by}${i ? '' : ' runs'} ahead after ${n} inning${n === 1 ? '' : 's'}`))}, or half an inning sooner when it’s the home team${Object.hasOwn(CITE, r.set) ? ` (${CITE[r.set]})` : ''}.`);
   return bits.join(' ') || 'No run limit and no mercy rule.';
 }
 
@@ -27,7 +34,7 @@ export function rulesWords(r) {
 // rules now; set(rules) takes new ones (null for none), and can say why not (or what it took instead), for under them.
 export function rulesRow(host, get, set) {
   const draw = () => {
-    const r = get(), k = !r ? 'none' : LEAGUES[r.set] ? r.set : 'custom', m = (r && r.mercy[0]) || [];
+    const r = get(), k = kind(r), m = (r && r.mercy[0]) || [];
     const num = (key, v, words) => `<input type="text" inputmode="numeric" maxlength="2" data-rk="${key}" value="${v || ''}" aria-label="${esc(words)}" autocomplete="off">`;
     host.innerHTML = `<div class="opt league"><span class="lbl" id="leagueLbl">League rules</span>
         <span class="chips" role="group" aria-labelledby="leagueLbl">${CHOICES.map(([v, w]) => `<button type="button" data-rules="${v}" aria-pressed="${v === k}">${w}</button>`).join('')}</span></div>
@@ -44,7 +51,7 @@ export function rulesRow(host, get, set) {
     const b = e.target.closest('[data-rules]');
     if (!b) return;
     const v = b.dataset.rules, r = get();
-    if (v === (!r ? 'none' : LEAGUES[r.set] ? r.set : 'custom')) return;
+    if (v === kind(r)) return;
     const why = set(v === 'none' ? null : v === 'custom' ? copy(CUSTOM) : copy(LEAGUES[v]));
     draw();
     if (why) $('.rules-words', host).textContent = why;

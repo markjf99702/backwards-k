@@ -585,14 +585,16 @@ function say(a) {
 // ---------- the run ----------
 const LEAGUE = { ll: { set: 'll', runs: 0, last: false, all: false, mercy: [[3, 15], [4, 10]] } };
 LEAGUE.minors = { ...LEAGUE.ll, set: 'minors', runs: 5 };
+LEAGUE.usa = { ...LEAGUE.ll, set: 'usa', mercy: [[3, 15], [4, 12], [5, 8]] };
 const t0 = Date.now(), found = new Map();
 let taps = 0, events = 0;
 for (let n = 0; n < GAMES; n++) {
   const seed = SEED + n, rnd = dice(seed * 7919 + 13);
   const size = weighed(rnd, [[8, 9], [2, 10], [2, 12], [1, 3], [1, 1], [1, 5]]);
   const setup = { seed, innings: weighed(rnd, [[4, 9], [2, 7], [2, 6], [1, 5], [1, 3], [1, 2], [1, 1]]), size: [size, rnd() < 0.8 ? size : pick(rnd, [9, 11, 4])], pitches: rnd() < 0.8 };
-  // League rules in some: Little League's mercy rule, the Minors' run limit, and limits of every kind.
-  setup.rules = weighed(rnd, [[6, null], [1, LEAGUE.ll], [1, LEAGUE.minors],
+  // League rules in some: Little League's mercy rule, the Minors' run limit, USA Softball's three steps, and limits of
+  // every kind.
+  setup.rules = weighed(rnd, [[6, null], [1, LEAGUE.ll], [1, LEAGUE.minors], [1, LEAGUE.usa],
     [1, { set: 'custom', runs: 1 + Math.floor(rnd() * 4), last: rnd() < 0.5, all: rnd() < 0.5, mercy: rnd() < 0.5 ? [[1 + Math.floor(rnd() * 3), 2 + Math.floor(rnd() * 5)]] : [] }]]);
   // Extra innings that start with a runner on second in some, now and then from an inning before them.
   setup.tie = weighed(rnd, [[6, 0], [3, setup.innings + 1], [1, Math.max(2, setup.innings - 1)]]);

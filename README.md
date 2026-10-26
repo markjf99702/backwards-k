@@ -105,7 +105,9 @@ written out in plain words.
   ahead, not the winner (OBR 7.01(c)).
 - **League rules that run themselves.** Pick Little League (the game is over with a team 15 runs ahead after three
   innings or 10 after four, half an inning sooner for the home team: rule 4.10(e)), LL Minors (that, and five runs a
-  half-inning, except in the last inning), or your league's own (Custom). A half-inning ends itself at the limit
+  half-inning, except in the last inning), USA Softball (15 after three, 12 after four or 8 after five: its run-ahead
+  rule for fast pitch, 5-9), High school softball (15 after three or 10 after five, as most state associations have
+  it: NFHS 4-2-3 leaves it to them), or your league's own (Custom). A half-inning ends itself at the limit
   ("That's 5 runs: the half-inning is over.", and a run after that on the same play doesn't count, unless your league
   counts every run on it), and the game ends itself on the mercy rule, Final, with "(Final, 10-run rule, 4 innings)"
   in the score you send. The next new game starts with the same rules. Picked in Game settings partway through a
@@ -247,8 +249,8 @@ To put it online with GitHub Pages: **Settings → Pages → Build and deploymen
 - `js/home.js`, `js/setup.js`: the first screen (with the teams), and starting a game.
 - `js/stats.js`: season stats: each game played back once (until it changes) and its lines added up by team, year and
   player, in words, and as a spreadsheet. `js/team.js`: a team's page, and a player's.
-- `js/rules.js`: league rules (Little League's, the Minors', or a league's own) and pitch limits, picked in New game
-  and Game settings.
+- `js/rules.js`: league rules (Little League's, the Minors', USA Softball's, high-school softball's, or a league's
+  own) and pitch limits, picked in New game and Game settings.
 - `js/share.js`: share links, the score as text, printing, and the box score as a spreadsheet. `js/sync.js`: Google
   Drive.
 - `js/sample.js`: a made-up game played with seeded dice, for the sample, the pictures and the tests.

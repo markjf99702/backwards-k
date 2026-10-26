@@ -6,9 +6,9 @@
 // tie: the first inning that starts with a runner on second (extra innings, OBR 7.01(b)), or 0 for none.
 // limit: a pitch limit, or 0 for none: { by: 'll' (Little League), 'ps' (Pitch Smart) or '' (a number), age: the
 // pitchers' league age ('11-12', for the rest they need after), max: the most pitches } (engine.js)
-// rules: the league's rules, or null: { set: 'll', 'minors' or 'custom' (which ones, for Game settings), runs: the
-// most runs a half-inning (0 for no limit), last: that limit holds in the last inning too, all: every run on the play
-// that reaches it counts, mercy: [[innings, runs ahead], ...] } (engine.js plays them)
+// rules: the league's rules, or null: { set: 'll', 'minors', 'usa', 'hs' or 'custom' (which ones, for Game
+// settings), runs: the most runs a half-inning (0 for no limit), last: that limit holds in the last inning too, all:
+// every run on the play that reaches it counts, mercy: [[innings, runs ahead], ...] } (engine.js plays them)
 // spray: each hit asks where it went (the fielder it went to, in the play's f), for "singles to left" and the line on
 // the card; off, a hit asks nothing more, as before.
 // start: when the first pitch was scored (milliseconds, 0 before it), and tz: the time zone it was scored in (minutes

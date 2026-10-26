@@ -686,6 +686,32 @@ test('league rules: five runs a half-inning, not in the last inning, and a run p
   assert.deepEqual([S.R[0], S.half], [5, 1]);
 });
 
+test('softball presets: USA Softball’s run-ahead rule (5-9, fast pitch) and high school’s (NFHS 4-2-3, as most states have it)', async () => {
+  const { LEAGUES, rulesWords } = await import('../js/rules.js');
+  const { usa, hs } = LEAGUES;
+  assert.deepEqual([usa.mercy, hs.mercy, usa.runs, hs.runs, usa.set, hs.set], [[[3, 15], [4, 12], [5, 8]], [[3, 15], [5, 10]], 0, 0, 'usa', 'hs']);
+  assert.equal(rulesWords(usa), 'The game is over with a team 15 runs ahead after 3 innings, 12 ahead after 4 innings or 8 ahead after 5 innings, or half an inning sooner when it’s the home team (USA Softball rule 5-9, fast pitch).');
+  assert.equal(rulesWords(hs), 'The game is over with a team 15 runs ahead after 3 innings or 10 ahead after 5 innings, or half an inning sooner when it’s the home team (as most state associations have it for high school, NFHS rule 4-2-3).');
+  assert.doesNotMatch(rulesWords({ ...hs, set: 'custom' }) + rulesWords({ ...hs, set: 'constructor' }), /\(/, 'no rule to cite');
+  // Eight ahead after five ends a USA Softball game; high school needs ten.
+  const eight = rules => play(game({ innings: 7, rules }), ...Array(8).fill('HR'), ...Array(30).fill('K'));
+  let S = eight(usa);
+  assert.deepEqual([S.over, endNote(S)], [true, '8-run rule, 5 innings']);
+  S = eight(hs);
+  assert.deepEqual([S.over, S.inn, S.half], [false, 6, 0]);
+  // Twelve ahead after four: over in USA Softball, and in high school after five.
+  const twelve = rules => { const g = game({ innings: 7, rules }); return [g, play(g, ...Array(12).fill('HR'), ...Array(24).fill('K'))]; };
+  S = twelve(usa)[1];
+  assert.deepEqual([S.over, endNote(S)], [true, '12-run rule, 4 innings']);
+  const [h] = twelve(hs);
+  assert.equal(replay(h).over, false);
+  S = play(h, ...Array(6).fill('K'));
+  assert.deepEqual([S.over, endNote(S)], [true, '10-run rule, 5 innings']);
+  // The home team eight ahead after the top of the 5th doesn't bat in it.
+  S = play(game({ innings: 7, rules: usa }), ...threeK, ...Array(8).fill('HR'), ...Array(24).fill('K'));
+  assert.deepEqual([S.over, endNote(S)], [true, '8-run rule, 4½ innings']);
+});
+
 test('rules set partway through a game can’t change plays already scored: only from the last play on', () => {
   const ok = (g, change) => sameSoFar(g, { ...g, ...change });
   // A half-inning ended by hand at five runs, then the Minors: the limit would end it, and the hand would end the next.
