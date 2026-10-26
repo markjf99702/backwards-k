@@ -4,7 +4,7 @@ import {
   replay, suggest, check, runsCount, scoredAs, now, RESULTS, BASE, POS, POS_NAME, halfLabel, label, player, teamName,
   pitcherLabel, ord, runnersOn, mark, pitchStat, pitchWords, pitchDay, pitchWork, pitchCount, winningRun, creditedHit, credit, fits,
   ENDS, regulation, official, winner, AUTO, limitState, restDays, restBand, noCatch, LIMIT_BY, sameSoFar, outAt, outBases, usualBase,
-  runnerName, PLAY, toWhere, decider, milestones,
+  runnerName, PLAY, toWhere, decider, milestones, runMark,
 } from './engine.js';
 import { store } from './store.js';
 import { blank, takeBack, putBack, newer, plays, setField } from './model.js';
@@ -657,7 +657,11 @@ const HINT = {
   TP: 'Tap each fielder in order.',
   SAC: 'Tap who fielded the bunt, then who made the out.',
   E: 'Tap the fielder who made the error.',
+  CS: 'Tap who threw, then who made the tag. Catcher to second is 2, then 6.',
+  PO: 'Tap who threw, then who made the tag. Pitcher to first is 1, then 3.',
 };
+// A runner thrown out (caught stealing, picked off): who threw and who tagged him, CS 2-6.
+const TAGGED = new Set(['CS', 'PO']);
 // The plays a scorer writes most, each in one tap above the field: a 6-3 is [6, 3], and 3U the first baseman alone.
 const USUAL = {
   GO: [[6, 3], [4, 3], [5, 3], [1, 3], [3]],
@@ -672,10 +676,10 @@ const dashed = f => (f.length === 1 ? f[0] + 'U' : f.join('-'));
 // st: how things stood when the ball was hit, for who was where (see fielderNames()).
 // A hit: where it went, in one tap.
 function pickFielders(code, start, done, { title, st = S } = {}) {
-  const R = RESULTS[code] || { f: 1, label: title }, hit = R.kind === 'hit';
+  const R = RESULTS[code] || { f: TAGGED.has(code) ? 2 : 1, label: title }, hit = R.kind === 'hit';
   let seq = start ? start.slice() : [];
   const one = R.f === 1 || hit, names = fielderNames(st), usual = USUAL[code] || [];
-  const body = openSheet(`<h2 id="sheetTitle">${esc(title || R.label)}: ${hit ? 'where did it go?' : 'who fielded it?'}</h2>
+  const body = openSheet(`<h2 id="sheetTitle">${esc(title || R.label)}: ${hit ? 'where did it go?' : TAGGED.has(code) ? 'who made the play?' : 'who fielded it?'}</h2>
     <p class="hint">${esc(HINT[hit ? 'hit' : code] || 'Tap the fielder who caught it.')}</p>
     ${usual.length ? `<p class="pick-row usual" role="group" aria-label="The usual ones, in one tap"><span>One tap:</span>${usual.map((f, i) => `<button type="button" class="chip" data-q="${i}" aria-label="${esc(`${dashed(f)}: ${f.map(n => POS_NAME[n]).join(' to ')}${f.length === 1 ? ', unassisted' : ''}`)}">${dashed(f)}</button>`).join('')}</p>` : ''}
     <p class="seq" aria-live="polite"></p>
@@ -690,7 +694,8 @@ function pickFielders(code, start, done, { title, st = S } = {}) {
     const had = body.querySelector('[data-pos]:focus');
     body.querySelector('.pick').innerHTML = fieldSvg({ picked: seq, names });
     if (had) body.querySelector(`[data-pos="${had.dataset.pos}"]`).focus({ preventScroll: true });
-    body.querySelector('.seq').innerHTML = seq.length ? `<b>${esc(mark(code === 'GO' && seq.length === 1 ? 'GO' : code, seq))}</b> ${esc(seq.map(n => POS_NAME[n]).join(' to '))}` : '&nbsp;';
+    const mk = TAGGED.has(code) ? runMark(code, seq) : mark(code === 'GO' && seq.length === 1 ? 'GO' : code, seq);
+    body.querySelector('.seq').innerHTML = seq.length ? `<b>${esc(mk)}</b> ${esc(seq.map(n => POS_NAME[n]).join(' to '))}` : '&nbsp;';
     const d = body.querySelector('[data-x=done]');
     if (d) d.disabled = !seq.length;
     // (The usual one that's the same as the fielders picked, when changing them, is pressed.)
@@ -983,10 +988,12 @@ function runnerSheet(b) {
     if (how === 'CR') return courtesy(b);
     if (how === 'BK') { closeSheet(); return act({ t: 'r', m: runnersOn(S).map(x => [x, x + 1, 'BK']) }); }
     if (how === 'SB') { if (S.bases[next] && next < 4) return toast(`Someone’s already on ${BASE[next]}. Move them first.`); closeSheet(); return act({ t: 'r', m: [[b, next, 'SB']] }); }
-    if (how === 'CS' || how === 'PO' || how === 'OB') {
-      closeSheet();
-      return act({ t: 'r', m: [[b, 0, how]] });
+    // Caught stealing or picked off: who threw, and who made the tag (CS 2-6, PO 1-3), or Skip.
+    if (how === 'CS' || how === 'PO') {
+      return pickFielders(how, null, f => { closeSheet(); act({ t: 'r', m: [f && f.length ? [b, 0, how, f] : [b, 0, how]] }); },
+        { title: how === 'CS' ? `Caught stealing ${BASE[next]}` : `Picked off ${BASE[b]}` });
     }
+    if (how === 'OB') { closeSheet(); return act({ t: 'r', m: [[b, 0, how]] }); }
     // Moved up: everyone who moved, in one play, lead runner first.
     const moves = runnersOn(S).filter(x => to[x] !== x).map(x => [x, to[x], how]);
     const err = jam(moves);

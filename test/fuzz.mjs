@@ -4,7 +4,8 @@
 // Each game is seeded, so a run is the same every time. A step is what a tap on the game screen does (js/game.js):
 // a pitch or an automatic ball or strike (the pitch clock), a result with its fielders (or where a hit went) and the
 // runners sheet (check(), scoredAs() and "did the run count", where a
-// runner was put out and how one took an extra base), Fix runners, a runner's steal, pickoff, wild pitch, defensive
+// runner was put out and how one took an extra base), Fix runners, a runner's steal, pickoff (and caught stealing, with
+// or without who threw and who tagged him), wild pitch, defensive
 // indifference, balk or courtesy runner, a substitution or someone back in, a player who left the game and came back
 // (a continuous order), someone else batting than the order says, a pitching change, a
 // batter added, End this half-inning, End the game here (a delay, a run rule, a time limit, called), Keep playing
@@ -147,7 +148,8 @@ function run(C, a) {
       const next = a.b + 1;
       if (a.how === 'BK') { act(C, { t: 'r', m: runnersOn(S).map(x => [x, x + 1, 'BK']) }); return true; }
       if (a.how === 'SB') { if (S.bases[next] && next < 4) return false; act(C, { t: 'r', m: [[a.b, next, 'SB']] }); return true; }
-      if (['CS', 'PO', 'OB'].includes(a.how)) { act(C, { t: 'r', m: [[a.b, 0, a.how]] }); return true; }
+      // (Caught stealing or picked off: who threw and who tagged him, or Skip.)
+      if (['CS', 'PO', 'OB'].includes(a.how)) { act(C, { t: 'r', m: [a.f && a.how !== 'OB' ? [a.b, 0, a.how, a.f] : [a.b, 0, a.how]] }); return true; }
       const moves = runnersOn(S).map(x => [x, x === a.b ? a.to : a.also && x > a.b ? Math.min(4, x + 1) : x, a.how]).filter(m => m[1] !== m[0]);
       if (!(a.to > a.b) || jam(S, moves)) return false;
       act(C, { t: 'r', m: a.how === 'E' && a.f ? moves.map(m => [...m, a.f]) : moves });
@@ -309,7 +311,8 @@ function choose(C, rnd) {
       const how = weighed(rnd, [[35, 'SB'], [10, 'CS'], [5, 'PO'], [5, 'OB'], [15, 'WP'], [7, 'PB'], [8, 'E'], [4, 'DI'], [5, 'OA'], [5, 'BK'], [5, 'PR'], [4, 'CR']]);
       if (how === 'PR') return { a: 'sub', side: S.half, slot: S.bases[b].slot, ty: 'pr' };
       if (how === 'CR') return { a: 'cr', b, slot: rnd() < 0.6 ? Math.floor(rnd() * S.size[S.half]) : null };
-      return { a: 'run', b, how, to: rnd() < 0.7 ? b + 1 : b + 1 + Math.floor(rnd() * (4 - b)), also: rnd() < 0.3, f: how === 'E' && rnd() < 0.7 ? [1 + Math.floor(rnd() * 9)] : null };
+      const f = how === 'E' && rnd() < 0.7 ? [1 + Math.floor(rnd() * 9)] : (how === 'CS' || how === 'PO') && rnd() < 0.7 ? [1 + Math.floor(rnd() * 9), 1 + Math.floor(rnd() * 9)] : null;
+      return { a: 'run', b, how, to: rnd() < 0.7 ? b + 1 : b + 1 + Math.floor(rnd() * (4 - b)), also: rnd() < 0.3, f };
     }
     case 'sub': {
       const side = rnd() < 0.5 ? S.half : 1 - S.half, ph = side === S.half && rnd() < 0.5;

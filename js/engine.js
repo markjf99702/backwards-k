@@ -97,7 +97,9 @@ export function mark(code, f) {
     default: return code;
   }
 }
-function runMark(how, f) {
+// The mark for a runner's move, by a base on the card and in the plays: SB, WP, E6, CS 2-6 (with who threw and who
+// tagged him, when the scorer said), or '' for one that moved up or was out some other way.
+export function runMark(how, f) {
   if (how === 'E') return 'E' + (f && f.length ? f[0] : '');
   if (how === 'CS' || how === 'PO') return f && f.length ? how + ' ' + dash(f) : how;
   if (how === 'OA' || how === 'OB') return '';

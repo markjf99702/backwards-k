@@ -1796,9 +1796,45 @@ step('a play forgotten a few plays back: Undo to it, score it, and Put back the 
   await p.click('.ticker [data-a=undo]');
   await p.click('[data-runner="1"]');
   await p.click('.sheet [data-k=PO]');
+  await p.click('.sheet [data-x=skip]');
   await p.click('.ticker [data-a=putback]');
   assert.equal(await seen(p), 'That play doesn’t fit where the game is now, so it’s left out: Batter 2 steals second.');
   assert.equal(await plays(p, id), 'pa1B r p p pa1B r');
+  await p.context().close();
+}
+
+step('caught stealing and picked off say who made the play: CS 2-6, PO 1-3, or Skip');
+{
+  const p = await phone(), id = await startGame(p);
+  await p.click('[data-r="1B"]');
+  await p.click('[data-runner="1"]');
+  await p.click('.sheet [data-k=CS]');
+  assert.equal(await p.textContent('.sheet h2'), 'Caught stealing second: who made the play?');
+  assert.equal(await p.textContent('.sheet .hint'), 'Tap who threw, then who made the tag. Catcher to second is 2, then 6.');
+  await p.click('.sheet [data-pos="2"]');
+  await p.click('.sheet [data-pos="6"]');
+  assert.match(await p.textContent('.sheet .seq'), /^CS 2-6 catcher to shortstop$/);
+  await p.click('.sheet [data-x=done]');
+  assert.equal(await tickerOf(p), 'Batter 1 is caught stealing second.');
+  assert.deepEqual(untimed((await stored(p, id)).ev.at(-1)), { t: 'r', m: [[1, 0, 'CS', [2, 6]]] });
+  // From a keyboard: 1, 3, Enter. And Skip leaves the fielders out, as before.
+  await p.click('[data-r="1B"]');
+  await p.click('[data-runner="1"]');
+  await p.click('.sheet [data-k=PO]');
+  assert.equal(await p.textContent('.sheet h2'), 'Picked off first: who made the play?');
+  await p.keyboard.press('1');
+  await p.keyboard.press('3');
+  await p.keyboard.press('Enter');
+  assert.equal(await tickerOf(p), 'Batter 2 is picked off first.');
+  assert.deepEqual((await stored(p, id)).ev.at(-1).m, [[1, 0, 'PO', [1, 3]]]);
+  await p.click('[data-r="1B"]');
+  await p.click('[data-runner="1"]');
+  await p.click('.sheet [data-k=CS]');
+  await p.click('.sheet [data-x=skip]');
+  assert.deepEqual((await stored(p, id)).ev.at(-1).m, [[1, 0, 'CS']]);
+  // The plays have the marks.
+  await p.click('[data-v=plays]');
+  assert.deepEqual(await p.$$eval('.pane[data-p=plays] li.run .pm', m => m.map(x => x.textContent)), ['CS', 'PO 1-3', 'CS 2-6'], 'latest first');
   await p.context().close();
 }
 

@@ -28,7 +28,8 @@ written out in plain words.
   single), and one who got further than the play takes him did it on the play, on the throw or on an error (say whose:
   it's charged, and the run it lets in earns no RBI). Tap a runner on the field for a steal, a wild pitch, a pickoff,
   a balk or defensive indifference (a base nobody tried to stop him taking: not a steal); everyone who moved up on
-  the same wild pitch or throw goes in as one play.
+  the same wild pitch or throw goes in as one play. Caught stealing and picked off ask who threw and who made the
+  tag, for CS 2-6 or PO 1-3 on the card, or Skip.
 - **Tap the field for the fielders.** For a ground out, tap the shortstop and then the first baseman, and the card
   says 6-3. Or skip it. The usual ones are a tap each above the field, and go straight in: 6-3, 4-3, 5-3, 1-3 and 3U
   for a ground out, 6-4-3, 4-6-3, 5-4-3, 1-6-3 and 3-6-3 for a double play, and a fielder's choice's and a sacrifice's
