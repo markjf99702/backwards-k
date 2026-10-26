@@ -2425,7 +2425,7 @@ test('earned runs: an error that would have been the third out, a passed ball, a
 test('the win, the loss and the save (OBR 9.17, 9.19): beside the names in the box score, and said in the plays', async () => {
   const { decisions, decisionWords } = await import('../js/engine.js');
   const names = (S, d = decisions(S)) => d && [d.w, d.l, d.s];
-  // The sample: Halvorsen pitched six for the Comets, who went ahead in the 4th for good; Bishop came in two up and
+  // The sample: Halvorsen pitched six for the Comets, who went ahead in the 5th for good; Bishop came in two up and
   // pitched three.
   let S = replay(sampleGame(7));
   assert.deepEqual(names(S), [0, 0, 1]);
@@ -2435,7 +2435,7 @@ test('the win, the loss and the save (OBR 9.17, 9.19): beside the names in the b
   assert.match(box, /Whitlock <abbr class="dec" title="Losing pitcher">L<\/abbr><\/th>/);
   assert.match(box, /Bishop <abbr class="dec" title="Save">S<\/abbr><\/th>/);
   assert.match(playsHtml(S), /<p class="decided">Halvorsen gets the win, Whitlock the loss, and Bishop the save\.<\/p>$/);
-  assert.match(playsHtml(S, { limit: 5 }), /^<p class="decided">/, 'newest first: before the last plays');
+  assert.match(playsHtml(S, { limit: 5 }), /^<p class="decider">[^<]+<\/p><p class="decided">/, 'newest first: before the last plays');
   // Not until there's a winner.
   const g = game({ innings: 3 });
   g.teams[0].pitchers.push({ name: 'Relief', num: '' });
@@ -2449,6 +2449,33 @@ test('the win, the loss and the save (OBR 9.17, 9.19): beside the names in the b
   S = play(g, 'HR', 'HR', ...threeK, { t: 'pch', s: 0, i: 1 }, ...threeK, ...threeK, '1B', 'HR', 'K', 'K', 'K', { t: 'pch', s: 1, i: 1 }, ...threeK);
   assert.deepEqual([S.R, S.over], [[3, 2], true]);
   assert.equal(decisionWords(S), 'Relief gets the win, Pitcher the loss.', 'the Foxes finished with Relief, who won it');
+});
+
+test('the play that won it, at the final: the one that put the winners ahead for good, or ended the game', async () => {
+  const { decider } = await import('../js/engine.js');
+  // The sample: the Comets went ahead for good on Quinn's home run in the 5th.
+  let S = replay(sampleGame(7));
+  assert.equal(decider(S), 'Quinn’s two-run home run in the bottom of the 5th put the Comets ahead for good.');
+  assert.match(playsHtml(S), /<p class="decider">Quinn’s two-run home run in the bottom of the 5th put the Comets ahead for good\.<\/p><p class="decided">/);
+  // Nothing while it goes on, nor for a tie.
+  const g = game({ innings: 2 });
+  S = play(g, 'HR', ...threeK, ...threeK, ...threeK);
+  assert.deepEqual([S.over, decider(S)], [false, '']);
+  // The home team ahead in the last inning: the play it ended on.
+  const walk = (...evs) => decider(play(game({ innings: 1 }), ...threeK, ...evs));
+  assert.equal(walk('2B', { t: 'pa', r: '1B', m: [[0, 1], [2, 4]] }), 'Batter 2’s single wins it in the bottom of the 1st.');
+  assert.equal(walk('1B', '1B', '1B', 'HR'), 'Batter 4’s grand slam wins it in the bottom of the 1st.');
+  assert.equal(walk('3B', { t: 'r', m: [[3, 4, 'SB']] }), 'Batter 1’s steal of home wins it in the bottom of the 1st.');
+  assert.equal(walk('3B', { t: 'r', m: [[3, 4, 'WP']] }), 'A wild pitch wins it in the bottom of the 1st.');
+  assert.equal(walk('3B', { t: 'pa', r: 'E', f: [6], m: [[0, 1], [3, 4]] }), 'Batter 2 reaching on an error wins it in the bottom of the 1st.');
+  assert.equal(walk('3B', 'BB', 'BB', 'HBP'), 'Batter 4 being hit by a pitch wins it in the bottom of the 1st.');
+  // Ahead earlier, and the lead held: when it was taken, and by whom. A lead lost and taken again is the later one.
+  S = play(game({ innings: 2 }), 'HR', ...threeK, 'HR', 'HR', ...threeK, '1B', 'HR', ...threeK, ...threeK);
+  assert.deepEqual([S.over, S.R], [true, [3, 2]]);
+  assert.equal(decider(S), 'Batter 6’s two-run home run in the top of the 2nd put the Foxes ahead for good.');
+  // A game called before it counted has no winner, and one picked up with the winners ahead doesn't know the play.
+  assert.equal(decider(play(game(), 'HR', { t: 'end' })), '');
+  assert.equal(decider(play(game({ innings: 1 }), { t: 'join', inn: 1, half: 1, r: [0, 2], up: 0 }, ...threeK)), '');
 });
 
 test('the win: a starter needs five innings; a reliever who pitched briefly and badly gives way to the one after him (OBR 9.17)', async () => {

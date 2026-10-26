@@ -702,7 +702,7 @@ function runners(S, e) {
         : how === 'E' ? ` on an error by the ${POS_NAME[f && f[0]] || 'fielder'}${f && f[0] ? ` (E${f[0]})` : ''}` : '';
       const said = balk ? '' : why;
       if (to === 4 && runs >= cap) { overLimit(S, r, from, who, past, (names, one, more) => { if (!names.length) bits.push(() => `${list(names)} ${names.length > 1 ? more : one}`); }); continue; }
-      if (to === 4) { score(S, r); runs++; } else S.bases[to] = r;
+      if (to === 4) { score(S, r, how); runs++; } else S.bases[to] = r;
       const winning = to === 4 && live && !need && won(S) && !goesOn(S);
       if (winning) need = 4 - from;
       if (to === 4 && how !== 'SB') {
@@ -849,14 +849,16 @@ function out(S, r, at, how) {
   if (!r.cell.outN) { r.cell.outN = S.outs; r.cell.outAt = at; r.cell.outHow = how; }
   pstat(S).outs++;
 }
-function score(S, r) {
+// how: on a runner's play, how he came home (SB, WP, E...).
+function score(S, r, how = '') {
   const side = S.half;
   S.R[side]++; S.line[side][S.inn - 1]++;
   r.cell.scored = true;
   r.ran = true;
-  // The run that ties it, or puts a team ahead: who'd get the win, and who's charged with the loss (OBR 9.17).
+  // The run that ties it, or puts a team ahead: who'd get the win, and who's charged with the loss (OBR 9.17). And the
+  // play it scored on (at), its runner and how he came home, for the play that won it (see decider()).
   if (S.R[side] === S.R[1 - side]) S.lead = null;
-  else if (S.R[side] === S.R[1 - side] + 1) S.lead = { side, w: S.rec[side], l: r.pi };
+  else if (S.R[side] === S.R[1 - side] + 1) S.lead = { side, w: S.rec[side], l: r.pi, at: S.i, r, how };
   bstat(S, side, r.slot, r.p).r++;
   const P = pstat(S, 1 - side, r.pi);
   P.r++;
@@ -1182,6 +1184,31 @@ export function decisions(S) {
   const sv = fin !== w && fin !== 0 && outs >= 1 && !!en && ((en.lead > 0 && en.lead <= 3 && outs >= 3) || en.tying || outs >= 9);
   return { win, w, l: S.lead.l, s: sv ? fin : null };
 }
+// The play that won it, once a team has (winner()): the one the run that put it ahead for good scored on (S.lead).
+// "Abernathy’s single wins it in the bottom of the 9th." when the game ended on it, else "Velez’s two-run home run in
+// the top of the 3rd put the Foxes ahead for good." '' with no winner, or when the winners led from where the game was
+// picked up (see 'join').
+const NOUN = { '1B': 'single', '2B': 'double', '3B': 'triple', BB: 'walk', IBB: 'intentional walk', FC: 'fielder’s choice', KD: 'dropped third strike', K: 'strikeout', KL: 'strikeout', GO: 'ground out', FO: 'fly out', LO: 'line out', PU: 'pop out', SF: 'sacrifice fly', SAC: 'sacrifice bunt', DP: 'double play', TP: 'triple play' };
+const BY = { E: 'reaching on an error', HBP: 'being hit by a pitch', CI: 'reaching on catcher’s interference' };
+const ON = { WP: 'a wild pitch', PB: 'a passed ball', BK: 'a balk', E: 'an error' };
+export function decider(S) {
+  const win = winner(S), L = S.lead, g = S.g;
+  if (win == null || !L || L.side !== win || L.at == null) return '';
+  const p = S.plays.find(x => x.i === L.at && (x.kind === 'pa' || x.kind === 'run'));
+  if (!p) return '';
+  let what;
+  if (p.kind === 'pa') {
+    const c = S.cells[p.cell], who = label(player(g, c.side, c.slot, c.p), c.slot);
+    what = BY[c.r] ? `${who} ${BY[c.r]}` : `${who}’s ${c.r === 'HR' ? homer(c.outN ? 1 : p.runs).slice(7) : NOUN[c.r] || RESULTS[c.r].label.toLowerCase()}`;
+  } else what = L.how === 'SB' ? `${runnerName(g, L.r)}’s steal of home` : ON[L.how] || `${runnerName(g, L.r)} coming home`;
+  what = what.charAt(0).toUpperCase() + what.slice(1);
+  // (The game ended on it: nothing was played after it.)
+  let last = -1;
+  for (let j = 0; j < S.upTo; j++) if (PLAY.has(g.ev[j].t)) last = j;
+  if (last === L.at && !S.ended) return `${what} wins it in the ${p.half ? 'bottom' : 'top'} of the ${ord(p.inn)}.`;
+  return `${what} in the ${p.half ? 'bottom' : 'top'} of the ${ord(p.inn)} put the ${teamName(g, win)} ahead for good.`;
+}
+
 // The decisions in words: "Halvorsen gets the win, Whitlock the loss, and Bishop the save."
 export function decisionWords(S) {
   const d = decisions(S);

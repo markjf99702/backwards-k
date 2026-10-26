@@ -1,5 +1,5 @@
 // The box score (batting and pitching lines for both teams) and the play-by-play.
-import { batKey, pitchStat, pitcherLabel, ip, teamName, label, player, ord, pitchWords, POS_NAME, RESULTS, AUTO, restDays, noCatch, LIMIT_BY, decisions, decisionWords, clockOf, pitchesIn, toWhere, located, saysWhere } from './engine.js';
+import { batKey, pitchStat, pitcherLabel, ip, teamName, label, player, ord, pitchWords, POS_NAME, RESULTS, AUTO, restDays, noCatch, LIMIT_BY, decisions, decisionWords, decider, clockOf, pitchesIn, toWhere, located, saysWhere } from './engine.js';
 import { esc, KL, clockAt, hm } from './ui.js';
 import { abbr } from './card.js';
 import { sprayField } from './field.js';
@@ -209,8 +209,9 @@ export function playsHtml(S, { limit = 0 } = {}) {
   }
   if (!groups.length) return `<p class="quiet">${g.ev.some(e => e.t === 'p') ? 'No plays yet: the first at-bat is still going.' : 'Nothing has happened yet. The first pitch is all yours.'}</p>`;
   const back = !S.over || limit, order = list => (back ? list.slice().reverse() : list);
-  // Once the game is won: the win, the loss and the save, after the last play (or, newest first, before it).
-  const dec = decisionWords(S), decided = dec ? `<p class="decided">${esc(dec)}</p>` : '';
+  // Once the game is won: the play that won it, and the win, the loss and the save, after the last play (or, newest
+  // first, before it).
+  const won = decider(S), dec = decisionWords(S), decided = (won ? `<p class="decider">${esc(won)}</p>` : '') + (dec ? `<p class="decided">${esc(dec)}</p>` : '');
   let n = 0, h = back ? decided : '';
   for (const grp of order(groups)) {
     if (limit && n >= limit) break;

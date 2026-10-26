@@ -2659,7 +2659,9 @@ for (const [width, height, where] of [[390, 844, 'under Card'], [768, 1024, 'bel
   const g = sampleGame(7);
   g.id = 'gsample7final';
   const p = await playing(g, { width, height });
-  assert.match(await p.textContent('.final p'), new RegExp(`The whole card is ${where}, and the box score under Box score`), `${width} wide`);
+  assert.match(await p.textContent('.final p:not(.decider)'), new RegExp(`The whole card is ${where}, and the box score under Box score`), `${width} wide`);
+  // And the play that won it, under who won.
+  assert.equal(await p.textContent('.final h2 + .decider'), 'Quinn’s two-run home run in the bottom of the 5th put the Comets ahead for good.');
   await p.context().close();
 }
 
