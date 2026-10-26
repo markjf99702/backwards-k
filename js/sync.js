@@ -208,9 +208,10 @@ function sync() {
     if (changed) ups.forEach(f => { try { f(); } catch (e) { console.error('Backwards K: showing synced games failed', e); } });
     if (twice.length) {
       // The game on screen was one of them, and has the other device's plays now: the screen goes to the second copy,
-      // with the plays scored here, so the scorer carries on from where they were.
+      // with the plays scored here, so the scorer carries on from where they were. It takes the game's place in the
+      // browser's history, so Back doesn't land on the other device's copy, which looks just like it.
       const on = /^#\/g\/([\w-]+)/.exec(routes.at() || '')?.[1], here = twice.find(t => t.moved && t.of === on), one = twice[0].copy;
-      if (here) { closeSheet(); go('#/g/' + here.copy.id); }
+      if (here) { closeSheet(); go('#/g/' + here.copy.id, { replace: true }); }
       toast(twice.length > 1
         ? `${twice.length} games were scored on another device too, with plays this one didn’t have, so both copies of each are kept. The ones scored here are marked (second copy)${here ? ', and the one you had open is on screen' : ''}.`
         : `${teamName(one, 0)} at ${teamName(one, 1)} was scored on another device too, with plays this one didn’t have, so both are kept. The one scored here is marked (second copy)${here ? ', and that’s the one on screen' : ''}.`, { ms: 9000 });

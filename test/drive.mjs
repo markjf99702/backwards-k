@@ -166,8 +166,11 @@ await apart();
 await a.click('[data-p="b"]');
 await b.click('[data-p="s"]');
 await back(a);
+const pages = await b.evaluate(() => history.length);
 await back(b);
 assert.equal(await b.textContent('#toast'), 'Red Foxes at Comets was scored on another device too, with plays this one didn’t have, so both are kept. The one scored here is marked (second copy), and that’s the one on screen.');
+// (In the game's place in the history: Back doesn't go to the other device's copy, which looks just like it.)
+assert.equal(await b.evaluate(() => history.length), pages);
 await syncNow(a);
 for (const p of [a, b]) {
   const both = (await stored(p, g => g.teams[0].name === 'Red Foxes')).sort((x, y) => x.place.length - y.place.length);
