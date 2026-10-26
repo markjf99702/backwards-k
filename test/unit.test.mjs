@@ -710,6 +710,14 @@ test('softball presets: USA Softball’s run-ahead rule (5-9, fast pitch) and hi
   // The home team eight ahead after the top of the 5th doesn't bat in it.
   S = play(game({ innings: 7, rules: usa }), ...threeK, ...Array(8).fill('HR'), ...Array(24).fill('K'));
   assert.deepEqual([S.over, endNote(S)], [true, '8-run rule, 4½ innings']);
+  // The rule named is the one for the innings played: the visitors 9 ahead after 4, then 10 more in the top of the
+  // 5th, is the 8-run rule after 5, not the 15 after 3 (and in Little League, 16 ahead after 4 is its 10-run rule).
+  const big = (rules, before, top) => play(game({ innings: 7, rules }), ...Array(9).fill('HR'), ...Array(6 * before).fill('K'), ...Array(top).fill('HR'), ...Array(6).fill('K'));
+  S = big(usa, 4, 10);
+  assert.deepEqual([S.over, S.R, endNote(S)], [true, [19, 0], '8-run rule, 5 innings']);
+  assert.match(S.plays.at(-1).text, /^That’s the game on the 8-run rule: the Foxes lead 19–0 after 5 innings\.$/);
+  S = big(LEAGUES.ll, 3, 7);
+  assert.deepEqual([S.over, S.R, endNote(S)], [true, [16, 0], '10-run rule, 4 innings']);
 });
 
 test('rules set partway through a game can’t change plays already scored: only from the last play on', () => {

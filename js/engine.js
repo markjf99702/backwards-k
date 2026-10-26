@@ -626,13 +626,15 @@ function overLimit(S, r, from, who, past, together) {
 }
 // The game is over on the league's mercy rule: after the top of an inning, the home team that far ahead; after the
 // bottom, or the moment the home team gets that far ahead in it, either team (Little League 4.10(e)). Not while a
-// half-inning after the final is played out (Keep playing) until it ends. Returns { by, inn } or null.
+// half-inning after the final is played out (Keep playing) until it ends. Returns { by, inn } or null. by is the step
+// for the most innings played: 19 ahead after 5 is USA Softball's 8-run rule, not its 15 after 3.
 function mercy(S, ended) {
   const r = S.g.rules;
   if (!r || !r.mercy || (!ended && (S.hold || S.half !== 1))) return null;
   const lead = S.half === 0 || !ended ? S.R[1] - S.R[0] : Math.abs(S.R[1] - S.R[0]);
-  for (const [n, by] of r.mercy) if (S.inn >= n && lead >= by) return { by, inn: S.half === 0 ? `${S.inn - 1}½` : String(S.inn) };
-  return null;
+  let m = null;
+  for (const [n, by] of r.mercy) if (S.inn >= n && lead >= by && (!m || n >= m[0])) m = [n, by];
+  return m && { by: m[1], inn: S.half === 0 ? `${S.inn - 1}½` : String(S.inn) };
 }
 // The game ends on it, and the play that ended it and the play-by-play say so: "That's the game on the 10-run rule:
 // the Comets lead 11–1 after 4 innings."
