@@ -1895,11 +1895,20 @@ step('a message while a sheet is open shows on top of it, and leaves its buttons
   await p.click('.sheet [data-y=text]');
   await p.waitForFunction(() => [...document.querySelectorAll('.toast')].some(t => t.textContent));
   assert.equal(await seen(p), 'Score copied.');
-  assert.match(await p.evaluate(() => navigator.clipboard.readText()), /^Owls 0, Home 0 \(Top 1st\)/);
+  // The score, where the game is with its outs, and the line score so far.
+  assert.match(await p.evaluate(() => navigator.clipboard.readText()), /^Owls 0, Home 0 \(Top 1st, no outs\)\n.+\n\nOwls 0 — 0 1 0\nHome — 0 0 0\n\nOwls: 0 runs, 1 hit, 0 errors\n/);
   const free = sel => p.evaluate(sel => { const b = document.querySelector(sel), r = b.getBoundingClientRect(); return b.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)); }, sel);
   assert.equal(await free('.sheet [data-close]'), true, 'Close isn’t under it');
   await p.click('.sheet [data-close]');
   await p.waitForFunction(() => !document.querySelector('.sheet-toast').textContent, null, { timeout: 1000 }); // it goes with the sheet
+  // The phone's share sheet sends the score with the link, not only who's playing.
+  await p.evaluate(() => Object.defineProperty(navigator, 'share', { configurable: true, value: d => { window.shared = d; return Promise.resolve(); } }));
+  await p.click('[data-a=menu]');
+  await p.click('.sheet [data-y=share]');
+  await p.click('.sheet [data-y=link]');
+  await p.waitForFunction(() => window.shared);
+  assert.deepEqual(await p.evaluate(() => [window.shared.title, window.shared.text.replace(/ · .*/, ''), window.shared.url.slice(0, 41)]), ['Owls at Home', 'Owls 0, Home 0 (Top 1st, no outs)', 'https://backwards-k.junkdrawer.works/#s=c']);
+  await p.click('.sheet [data-close]');
   // Runners on first and second: a steal of second has to wait for the runner there to move.
   await p.click('[data-runner="1"]');
   await p.click('.sheet [data-k=SB]');

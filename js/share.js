@@ -1,6 +1,6 @@
 // Sharing a game: a link that carries the whole scorecard, the score as text for a group chat, a printout, a file.
 // The link holds the game itself (packed small after the #), so nothing is uploaded anywhere to share it.
-import { replay, teamName, halfLabel, endNote, label, player, milestones } from './engine.js';
+import { replay, teamName, halfLabel, endNote, label, player, milestones, innings, missed, PLAY } from './engine.js';
 import { cardHtml, lineHtml } from './card.js';
 import { boxHtml } from './box.js';
 import { esc, openSheet, closeSheet, toast, copy, download, inFrame, SITE, slug, fmtDate } from './ui.js';
@@ -37,22 +37,62 @@ export async function unpack(s) {
 const base = () => (location.origin + '/' === SITE ? location.origin + location.pathname : SITE);
 export const linkFor = async g => base() + '#s=' + await pack(g);
 
-// The score as text: "Tigers 11, Bears 1 (Final, run rule)", the day and place, each team's runs, hits and errors, the
-// home runs, and once it's over, what the game will be remembered for (a no-hitter, the cycle).
+// Where the game is, after the score: "Final", "Final, run rule", "Delayed, top 5th", and for a game going on, the outs
+// too: "Top 7th, 1 out".
+function status(S) {
+  const why = endNote(S), live = !S.over && !S.delayed;
+  return `${halfLabel(S)}${why ? ', ' + why : ''}${live ? `, ${S.outs ? `${S.outs} out${S.outs > 1 ? 's' : ''}` : 'no outs'}` : ''}`;
+}
+// Whether anything has happened in the game: a play, or runs it was picked up with.
+const started = (g, S) => g.ev.some(e => PLAY.has(e.t)) || !!S.joined;
+// The score in a line, the team ahead first: "Comets 8, Foxes 1 (Final)", "Comets 3, Foxes 1 (Top 7th, 1 out)". A game
+// nobody has started yet: "Foxes at Comets".
+export function scoreLine(g, S = replay(g)) {
+  if (!started(g, S)) return `${teamName(g, 0)} at ${teamName(g, 1)}`;
+  const w = S.R[1] > S.R[0] ? 1 : 0;
+  return `${teamName(g, w)} ${S.R[w]}, ${teamName(g, 1 - w)} ${S.R[1 - w]} (${status(S)})`;
+}
+// What the phone's share sheet sends with the link (the game itself is after the #, so a link preview can't show the
+// score): "Comets 8, Foxes 1 (Final) · Sat, Oct 24".
+export const shareText = g => [scoreLine(g), fmtDate(g.date)].filter(Boolean).join(' · ');
+// The line score as a newspaper prints it, the innings in threes: "Foxes  000 010 000 — 1 8 1", with the runs, hits and
+// errors after the dash. An inning not played yet is left off, one played before the scorer picked the game up is a
+// dash, ten runs or more are in brackets, and the home team's last turn, when it didn't need it, is an x.
+export function lineText(S) {
+  const g = S.g, names = [0, 1].map(s => teamName(g, s)), w = Math.max(...names.map(x => x.length));
+  return [0, 1].map(side => {
+    const runs = [];
+    for (let i = 1; i <= innings(S); i++) {
+      let v = missed(S, side, i) ? '–' : S.line[side][i - 1];
+      if (v == null && side === 1 && S.over && S.between && S.half === 0 && i === S.inn && S.R[1] > S.R[0]) v = 'x';
+      if (v == null) break;
+      runs.push(v > 9 ? `(${v})` : String(v));
+    }
+    const threes = [];
+    for (let i = 0; i < runs.length; i += 3) threes.push(runs.slice(i, i + 3).join(''));
+    return [names[side].padEnd(w), ...threes, '—', S.R[side], S.H[side], S.E[side]].join(' ');
+  });
+}
+
+// The score as text, for a group chat: the score and where the game is ("Tigers 11, Bears 1 (Final, run rule)"), the day
+// and place, the line score, each team's runs, hits and errors in words, the home runs by team, and once it's over,
+// what the game will be remembered for (a no-hitter, the cycle).
 export function summary(g, link) {
-  const S = replay(g), w = S.R[1] > S.R[0] ? 1 : 0, why = endNote(S);
-  const hrs = [];
-  for (const [k, b] of Object.entries(S.bat)) if (b.hr) { const [s, slot, p] = k.split('.').map(Number); hrs.push(label(player(g, s, slot, p), slot) + (b.hr > 1 ? ' ' + b.hr : '')); }
-  const line = s => `${teamName(g, s)}: ${S.R[s]} run${S.R[s] === 1 ? '' : 's'}, ${S.H[s]} hit${S.H[s] === 1 ? '' : 's'}, ${S.E[s]} error${S.E[s] === 1 ? '' : 's'}`;
+  const S = replay(g), few = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+  const line = s => `${teamName(g, s)}: ${few(S.R[s], 'run')}, ${few(S.H[s], 'hit')}, ${few(S.E[s], 'error')}`;
+  // Each team's home runs, in the order they were hit: "Velez (Foxes); Pruitt 2, Okafor (Comets)".
+  const hr = s => {
+    const m = new Map();
+    for (const c of S.cells) if (c.side === s && c.r === 'HR') { const n = label(player(g, s, c.slot, c.p), c.slot); m.set(n, (m.get(n) || 0) + 1); }
+    return m.size ? `${[...m].map(([n, k]) => n + (k > 1 ? ' ' + k : '')).join(', ')} (${teamName(g, s)})` : '';
+  };
+  const hrs = [hr(0), hr(1)].filter(Boolean).join('; ');
   return [
-    `${teamName(g, w)} ${S.R[w]}, ${teamName(g, 1 - w)} ${S.R[1 - w]} (${halfLabel(S)}${why ? ', ' + why : ''})`,
-    [fmtDate(g.date), g.place].filter(Boolean).join(' · '),
-    '',
-    line(0), line(1),
-    hrs.length ? `Home runs: ${hrs.join(', ')}` : '',
-    ...milestones(S).map(m => m.text),
-    link ? `\nThe whole scorecard: ${link}` : '',
-  ].filter((x, i) => x !== '' || i === 2).join('\n');
+    [scoreLine(g, S), [fmtDate(g.date), g.place].filter(Boolean).join(' · ')],
+    started(g, S) ? lineText(S) : [],
+    [line(0), line(1), hrs ? `Home runs: ${hrs}` : '', ...milestones(S).map(m => m.text)],
+    [link ? `The whole scorecard: ${link}` : ''],
+  ].map(b => b.filter(Boolean)).filter(b => b.length).map(b => b.join('\n')).join('\n\n');
 }
 
 export function shareSheet(g) {
@@ -60,7 +100,7 @@ export function shareSheet(g) {
   const body = openSheet(`<h2 id="sheetTitle">Share this game</h2>
     <div class="list">
       <button type="button" class="li" data-y="link"><b>Send a link to the scorecard</b><span>Whoever opens it sees the whole card and box score, and can save a copy. The game travels in the link itself.</span></button>
-      <button type="button" class="li" data-y="text"><b>Copy the score as text</b><span>For a group chat: the score, hits, errors and home runs.</span></button>
+      <button type="button" class="li" data-y="text"><b>Copy the score as text</b><span>For a group chat: the score, the line score, hits, errors and home runs.</span></button>
       ${framed ? '' : `<button type="button" class="li" data-y="print"><b>Print it, or save it as a PDF</b><span>Both teams’ cards and the box score, on paper.</span></button>
       <button type="button" class="li" data-y="file"><b>Save it as a file</b><span>To keep, or to open in Backwards K on another device.</span></button>`}
     </div>
@@ -74,7 +114,7 @@ export function shareSheet(g) {
     if (what === 'link') {
       const url = await linkFor(g), title = `${teamName(g, 0)} at ${teamName(g, 1)}`;
       if (navigator.share && !framed) {
-        try { await navigator.share({ title, text: `${title}, ${fmtDate(g.date)}`, url }); return; } catch (err) { if (err && err.name === 'AbortError') return; }
+        try { await navigator.share({ title, text: shareText(g), url }); return; } catch (err) { if (err && err.name === 'AbortError') return; }
       }
       if (await copy(url)) toast('Link copied. Paste it into a message.'); else show(url);
     }

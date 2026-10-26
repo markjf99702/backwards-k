@@ -142,9 +142,11 @@ written out in plain words.
   game by name, or by number when he has no name; a courtesy runner's run and steals stay the player's she ran for.
   Nothing more is saved: it's all worked out from the games, each played back once until it changes.
 - **Sharing.** Send a link that carries the whole game (nothing is uploaded to share it, and a checksum in it means
-  one that a chat app cut short or changed says so, rather than opening as some other game), copy the score as text for
-  a group chat, print both cards and the box score (a page each, Letter or A4, upright or sideways), or save the
-  game as a file.
+  one that a chat app cut short or changed says so, rather than opening as some other game), with the score in the
+  message ("Comets 8, Foxes 1 (Final) · Sat, Oct 24", or "Top 7th, 1 out" for a game going on). Or copy the score as
+  text for a group chat: the line score as a newspaper prints it ("Foxes 000 010 000 — 1 8 1"), the hits, errors and
+  each team's home runs. Or print both cards and the box score (a page each, Letter or A4, upright or sideways), or
+  save the game as a file.
 - **Google Drive, if you like.** Each game is saved as its own file in a "Backwards K" folder in your Drive, and shows
   up on every phone, tablet and computer where you turn it on.
 - No account and no server. Games are saved in your browser. It works offline (and on one bar of signal, when the

@@ -2676,6 +2676,40 @@ test('the teams on the home screen, and players from earlier games for the subst
   assert.deepEqual(ST.earlier(games, { ...today, date: '2027-04-01' }, 0), [], 'a new season starts with nobody');
 });
 
+test('the score as text carries the score: the line score in threes, home runs by team, and the outs in a game going on', async () => {
+  const { summary, shareText, lineText } = await import('../js/share.js');
+  const { fmtDate } = await import('../js/ui.js');
+  const g = sampleGame(7), day = fmtDate(g.date);
+  assert.equal(summary(g, 'https://backwards-k.junkdrawer.works/#s=c1'), [
+    'Comets 7, Foxes 1 (Final)', `${day} · Riverside Park`, '',
+    'Foxes  000 010 000 — 1 8 1', 'Comets 000 120 13x — 7 6 1', '',
+    'Foxes: 1 run, 8 hits, 1 error', 'Comets: 7 runs, 6 hits, 1 error', 'Home runs: Ibarra, Quinn, Nakamura (Comets)', '',
+    'The whole scorecard: https://backwards-k.junkdrawer.works/#s=c1',
+  ].join('\n'));
+  // What the phone's share sheet sends with the link: the score, not only who played.
+  assert.equal(shareText(g), `Comets 7, Foxes 1 (Final) · ${day}`);
+  assert.equal(shareText({ ...g, ev: [] }), `Foxes at Comets · ${day}`);
+  // A game going on: the outs, and only the innings played.
+  let cut = 0;
+  while (!(replay({ ...g, ev: g.ev.slice(0, cut) }).inn === 7 && replay({ ...g, ev: g.ev.slice(0, cut) }).outs === 1)) cut++;
+  const live = { ...g, ev: g.ev.slice(0, cut) };
+  assert.equal(shareText(live), `Comets 3, Foxes 1 (Top 7th, 1 out) · ${day}`);
+  assert.match(summary(live), /\n\nFoxes  000 010 0 — 1 6 1\nComets 000 120 — 3 5 1\n\n/);
+  assert.match(summary({ ...g, ev: g.ev.slice(0, 0) }), /^Foxes at Comets\n/);
+  // Home runs by team; ten runs or more in an inning in brackets, extra innings a fourth group, and innings before
+  // the game was picked up a dash.
+  const h = game({ innings: 1 });
+  play(h, ...Array(11).fill('HR'), ...threeK, 'HR', ...threeK);
+  assert.deepEqual(lineText(replay(h)), ['Foxes  (11) — 11 11 0', 'Comets 1 — 1 1 0']);
+  assert.match(summary(h), /\nHome runs: Batter 1 2, Batter 2 2, Batter 3, Batter 4, Batter 5, Batter 6, Batter 7, Batter 8, Batter 9 \(Foxes\); Batter 1 \(Comets\)$/);
+  const x = game();
+  play(x, ...Array(54).fill('K'), 'HR', ...threeK, ...threeK);
+  assert.deepEqual([replay(x).over, lineText(replay(x))], [true, ['Foxes  000 000 000 1 — 1 1 0', 'Comets 000 000 000 0 — 0 0 0']]);
+  const j = game({ innings: 4 });
+  play(j, { t: 'join', inn: 3, half: 1, r: [2, 1], up: 0 }, ...threeK);
+  assert.deepEqual(lineText(replay(j)), ['Foxes  ––– 0 — 2 0 0', 'Comets ––0 — 1 0 0']);
+});
+
 test('a season in words for a group chat, and as a spreadsheet', () => {
   const T = ST.season(seasonGames(), 'Foxes'), r = T.bat.find(x => x.key === 'ruiz');
   const text = ST.seasonText(T, r).split('\n');
