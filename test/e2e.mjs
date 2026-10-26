@@ -1170,7 +1170,7 @@ step('a file that isn’t a game says so');
   await p.context().close();
 }
 
-step('games only in this browser: one line above them asks for a backup, until one is saved');
+step('games only in this browser: one line above them asks for a backup once one is a day old, until one is saved');
 {
   const c = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, serviceWorkers: 'block', acceptDownloads: true });
   const p = await c.newPage();
@@ -1180,7 +1180,23 @@ step('games only in this browser: one line above them asks for a backup, until o
   await startGame(p);
   await p.click('[data-r=K]');
   await p.goto(base);
-  assert.equal(await p.textContent('.nudge p'), 'Your game is only in this browser, and Safari can clear a site’s data after a week without a visit.');
+  assert.equal(await p.locator('.nudge').count(), 0, 'not yet: the game was started today');
+  await p.evaluate(() => {
+    const doc = JSON.parse(localStorage.getItem('backwards-k.v1'));
+    for (const g of Object.values(doc.games)) g.created -= 86400000;
+    localStorage.setItem('backwards-k.v1', JSON.stringify(doc));
+  });
+  await p.reload();
+  // (Not an Apple device: Safari isn't the one to blame.)
+  assert.equal(await p.textContent('.nudge p'), 'Your game is only in this browser, which can clear a site’s data when it needs room.');
+  // On an iPhone, it's Safari's week.
+  const iphone = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, serviceWorkers: 'block',
+    userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1' });
+  await iphone.addInitScript(doc => { if (!localStorage.getItem('backwards-k.v1')) localStorage.setItem('backwards-k.v1', doc); }, await p.evaluate(() => localStorage.getItem('backwards-k.v1')));
+  const q = await iphone.newPage();
+  await q.goto(base);
+  assert.equal(await q.textContent('.nudge p'), 'Your game is only in this browser, and Safari can clear a site’s data after a week without a visit.');
+  await iphone.close();
   assert.ok((await box(p, '.nudge')).bottom <= (await box(p, '.games h2')).top, 'above Your games');
   const [file] = await Promise.all([p.waitForEvent('download'), p.click('.nudge [data-a=export]')]);
   assert.match(file.suggestedFilename(), /^backwards-k-backup-/);

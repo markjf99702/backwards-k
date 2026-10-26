@@ -54,16 +54,20 @@ function backHtml({ g, S }) {
     </section>`;
 }
 
-// When this browser has the only copy of the games: Google Drive is off, and no backup file has been saved here in 30
-// days (or ever) while games have changed since. Safari can clear a site's storage after 7 days without a visit
-// (WebKit's policy since 2020), so one line above Your games says so, with Save a backup. When the last backup was saved
-// is this device's own small note (backwards-k.backup), not game data.
-const BACKUP = 'backwards-k.backup', MONTH = 30 * 86400000;
+// When this browser has the only copy of the games: Google Drive is off, a game is a day old or more (not the moment
+// the first one is started), and no backup file has been saved here in 30 days (or ever) while games have changed
+// since. One line above Your games says so, with Save a backup: on an Apple device, that Safari can clear a site's
+// storage after 7 days without a visit (WebKit's policy since 2020); elsewhere, that the browser can when it needs
+// room. When the last backup was saved is this device's own small note (backwards-k.backup), not game data.
+const BACKUP = 'backwards-k.backup', DAY = 86400000, MONTH = 30 * DAY;
 const backedUp = () => { try { return +localStorage.getItem(BACKUP) || 0; } catch { return 0; } };
+// An iPhone or iPad (every browser on one is Safari's engine, and an iPad can say it's a Mac), or Safari on a Mac.
+const apple = (ua = navigator.userAgent) => /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && /Safari/.test(ua) && !/Chrome|Chromium|Firefox|Edg/.test(ua));
 function nudge(games) {
-  const last = backedUp();
-  if (!games.length || inFrame() || drive.isOn() || Date.now() - last < MONTH || !games.some(g => g.updated > last)) return '';
-  return `<div class="nudge"><p>${games.length === 1 ? 'Your game is' : `Your ${games.length} games are`} only in this browser, and Safari can clear a site’s data after a week without a visit.</p><button type="button" class="btn sm" data-a="export">Save a backup</button></div>`;
+  const last = backedUp(), now = Date.now();
+  if (!games.length || inFrame() || drive.isOn() || now - last < MONTH || !games.some(g => g.updated > last) || !games.some(g => now - g.created >= DAY)) return '';
+  const why = apple() ? 'and Safari can clear a site’s data after a week without a visit' : 'which can clear a site’s data when it needs room';
+  return `<div class="nudge"><p>${games.length === 1 ? 'Your game is' : `Your ${games.length} games are`} only in this browser, ${why}.</p><button type="button" class="btn sm" data-a="export">Save a backup</button></div>`;
 }
 
 export function showHome(el) {
